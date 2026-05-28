@@ -33,3 +33,18 @@ export function monthStart(d: Date = new Date()): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   return `${y}-${m}-01`;
 }
+
+/**
+ * Accept either a bare Google Drive ID or any of the common URL forms and
+ * return the ID. Returns the input trimmed if nothing matches.
+ */
+export function extractDriveId(input: string): string {
+  const v = input.trim();
+  if (!v) return v;
+  // /folders/<id> or /file/d/<id> or open?id=<id>
+  const m =
+    v.match(/\/folders\/([a-zA-Z0-9_-]{20,})/)
+    ?? v.match(/\/d\/([a-zA-Z0-9_-]{20,})/)
+    ?? v.match(/[?&]id=([a-zA-Z0-9_-]{20,})/);
+  return m ? m[1] : v;
+}

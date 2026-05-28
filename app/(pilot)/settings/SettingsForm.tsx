@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { extractDriveId } from '@/lib/utils';
 
 type Pilot = {
   id: string;
@@ -19,6 +20,7 @@ type Pilot = {
   personal_email: string | null;
   invoice_cc_email: string | null;
   google_drive_folder_id: string | null;
+  einsatzplan_folder_id: string | null;
   einsatzplan_file_id: string | null;
   flight_rate_chf: number | null;
   photo_prepaid_rate_chf: number | null;
@@ -47,6 +49,7 @@ export function SettingsForm({ pilot, email }: { pilot: Pilot; email: string }) 
     personal_email: pilot?.personal_email ?? email,
     invoice_cc_email: pilot?.invoice_cc_email ?? '',
     google_drive_folder_id: pilot?.google_drive_folder_id ?? '',
+    einsatzplan_folder_id: pilot?.einsatzplan_folder_id ?? '',
     einsatzplan_file_id: pilot?.einsatzplan_file_id ?? '',
     flight_rate_chf: pilot?.flight_rate_chf ?? 105,
     photo_prepaid_rate_chf: pilot?.photo_prepaid_rate_chf ?? 40,
@@ -126,9 +129,28 @@ export function SettingsForm({ pilot, email }: { pilot: Pilot; email: string }) 
       </Section>
 
       <Section title="Google Drive">
-        <Input label="Drive Ordner-ID (für Rechnungen)" value={form.google_drive_folder_id ?? ''} onChange={v => set('google_drive_folder_id', v)} />
-        <Input label="Einsatzplan Datei-ID" value={form.einsatzplan_file_id ?? ''} onChange={v => set('einsatzplan_file_id', v)} />
-        <p className="text-xs text-text-muted">OAuth-Verbindung wird in Step 9 implementiert.</p>
+        <Input
+          label="Hauptordner für Rechnungen & Backups"
+          value={form.google_drive_folder_id ?? ''}
+          onChange={v => set('google_drive_folder_id', extractDriveId(v))}
+          placeholder="ID oder Drive-Link …/folders/XXX"
+        />
+        <Input
+          label="Einsatzplan-Ordner (Skywings legt neue Datei jeden Monat ab)"
+          value={form.einsatzplan_folder_id ?? ''}
+          onChange={v => set('einsatzplan_folder_id', extractDriveId(v))}
+          placeholder="ID oder Drive-Link …/folders/XXX"
+        />
+        <Input
+          label="Einsatzplan einzelne Datei-ID (Fallback, optional)"
+          value={form.einsatzplan_file_id ?? ''}
+          onChange={v => set('einsatzplan_file_id', extractDriveId(v))}
+          placeholder="nur falls Ordner nicht funktioniert"
+        />
+        <p className="text-xs text-text-muted">
+          Tipp: Du kannst den ganzen Drive-Link einfügen — die ID wird automatisch extrahiert.
+          Mit Ordner-ID zieht die App immer die neueste Excel-Datei aus dem Ordner.
+        </p>
       </Section>
 
       {msg && (
