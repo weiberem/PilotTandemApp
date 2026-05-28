@@ -103,7 +103,7 @@ export default async function LogPage({
 
       <div className="flex gap-2 pt-2">
         <Link href="/today" className="btn-ghost flex-1 border border-border">Heutige Flüge ({loggedCount})</Link>
-        <Link href="/" className="btn-ghost flex-1 border border-border">Fertig</Link>
+        <Link href="/home" className="btn-ghost flex-1 border border-border">Fertig</Link>
       </div>
     </div>
   );

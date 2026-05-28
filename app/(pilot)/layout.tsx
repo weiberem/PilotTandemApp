@@ -20,7 +20,7 @@ export default async function PilotLayout({ children }: { children: React.ReactN
   return (
     <div className="min-h-dvh flex flex-col bg-bg">
       <header className="bg-bg-dark text-white px-4 py-3 flex items-center justify-between">
-        <Link href="/" className="font-display font-semibold">TandemLog</Link>
+        <Link href="/home" className="font-display font-semibold">TandemLog</Link>
         <span className="text-xs text-white/70">{pilot?.full_name ?? user.email}</span>
       </header>
       <main className="flex-1 pb-24">{children}</main>

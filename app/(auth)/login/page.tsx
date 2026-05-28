@@ -22,7 +22,7 @@ export default function LoginPage() {
         setError(error.message);
         return;
       }
-      router.replace('/');
+      router.replace('/home');
       router.refresh();
     });
   }

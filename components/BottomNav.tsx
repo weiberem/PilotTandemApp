@@ -6,7 +6,7 @@ import { Home, Plus, Calendar, BarChart3, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const items = [
-  { href: '/', label: 'Heute', icon: Home },
+  { href: '/home', label: 'Heute', icon: Home },
   { href: '/availability', label: 'Kalender', icon: Calendar },
   { href: '/dashboard/stats', label: 'Stats', icon: BarChart3 },
   { href: '/settings', label: 'Einstellungen', icon: Settings },
@@ -18,7 +18,7 @@ export function BottomNav() {
     <nav className="fixed bottom-0 inset-x-0 bg-white border-t border-border z-30 pb-[env(safe-area-inset-bottom)]">
       <div className="relative flex items-end justify-around h-16">
         {items.slice(0, 2).map(({ href, label, icon: Icon }) => {
-          const active = path === href || (href !== '/' && path.startsWith(href));
+          const active = path === href || (href !== '/home' && path.startsWith(href));
           return (
             <Link key={href} href={href} className={cn(
               'flex-1 flex flex-col items-center justify-center gap-0.5 min-h-tap text-[11px]',
@@ -37,7 +37,7 @@ export function BottomNav() {
           <Plus className="w-7 h-7" />
         </Link>
         {items.slice(2).map(({ href, label, icon: Icon }) => {
-          const active = path === href || (href !== '/' && path.startsWith(href));
+          const active = path === href || (href !== '/home' && path.startsWith(href));
           return (
             <Link key={href} href={href} className={cn(
               'flex-1 flex flex-col items-center justify-center gap-0.5 min-h-tap text-[11px]',
