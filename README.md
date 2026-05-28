@@ -50,7 +50,7 @@ Tracking the 17-step plan from PROMPT.md.
 - [x] 6. Today's flight list (edit, swipe-to-delete)
 - [x] 7. End-of-day summary (receipt card, screenshot + native share)
 - [x] 8. Availability calendar (month grid, day cycle + long-press sheet, mailto)
-- [ ] 9. Google Drive OAuth + Einsatzplan sync
+- [x] 9. Google Drive OAuth + Einsatzplan sync (offline access, lenient parser)
 - [ ] 10. Invoice XLSX generation
 - [ ] 11. Invoice PDF generation
 - [ ] 12. Invoice desktop view + send flow
