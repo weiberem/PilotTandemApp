@@ -46,9 +46,9 @@ Tracking the 17-step plan from PROMPT.md.
 - [x] 2. Auth (login, register-via-invite, middleware-guarded routes)
 - [x] 3. Pilot settings form
 - [x] 4. Trip times + season logic (+ unit tests)
-- [ ] 5. Flight entry form
-- [ ] 6. Today's flight list
-- [ ] 7. End-of-day summary
+- [x] 5. Flight entry form (smart pre-fill, no-show invariants, company picker)
+- [x] 6. Today's flight list (edit, swipe-to-delete)
+- [x] 7. End-of-day summary (receipt card, screenshot + native share)
 - [ ] 8. Availability calendar
 - [ ] 9. Google Drive OAuth + Einsatzplan sync
 - [ ] 10. Invoice XLSX generation
