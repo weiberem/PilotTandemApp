@@ -96,11 +96,107 @@ export async function refreshAccessToken(refreshToken: string): Promise<TokenRes
   return res.json();
 }
 
+/**
+ * Pull a Drive file ID out of a URL the user pasted. Handles:
+ *   https://drive.google.com/file/d/<ID>/view?usp=sharing
+ *   https://docs.google.com/spreadsheets/d/<ID>/edit#gid=0
+ *   https://drive.google.com/open?id=<ID>
+ *   bare file IDs (33+ chars, alphanumeric + -_)
+ */
+export function extractDriveFileId(input: string): string | null {
+  const s = input.trim();
+  if (!s) return null;
+  const patterns: RegExp[] = [
+    /\/d\/([a-zA-Z0-9_-]{20,})/,
+    /[?&]id=([a-zA-Z0-9_-]{20,})/,
+  ];
+  for (const re of patterns) {
+    const m = s.match(re);
+    if (m) return m[1];
+  }
+  // Bare ID — no slash, no scheme
+  if (/^[a-zA-Z0-9_-]{20,}$/.test(s)) return s;
+  return null;
+}
+
+export async function getFileMetadata(fileId: string, accessToken: string): Promise<DriveFileEntry> {
+  const url = `${DRIVE_FILES}/${encodeURIComponent(fileId)}?fields=id,name,mimeType,modifiedTime&supportsAllDrives=true`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!res.ok) throw new Error(`Drive metadata failed: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
 export async function downloadDriveFile(fileId: string, accessToken: string): Promise<ArrayBuffer> {
   const url = `${DRIVE_FILES}/${encodeURIComponent(fileId)}?alt=media`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
   if (!res.ok) throw new Error(`Drive download failed: ${res.status} ${await res.text()}`);
   return res.arrayBuffer();
+}
+
+export type DriveFileEntry = {
+  id: string;
+  name: string;
+  mimeType: string;
+  modifiedTime: string;   // ISO
+};
+
+/**
+ * List Excel-like files inside a folder, newest modifiedTime first.
+ * Used to auto-pick the latest Einsatzplan when Skywings drops a new file
+ * each month into a shared folder.
+ *
+ * Matches both modern .xlsx and legacy .xls, plus Google Sheets (which export
+ * as XLSX via /export endpoint — caller handles that distinction).
+ */
+export async function listExcelFilesInFolder(
+  folderId: string,
+  accessToken: string,
+): Promise<DriveFileEntry[]> {
+  // Drive v3 query: parents = folderId, not trashed, spreadsheet-like mime types
+  const q = [
+    `'${folderId.replace(/'/g, "\\'")}' in parents`,
+    `trashed = false`,
+    `(mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'`,
+    ` or mimeType = 'application/vnd.ms-excel'`,
+    ` or mimeType = 'application/vnd.google-apps.spreadsheet')`,
+  ].join(' and ');
+  const params = new URLSearchParams({
+    q,
+    fields: 'files(id,name,mimeType,modifiedTime)',
+    orderBy: 'modifiedTime desc',
+    pageSize: '20',
+    includeItemsFromAllDrives: 'true',
+    supportsAllDrives: 'true',
+  });
+  const res = await fetch(`${DRIVE_FILES}?${params}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error(`Drive list failed: ${res.status} ${await res.text()}`);
+  const data = await res.json() as { files?: DriveFileEntry[] };
+  return data.files ?? [];
+}
+
+/**
+ * Google Sheets aren't downloadable as binary — export them as XLSX instead.
+ */
+export async function exportSheetAsXlsx(fileId: string, accessToken: string): Promise<ArrayBuffer> {
+  const url = `${DRIVE_FILES}/${encodeURIComponent(fileId)}/export?mimeType=${encodeURIComponent(
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!res.ok) throw new Error(`Drive export failed: ${res.status} ${await res.text()}`);
+  return res.arrayBuffer();
+}
+
+/**
+ * Convenience: given a file entry, fetch its XLSX bytes — using export for
+ * Google Sheets and direct download for native .xlsx/.xls.
+ */
+export async function fetchExcelBytes(file: DriveFileEntry, accessToken: string): Promise<ArrayBuffer> {
+  if (file.mimeType === 'application/vnd.google-apps.spreadsheet') {
+    return exportSheetAsXlsx(file.id, accessToken);
+  }
+  return downloadDriveFile(file.id, accessToken);
 }
 
 export async function uploadToDriveFolder({

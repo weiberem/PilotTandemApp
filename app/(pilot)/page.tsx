@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { formatDateDe, isoDate, formatChf } from '@/lib/utils';
-import { SyncButton } from '@/components/SyncButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,22 +66,18 @@ export default async function HomePage() {
       </section>
 
       <section className="card p-4">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
             <div className="text-sm font-medium">Einsatzplan</div>
-            <div className="text-xs text-text-muted">
+            <div className="text-xs text-text-muted truncate">
               {pilot.einsatzplan_synced_at
-                ? `Zuletzt synchronisiert: ${formatDateDe(pilot.einsatzplan_synced_at, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
-                : 'Noch nicht verbunden'}
+                ? `Zuletzt importiert: ${formatDateDe(pilot.einsatzplan_synced_at, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
+                : pilot.google_refresh_token ? 'Bereit für Import' : 'Noch nicht verbunden'}
             </div>
           </div>
-          {pilot.einsatzplan_file_id && pilot.einsatzplan_synced_at !== undefined ? (
-            <SyncButton />
-          ) : (
-            <Link href="/settings" className="btn-ghost border border-border text-sm">
-              Verbinden
-            </Link>
-          )}
+          <Link href="/einsatzplan" className="btn-ghost border border-border text-sm">
+            {pilot.einsatzplan_synced_at ? 'Neuer Monat' : pilot.google_refresh_token ? 'Importieren' : 'Verbinden'}
+          </Link>
         </div>
       </section>
     </div>

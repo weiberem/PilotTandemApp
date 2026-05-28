@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { downloadDriveFile, refreshAccessToken } from '@/lib/googleDrive';
+import {
+  downloadDriveFile, fetchExcelBytes, listExcelFilesInFolder, refreshAccessToken,
+  type DriveFileEntry,
+} from '@/lib/googleDrive';
 import { parseEinsatzplan } from '@/lib/einsatzplanParser';
 
 export const runtime = 'nodejs';
@@ -13,16 +16,42 @@ export async function POST() {
 
   const { data: pilot, error: pilotErr } = await supabase
     .from('pilots')
-    .select('full_name, google_refresh_token, einsatzplan_file_id, season_override')
+    .select('full_name, google_refresh_token, einsatzplan_file_id, einsatzplan_folder_id, season_override')
     .eq('id', user.id)
     .maybeSingle();
   if (pilotErr) return NextResponse.json({ error: pilotErr.message }, { status: 500 });
-  if (!pilot?.google_refresh_token) return NextResponse.json({ error: 'not_connected' }, { status: 400 });
-  if (!pilot.einsatzplan_file_id) return NextResponse.json({ error: 'no_file_id' }, { status: 400 });
+  if (!pilot?.google_refresh_token) {
+    return NextResponse.json({ error: 'not_connected' }, { status: 400 });
+  }
+  if (!pilot.einsatzplan_folder_id && !pilot.einsatzplan_file_id) {
+    return NextResponse.json({ error: 'no_source_configured' }, { status: 400 });
+  }
 
   try {
     const tokens = await refreshAccessToken(pilot.google_refresh_token);
-    const buf = await downloadDriveFile(pilot.einsatzplan_file_id, tokens.access_token);
+
+    // Resolve the file to download.
+    // Priority: folder → newest file inside; fallback: pinned file id.
+    let buf: ArrayBuffer;
+    let usedFileId: string;
+    let usedFileName: string | null = null;
+    if (pilot.einsatzplan_folder_id) {
+      const files = await listExcelFilesInFolder(pilot.einsatzplan_folder_id, tokens.access_token);
+      if (files.length === 0) {
+        return NextResponse.json({
+          error: 'no_files_in_folder',
+          detail: 'Im Ordner wurden keine Excel-/Sheets-Dateien gefunden.',
+        }, { status: 400 });
+      }
+      const newest: DriveFileEntry = files[0]; // listExcelFilesInFolder sorts desc
+      buf = await fetchExcelBytes(newest, tokens.access_token);
+      usedFileId = newest.id;
+      usedFileName = newest.name;
+    } else {
+      buf = await downloadDriveFile(pilot.einsatzplan_file_id!, tokens.access_token);
+      usedFileId = pilot.einsatzplan_file_id!;
+    }
+
     const schedule = await parseEinsatzplan(buf, {
       pilotName: pilot.full_name ?? '',
       seasonOverride: pilot.season_override ?? null,
@@ -30,13 +59,21 @@ export async function POST() {
     const syncedAt = new Date().toISOString();
     const { error: updErr } = await supabase
       .from('pilots')
-      .update({ einsatzplan_schedule: schedule, einsatzplan_synced_at: syncedAt })
+      .update({
+        einsatzplan_schedule: schedule,
+        einsatzplan_synced_at: syncedAt,
+        einsatzplan_last_file_id: usedFileId,
+        einsatzplan_last_file_name: usedFileName,
+      })
       .eq('id', user.id);
     if (updErr) throw updErr;
+
     return NextResponse.json({
       ok: true,
       synced_at: syncedAt,
       days: Object.keys(schedule).length,
+      file_id: usedFileId,
+      file_name: usedFileName,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'unknown';
