@@ -54,11 +54,36 @@ Tracking the 17-step plan from PROMPT.md.
 - [x] 10. Invoice XLSX generation (exceljs, exact template match)
 - [x] 11. Invoice PDF generation (@react-pdf/renderer)
 - [x] 12. Invoice desktop view + send flow (Resend, GDrive upload, auto invoice nr)
-- [ ] 13. Statistics dashboard
-- [ ] 14. Admin panel
+- [x] 13. Statistics dashboard (monthly chart, year table, VKPI card, other companies)
+- [x] 14. Admin panel (invite/deactivate via service-role; pilot data stays inaccessible)
 - [x] 15. PWA shell (manifest, icons, next-pwa wired)
-- [ ] 16. Monthly invoice cron
-- [ ] 17. Vercel deployment
+- [x] 16. Monthly invoice cron (vercel cron, drafts + email)
+- [x] 17. Vercel deployment (vercel.json with cron + maxDuration; auto-deploy on push)
+
+## Deployment checklist
+
+To take a fresh deploy live you need:
+
+1. **Supabase** — apply `supabase/migrations/001_initial_schema.sql` in the SQL editor.
+2. **Vercel env vars** (Project Settings → Environment Variables, all envs):
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`  *(secret)*
+   - `RESEND_API_KEY`             *(secret)*
+   - `RESEND_FROM_EMAIL`          (e.g. `TandemLog <onboarding@resend.dev>`)
+   - `GOOGLE_CLIENT_ID`           *(OAuth client, "Web application")*
+   - `GOOGLE_CLIENT_SECRET`       *(secret)*
+   - `GOOGLE_REDIRECT_URI`        (e.g. `https://yourdomain.vercel.app/api/gdrive/callback`)
+   - `CRON_SECRET`                *(random string; Vercel cron sets `authorization: Bearer ${CRON_SECRET}` when this is set)*
+   - `NEXT_PUBLIC_APP_URL`        (e.g. `https://yourdomain.vercel.app`)
+3. **Google Cloud** — enable Drive API, create OAuth consent screen, add the
+   Vercel callback URL above to the authorised redirect URIs.
+4. **Admin bootstrap** — insert your own user id into the `admins` table once
+   (via SQL editor) so you can access `/admin`:
+   `insert into admins (id) values ('<your-auth-user-id>');`
+5. **Cron** — `vercel.json` already declares the monthly cron at
+   `0 6 1 * *` (07:00 CET on the 1st). Vercel will pick it up on the next
+   deploy.
 
 ## Tests
 

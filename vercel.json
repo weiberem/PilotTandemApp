@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/monthly-invoice",
+      "schedule": "0 6 1 * *"
+    }
+  ],
+  "functions": {
+    "app/api/invoice/send/route.ts":     { "maxDuration": 30 },
+    "app/api/invoice/generate/route.ts": { "maxDuration": 30 },
+    "app/api/gdrive/sync/route.ts":      { "maxDuration": 30 },
+    "app/api/cron/monthly-invoice/route.ts": { "maxDuration": 60 }
+  }
+}

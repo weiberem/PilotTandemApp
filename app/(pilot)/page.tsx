@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { formatDateDe, isoDate, formatChf } from '@/lib/utils';
+import { SyncButton } from '@/components/SyncButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,9 +76,13 @@ export default async function HomePage() {
                 : 'Noch nicht verbunden'}
             </div>
           </div>
-          <Link href="/settings" className="btn-ghost border border-border text-sm">
-            {pilot.einsatzplan_file_id ? 'Sync' : 'Verbinden'}
-          </Link>
+          {pilot.einsatzplan_file_id && pilot.einsatzplan_synced_at !== undefined ? (
+            <SyncButton />
+          ) : (
+            <Link href="/settings" className="btn-ghost border border-border text-sm">
+              Verbinden
+            </Link>
+          )}
         </div>
       </section>
     </div>
