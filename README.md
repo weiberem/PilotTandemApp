@@ -51,9 +51,9 @@ Tracking the 17-step plan from PROMPT.md.
 - [x] 7. End-of-day summary (receipt card, screenshot + native share)
 - [x] 8. Availability calendar (month grid, day cycle + long-press sheet, mailto)
 - [x] 9. Google Drive OAuth + Einsatzplan sync (offline access, lenient parser)
-- [ ] 10. Invoice XLSX generation
-- [ ] 11. Invoice PDF generation
-- [ ] 12. Invoice desktop view + send flow
+- [x] 10. Invoice XLSX generation (exceljs, exact template match)
+- [x] 11. Invoice PDF generation (@react-pdf/renderer)
+- [x] 12. Invoice desktop view + send flow (Resend, GDrive upload, auto invoice nr)
 - [ ] 13. Statistics dashboard
 - [ ] 14. Admin panel
 - [x] 15. PWA shell (manifest, icons, next-pwa wired)
