@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --primary: 199 89% 48%;
+    --primary-dark: 200 98% 39%;
+    --accent: 22 92% 53%;
+    --success: 142 71% 45%;
+    --warning: 47 95% 54%;
+    --danger: 0 84% 60%;
+    --bg: 210 40% 98%;
+    --bg-card: 0 0% 100%;
+    --bg-dark: 222 47% 11%;
+    --text: 222 47% 11%;
+    --text-muted: 215 16% 47%;
+    --border: 214 32% 91%;
+  }
+
+  html, body {
+    @apply bg-bg text-text antialiased;
+    font-family: var(--font-inter), system-ui, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-dm-sans), system-ui, sans-serif;
+    @apply font-semibold tracking-tight;
+  }
+
+  .font-mono, code, pre, .tabular-nums {
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  }
+
+  /* Mobile: prevent zoom on focused inputs */
+  input, select, textarea {
+    font-size: 16px;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center min-h-tap rounded-lg bg-primary px-4 py-2 text-white font-medium shadow-sm hover:bg-primary-dark active:scale-[0.98] transition disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-accent {
+    @apply inline-flex items-center justify-center min-h-tap rounded-lg bg-accent px-4 py-2 text-white font-medium shadow-sm hover:opacity-90 active:scale-[0.98] transition;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center min-h-tap rounded-lg px-4 py-2 text-text-muted hover:bg-bg active:scale-[0.98] transition;
+  }
+  .card {
+    @apply bg-bg-card rounded-xl border border-border shadow-sm;
+  }
+}
