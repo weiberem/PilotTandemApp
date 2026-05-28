@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { buildInvoiceRows, monthLabelDe } from '@/lib/invoice';
 import { computeDayTotals, type FlightRow, type PilotRates } from '@/lib/flights';
 import { getResend, getFromAddress } from '@/lib/email';
+import { runMonthlyBackup } from '@/lib/runBackup';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,7 +44,12 @@ export async function GET(req: NextRequest) {
     .eq('is_active', true);
   if (perr) return NextResponse.json({ error: perr.message }, { status: 500 });
 
-  const summary: Array<{ pilot_id: string; companies: { company: string; status: string; total: number }[]; emailed: boolean }> = [];
+  const summary: Array<{
+    pilot_id: string;
+    companies: { company: string; status: string; total: number }[];
+    emailed: boolean;
+    backup?: { file_name?: string; deleted?: number; error?: string };
+  }> = [];
 
   for (const pilot of pilots ?? []) {
     const { data: flightRows } = await svc
@@ -136,7 +142,19 @@ export async function GET(req: NextRequest) {
         console.warn('Cron notification email failed for', pilot.id, e);
       }
     }
-    summary.push({ pilot_id: pilot.id, companies: companyResults, emailed });
+    // Monthly Excel backup: handmade-layout copy of the month's flights into
+    // the pilot's root Drive folder. Keeps last 2 months, deletes older.
+    let backup: { file_name?: string; deleted?: number; error?: string } | undefined;
+    try {
+      const r = await runMonthlyBackup(pilot.id, monthFirst);
+      backup = r.ok
+        ? { file_name: r.file_name, deleted: r.deleted.length }
+        : { error: r.error };
+    } catch (e) {
+      backup = { error: e instanceof Error ? e.message : 'unknown' };
+    }
+
+    summary.push({ pilot_id: pilot.id, companies: companyResults, emailed, backup });
   }
 
   return NextResponse.json({ ok: true, month: monthFirst, pilots: summary });

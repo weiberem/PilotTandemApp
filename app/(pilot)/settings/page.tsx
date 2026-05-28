@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { SettingsForm } from './SettingsForm';
 import { GoogleDriveConnect } from '@/components/GoogleDriveConnect';
+import { BackupButton } from '@/components/BackupButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,6 +56,15 @@ export default async function SettingsPage({
           hasFileId={!!pilot?.einsatzplan_file_id}
         />
       </fieldset>
+
+      {pilot?.google_refresh_token && pilot?.google_drive_folder_id && (
+        <fieldset className="card p-4 space-y-3">
+          <legend className="px-2 -ml-2 text-sm font-display font-semibold text-text-muted uppercase tracking-wide">
+            Monatliches Excel-Backup
+          </legend>
+          <BackupButton />
+        </fieldset>
+      )}
     </div>
   );
 }

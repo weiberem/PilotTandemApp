@@ -199,6 +199,98 @@ export async function fetchExcelBytes(file: DriveFileEntry, accessToken: string)
   return downloadDriveFile(file.id, accessToken);
 }
 
+/**
+ * Find a sub-folder by exact name inside a parent folder, or create it.
+ * Returns the folder ID.
+ */
+export async function findOrCreateFolder(
+  parentId: string,
+  name: string,
+  accessToken: string,
+): Promise<string> {
+  const escName = name.replace(/'/g, "\\'");
+  const q = [
+    `'${parentId.replace(/'/g, "\\'")}' in parents`,
+    `name = '${escName}'`,
+    `mimeType = 'application/vnd.google-apps.folder'`,
+    `trashed = false`,
+  ].join(' and ');
+  const params = new URLSearchParams({
+    q, fields: 'files(id,name)', pageSize: '5',
+    supportsAllDrives: 'true', includeItemsFromAllDrives: 'true',
+  });
+  const lookup = await fetch(`${DRIVE_FILES}?${params}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!lookup.ok) throw new Error(`folder lookup failed: ${lookup.status} ${await lookup.text()}`);
+  const data = await lookup.json() as { files?: { id: string }[] };
+  if (data.files && data.files.length > 0) return data.files[0].id;
+
+  const create = await fetch(`${DRIVE_FILES}?supportsAllDrives=true&fields=id`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      name,
+      parents: [parentId],
+      mimeType: 'application/vnd.google-apps.folder',
+    }),
+  });
+  if (!create.ok) throw new Error(`folder create failed: ${create.status} ${await create.text()}`);
+  const created = await create.json() as { id: string };
+  return created.id;
+}
+
+/**
+ * Resolve (and create) a nested path: parentId -> "2025" -> "01" -> id
+ */
+export async function findOrCreatePath(
+  parentId: string,
+  segments: string[],
+  accessToken: string,
+): Promise<string> {
+  let current = parentId;
+  for (const seg of segments) {
+    current = await findOrCreateFolder(current, seg, accessToken);
+  }
+  return current;
+}
+
+/**
+ * List files matching a name prefix inside a folder.
+ */
+export async function listFilesByNamePrefix(
+  parentId: string,
+  prefix: string,
+  accessToken: string,
+): Promise<DriveFileEntry[]> {
+  const q = [
+    `'${parentId.replace(/'/g, "\\'")}' in parents`,
+    `name contains '${prefix.replace(/'/g, "\\'")}'`,
+    `trashed = false`,
+  ].join(' and ');
+  const params = new URLSearchParams({
+    q, fields: 'files(id,name,mimeType,modifiedTime)',
+    orderBy: 'modifiedTime desc', pageSize: '100',
+    supportsAllDrives: 'true', includeItemsFromAllDrives: 'true',
+  });
+  const res = await fetch(`${DRIVE_FILES}?${params}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error(`list failed: ${res.status} ${await res.text()}`);
+  const data = await res.json() as { files?: DriveFileEntry[] };
+  return data.files ?? [];
+}
+
+export async function deleteDriveFile(fileId: string, accessToken: string): Promise<void> {
+  const res = await fetch(`${DRIVE_FILES}/${encodeURIComponent(fileId)}?supportsAllDrives=true`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`delete failed: ${res.status} ${await res.text()}`);
+  }
+}
+
 export async function uploadToDriveFolder({
   accessToken, folderId, name, mimeType, body,
 }: {

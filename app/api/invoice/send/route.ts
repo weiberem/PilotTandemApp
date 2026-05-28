@@ -3,7 +3,7 @@ import { assembleInvoice } from '@/lib/invoiceAssemble';
 import { generateInvoiceXlsx } from '@/lib/invoiceGenerator';
 import { generateInvoicePdf } from '@/lib/pdfGenerator';
 import { reserveNextInvoiceNumber } from '@/lib/invoiceNumber';
-import { refreshAccessToken, uploadToDriveFolder } from '@/lib/googleDrive';
+import { findOrCreatePath, refreshAccessToken, uploadToDriveFolder } from '@/lib/googleDrive';
 import { getResend, getFromAddress } from '@/lib/email';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { monthLabelDe } from '@/lib/invoice';
@@ -63,14 +63,20 @@ export async function POST(req: NextRequest) {
       const { data: pilot } = await sb.from('pilots').select('google_refresh_token').eq('id', user.id).maybeSingle();
       if (pilot?.google_refresh_token) {
         const tokens = await refreshAccessToken(pilot.google_refresh_token);
+        // Nested path: <root>/<YYYY>/<MM>/  (created on demand)
+        const year = monthFirst.slice(0, 4);
+        const month = monthFirst.slice(5, 7);
+        const targetFolderId = await findOrCreatePath(
+          assembled.driveFolderId, [year, month], tokens.access_token,
+        );
         const [pdfUp, xlsxUp] = await Promise.all([
           uploadToDriveFolder({
-            accessToken: tokens.access_token, folderId: assembled.driveFolderId,
+            accessToken: tokens.access_token, folderId: targetFolderId,
             name: `${baseName}.pdf`, mimeType: 'application/pdf',
             body: pdfBuf.buffer.slice(pdfBuf.byteOffset, pdfBuf.byteOffset + pdfBuf.byteLength) as ArrayBuffer,
           }),
           uploadToDriveFolder({
-            accessToken: tokens.access_token, folderId: assembled.driveFolderId,
+            accessToken: tokens.access_token, folderId: targetFolderId,
             name: `${baseName}.xlsx`,
             mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             body: xlsxBuf.buffer.slice(xlsxBuf.byteOffset, xlsxBuf.byteOffset + xlsxBuf.byteLength) as ArrayBuffer,
