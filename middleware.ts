@@ -45,15 +45,16 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  /*
+   * Only run middleware on the actual app routes that need an auth gate.
+   * Excludes:
+   *  - /api/* entirely (server routes handle their own auth)
+   *  - Next static + assets
+   *  - PWA service worker + workbox + icons + manifest
+   * The auth pages (/login, /register) match here, and the middleware
+   * itself sends a signed-in user away from them.
+   */
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static, _next/image, favicon.ico
-     * - public assets (icons, manifest, service worker, workbox)
-     * - api/cron (cron secret-guarded)
-     * - api/gdrive (need Node runtime; not protected by middleware redirect)
-     * - api/invoice (Node runtime: PDF + xlsx + email + drive upload)
-     */
-    '/((?!_next/static|_next/image|favicon.ico|icons/|manifest.json|sw.js|workbox-.*|api/cron|api/gdrive|api/invoice).*)',
+    '/((?!api/|_next/static|_next/image|favicon.ico|icons/|manifest.json|sw.js|workbox-.*).*)',
   ],
 };
