@@ -93,3 +93,36 @@ export async function upsertCalendarEvent(
   if (!res.ok) throw new Error(`calendar insert failed: ${res.status} ${await res.text()}`);
   return { action: 'created' };
 }
+  entry: CalendarEntry,
+  accessToken: string,
+  source = 'skywings',
+  calendarId = 'primary',
+): Promise<{ action: 'created' | 'updated' }> {
+  const tag = `${source}:${entry.date}`;
+  const existing = await findTaggedEvent(calendarId, tag, accessToken);
+  const body = JSON.stringify(eventBody(entry, tag));
+
+  if (existing) {
+    const res = await fetch(
+      `${CAL_BASE}/calendars/${encodeURIComponent(calendarId)}/events/${existing.id}`,
+      {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+        body,
+      },
+    );
+    if (!res.ok) throw new Error(`calendar update failed: ${res.status} ${await res.text()}`);
+    return { action: 'updated' };
+  }
+
+  const res = await fetch(
+    `${CAL_BASE}/calendars/${encodeURIComponent(calendarId)}/events`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+      body,
+    },
+  );
+  if (!res.ok) throw new Error(`calendar insert failed: ${res.status} ${await res.text()}`);
+  return { action: 'created' };
+}
