@@ -104,9 +104,10 @@ function parseSheetMonth(name: string): { month: number; year: number } | null {
 function findDayHeaderRow(ws: ExcelJS.Worksheet): number | null {
   const maxScan = Math.min(30, ws.rowCount);
   for (let r = 1; r <= maxScan; r++) {
+    // Day 1 in col B and day 2 in col D is a strong, unambiguous signal
+    // (week-number rows start at 23+, so they never look like 1,2).
     if (asNumber(cellValue(ws, r, 2)) === 1 &&
-        asNumber(cellValue(ws, r, 4)) === 2 &&
-        asNumber(cellValue(ws, r, 6)) === 3) {
+        asNumber(cellValue(ws, r, 4)) === 2) {
       return r;
     }
   }
