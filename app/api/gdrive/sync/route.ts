@@ -4,7 +4,7 @@ import {
   downloadDriveFile, fetchExcelBytes, listExcelFilesInFolder, refreshAccessToken,
   type DriveFileEntry,
 } from '@/lib/googleDrive';
-import { parseEinsatzplan } from '@/lib/einsatzplanParser';
+import { parseEinsatzplan, parseFullPlan } from '@/lib/einsatzplanParser';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -56,11 +56,20 @@ export async function POST() {
       pilotName: pilot.full_name ?? '',
       seasonOverride: pilot.season_override ?? null,
     });
+    // Parse the WHOLE plan (best-effort). A failure here must not break the
+    // pilot-only sync — that's the canonical /log data source.
+    let fullPlan: Awaited<ReturnType<typeof parseFullPlan>> | null = null;
+    try {
+      fullPlan = await parseFullPlan(buf);
+    } catch (e) {
+      console.warn('parseFullPlan failed (continuing):', (e as Error).message);
+    }
     const syncedAt = new Date().toISOString();
     const { error: updErr } = await supabase
       .from('pilots')
       .update({
         einsatzplan_schedule: schedule,
+        einsatzplan_full_plan: fullPlan,
         einsatzplan_synced_at: syncedAt,
         einsatzplan_last_file_id: usedFileId,
         einsatzplan_last_file_name: usedFileName,

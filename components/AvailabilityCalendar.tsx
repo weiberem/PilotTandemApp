@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { ChevronLeft, ChevronRight, Mail, Check, Plane, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Mail, Check, AlertTriangle, Users, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   addMonths, buildMailto, monthGrid, monthLabel, monthFirst, nextDeadlineInfo,
@@ -9,6 +9,7 @@ import {
 } from '@/lib/availability';
 import { resolveSeason } from '@/lib/tripTimes';
 import { saveAvailability } from '@/app/(pilot)/availability/actions';
+import type { FullPlan, FullPlanPilot } from '@/lib/einsatzplanParser';
 
 const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'] as const;
 
@@ -32,6 +33,8 @@ function cellCycle(current: DayPeriod | undefined): DayPeriod | null {
   }
 }
 
+type Mode = 'own' | 'plan';
+
 type Props = {
   pilotName: string;
   officeEmail: string | null;
@@ -40,12 +43,20 @@ type Props = {
   initialDaysByMonth: Record<string, AvailabilityDay[]>;
   submittedByMonth: Record<string, boolean>;
   schedule: ScheduleMap;
+  fullPlan: FullPlan | null;
 };
+
+// Pilot-count thresholds for the "Einsatzplan"-mode tile colour.
+// Below LOW = red, below OK = amber, else neutral. Adjust later if needed.
+const LOW_THRESHOLD = 8;
+const OK_THRESHOLD = 11;
 
 export function AvailabilityCalendar({
   pilotName, officeEmail, seasonOverride, initialMonth, initialDaysByMonth,
-  submittedByMonth, schedule,
+  submittedByMonth, schedule, fullPlan,
 }: Props) {
+  const [mode, setMode] = useState<Mode>('own');
+  const [planDate, setPlanDate] = useState<string | null>(null);
   const [cursor, setCursor] = useState(initialMonth);
   const [daysByMonth, setDaysByMonth] = useState<Record<string, Record<string, AvailabilityDay>>>(() => {
     const out: Record<string, Record<string, AvailabilityDay>> = {};
@@ -139,8 +150,39 @@ export function AvailabilityCalendar({
 
   const hasSchedule = Object.keys(schedule).some(d => d.startsWith(monthKey.slice(0, 7)));
 
+  // Show plan mode only if we have full-plan data for the current month.
+  const planMonthKey = `${monthKey.slice(0, 7)}`;
+  const planHasMonth = !!fullPlan && fullPlan.month.startsWith(planMonthKey);
+
   return (
     <div className="space-y-4">
+      {/* Mode toggle */}
+      <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-bg-subtle text-sm">
+        <button
+          onClick={() => setMode('own')}
+          className={cn(
+            'min-h-[40px] rounded-md font-medium transition',
+            mode === 'own' ? 'bg-white text-text shadow-sm' : 'text-text-muted',
+          )}
+        >Meine Verfügbarkeit</button>
+        <button
+          onClick={() => fullPlan && setMode('plan')}
+          disabled={!fullPlan}
+          className={cn(
+            'min-h-[40px] rounded-md font-medium transition',
+            mode === 'plan' ? 'bg-white text-text shadow-sm' : 'text-text-muted',
+            !fullPlan && 'opacity-40',
+          )}
+        >Einsatzplan</button>
+      </div>
+
+      {mode === 'plan' && !planHasMonth && (
+        <div className="card p-3 border-l-4 border-l-warning text-sm">
+          Für {monthLabel(cursor.year, cursor.monthIndex0)} liegt kein Einsatzplan vor.
+          Importiere den Plan für diesen Monat, um die Pilotenliste zu sehen.
+        </div>
+      )}
+
       <div className={cn(
         'card p-3 border-l-4 text-sm flex items-start gap-2',
         deadline.urgent ? 'border-l-warning' : 'border-l-primary',
@@ -187,6 +229,43 @@ export function AvailabilityCalendar({
           const dayNum = Number(date.slice(-2));
           const sched = schedule[date];
           const isSelected = selectedDate === date;
+          const planDay = fullPlan?.days?.[date];
+          const count = planDay?.pilots.length ?? 0;
+          const isPlanMode = mode === 'plan';
+
+          if (isPlanMode) {
+            // Skywings plan mode: show pilot count tinted by threshold; tap → list.
+            const colour =
+              !planDay
+                ? 'bg-bg border border-border text-text-muted'
+                : count <= LOW_THRESHOLD
+                ? 'bg-danger/15 border-2 border-danger text-danger'
+                : count < OK_THRESHOLD
+                ? 'bg-warning/15 border-2 border-warning text-warning'
+                : 'bg-success/10 border border-success/30 text-text';
+            return (
+              <button
+                key={date}
+                type="button"
+                onClick={() => inMonth && planDay && setPlanDate(date)}
+                disabled={!inMonth || !planDay}
+                className={cn(
+                  'aspect-square rounded-lg text-sm font-medium relative select-none transition overflow-hidden',
+                  inMonth && planDay && 'cursor-pointer hover:brightness-95',
+                  !inMonth && 'opacity-30',
+                  colour,
+                )}
+              >
+                <span className="absolute top-1 left-0 right-0 text-center text-text">{dayNum}</span>
+                {planDay && (
+                  <span className="absolute bottom-1 inset-x-0 text-center text-base font-mono font-semibold leading-none">
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          }
+
           return (
             <div
               key={date}
@@ -257,33 +336,54 @@ export function AvailabilityCalendar({
       )}
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-text-muted">
-        <Legend swatch="bg-success/85" label="GT Ganztag" />
-        <Legend swatch="bg-warning/85" label="VM / NM Halbtag" />
-        <span className="inline-flex items-center gap-1">
-          <span className="w-3 h-3 rounded ring-2 ring-primary ring-inset bg-primary/15" /> Skywings geplant
-        </span>
-      </div>
-      <p className="text-xs text-text-muted">
-        Tag antippen: frei → Ganztag → ½ Vormittag → ½ Nachmittag.
-        {season === 'summer' && ' Darunter erscheinen 07:10 / 17:00 zum Ab- oder Anwählen.'}
-      </p>
-
-      {!hasSchedule && (
-        <p className="text-xs text-text-muted">
-          Tipp: Einsatzplan importieren, damit die von Skywings geplanten Einsätze hier erscheinen.
-        </p>
+      {mode === 'own' ? (
+        <>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-text-muted">
+            <Legend swatch="bg-success/85" label="GT Ganztag" />
+            <Legend swatch="bg-warning/85" label="VM / NM Halbtag" />
+            <span className="inline-flex items-center gap-1">
+              <span className="w-3 h-3 rounded ring-2 ring-primary ring-inset bg-primary/15" /> Skywings geplant
+            </span>
+          </div>
+          <p className="text-xs text-text-muted">
+            Tag antippen: frei → Ganztag → ½ Vormittag → ½ Nachmittag.
+            {season === 'summer' && ' Darunter erscheinen 07:10 / 17:00 zum Ab- oder Anwählen.'}
+          </p>
+          {!hasSchedule && (
+            <p className="text-xs text-text-muted">
+              Tipp: Einsatzplan importieren, damit die von Skywings geplanten Einsätze hier erscheinen.
+            </p>
+          )}
+        </>
+      ) : (
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-text-muted">
+          <Legend swatch="bg-danger/30 border border-danger" label={`≤ ${LOW_THRESHOLD} Piloten`} />
+          <Legend swatch="bg-warning/30 border border-warning" label={`< ${OK_THRESHOLD}`} />
+          <Legend swatch="bg-success/15 border border-success/30" label="ok" />
+          <span className="inline-flex items-center gap-1"><Users className="w-3 h-3" /> Tag antippen für Liste</span>
+        </div>
       )}
 
-      {/* Actions */}
-      <div className="flex gap-2">
-        <button onClick={() => void persist(false)} disabled={pending} className="btn-ghost flex-1 border border-border">
-          {pending ? 'Speichern…' : 'Speichern'}
-        </button>
-        <button onClick={onPrepareEmail} disabled={pending} className="btn-primary flex-1">
-          <Mail className="w-4 h-4 mr-2" /> E-Mail vorbereiten
-        </button>
-      </div>
+      {/* Actions — only in own-availability mode */}
+      {mode === 'own' && (
+        <div className="flex gap-2">
+          <button onClick={() => void persist(false)} disabled={pending} className="btn-ghost flex-1 border border-border">
+            {pending ? 'Speichern…' : 'Speichern'}
+          </button>
+          <button onClick={onPrepareEmail} disabled={pending} className="btn-primary flex-1">
+            <Mail className="w-4 h-4 mr-2" /> E-Mail vorbereiten
+          </button>
+        </div>
+      )}
+
+      {/* Pilot-list sheet in plan mode */}
+      {planDate && fullPlan?.days?.[planDate] && (
+        <PilotListSheet
+          date={planDate}
+          pilots={fullPlan.days[planDate].pilots}
+          onClose={() => setPlanDate(null)}
+        />
+      )}
 
       {msg && (
         <p className={cn('text-sm', msg.kind === 'ok' ? 'text-success' : 'text-danger')}>
@@ -334,6 +434,53 @@ function EdgeTimeStrip({
 const PERIOD_FULL: Record<DayPeriod, string> = {
   full: 'Ganztag', half_am: '½ Vormittag', half_pm: '½ Nachmittag',
 };
+
+function PilotListSheet({
+  date, pilots, onClose,
+}: { date: string; pilots: FullPlanPilot[]; onClose: () => void }) {
+  const [, m, d] = date.split('-');
+  const am = pilots.filter(p => p.period === 'full' || p.period === 'half_am');
+  const pm = pilots.filter(p => p.period === 'full' || p.period === 'half_pm');
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-end justify-center" onClick={onClose}>
+      <div
+        className="bg-white w-full max-w-sm rounded-t-2xl p-4 space-y-3 max-h-[80vh] overflow-y-auto pb-[calc(1rem+env(safe-area-inset-bottom))]"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="font-display font-semibold">
+            {d}.{m}. · {pilots.length} {pilots.length === 1 ? 'Pilot' : 'Piloten'}
+          </h3>
+          <button onClick={onClose} className="p-1 text-text-muted" aria-label="Schließen">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <RosterSection title="Vormittag" pilots={am} />
+        <RosterSection title="Nachmittag" pilots={pm} />
+
+        <button type="button" onClick={onClose} className="btn-primary w-full">Fertig</button>
+      </div>
+    </div>
+  );
+}
+
+function RosterSection({ title, pilots }: { title: string; pilots: FullPlanPilot[] }) {
+  if (pilots.length === 0) return null;
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-1">{title} · {pilots.length}</p>
+      <ul className="grid grid-cols-2 gap-y-1 gap-x-3 text-sm">
+        {pilots.map((p, i) => (
+          <li key={`${p.name}-${i}`} className="flex items-center gap-1">
+            <span>{p.name}</span>
+            {p.period !== 'full' && <span className="text-[10px] text-text-muted">({p.period === 'half_am' ? 'VM' : 'NM'})</span>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 function EdgeButton({
   time, active, onClick,

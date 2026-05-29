@@ -243,3 +243,115 @@ export async function parseEinsatzplan(
 
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// Full-plan parser: who is scheduled, on which day, in which half.
+// ---------------------------------------------------------------------------
+
+export type FullPlanPilot = {
+  name: string;                        // as written in the sheet, trimmed
+  period: 'full' | 'half_am' | 'half_pm';
+};
+export type FullPlanDay = {
+  date: string;                        // YYYY-MM-DD
+  pilots: FullPlanPilot[];
+};
+export type FullPlan = {
+  month: string;                       // YYYY-MM-01
+  days: Record<string, FullPlanDay>;   // keyed by date
+};
+
+/**
+ * Skip-list: rows in column A that aren't pilots (headers, week numbers,
+ * empty separators, totals).
+ */
+const NON_PILOT_NAMES = new Set([
+  'juni', 'juli', 'august', 'september', 'oktober', 'november', 'dezember',
+  'januar', 'februar', 'maerz', 'märz', 'april', 'mai',
+  'woche', 'week', 'total', 'totals', 'name', 'pilot', 'pilots', 'piloten',
+  'goal capacity', 'scheduled', 'yearly plan', 'sign outs',
+]);
+
+function looksLikePilotName(s: string): boolean {
+  const t = normalize(s);
+  if (!t) return false;
+  if (NON_PILOT_NAMES.has(t)) return false;
+  // pure numbers (week numbers) or punctuation rows
+  if (/^[\d\s\-./]+$/.test(t)) return false;
+  // single letters or noise
+  if (t.length < 2) return false;
+  return true;
+}
+
+/**
+ * Parse the WHOLE Skywings plan: returns every scheduled day with the list of
+ * pilots (and their half) for that day. Sheet name still encodes the month.
+ *
+ * Heuristic for "is this row a pilot?": column A is a non-empty string that
+ * doesn't match the known header/footer/week labels, and the row contains at
+ * least one positive numeric shift cell in the day grid.
+ */
+export async function parseFullPlan(
+  buffer: ArrayBuffer | Buffer,
+  columnMapping?: { sheetName?: string; dayHeaderRow?: number },
+): Promise<FullPlan> {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buffer as ArrayBuffer);
+
+  const ws = columnMapping?.sheetName
+    ? wb.getWorksheet(columnMapping.sheetName)
+    : (wb.worksheets.find(s => s.state !== 'hidden') ?? wb.worksheets[0]);
+  if (!ws) throw new Error('No worksheet found in Einsatzplan');
+
+  const monthInfo = parseSheetMonth(ws.name);
+  if (!monthInfo) {
+    throw new Error(`Could not determine month/year from sheet name "${ws.name}".`);
+  }
+  const { month, year } = monthInfo;
+  const monthFirst = `${year}-${String(month).padStart(2, '0')}-01`;
+
+  const headerRow = columnMapping?.dayHeaderRow ?? findDayHeaderRow(ws);
+  if (!headerRow) {
+    throw new Error('Could not locate the day-number header row.');
+  }
+  const dayCols = buildDayColumns(ws, headerRow);
+
+  const isPresent = (v: unknown): boolean => {
+    const n = asNumber(v);
+    return n !== null && n > 0;
+  };
+
+  const days: Record<string, FullPlanDay> = {};
+  for (const [day] of dayCols.entries()) {
+    const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    days[iso] = { date: iso, pilots: [] };
+  }
+
+  const lastRow = ws.lastRow?.number ?? headerRow;
+  for (let r = headerRow + 1; r <= lastRow; r++) {
+    const nameCell = cellValue(ws, r, 1);
+    if (typeof nameCell !== 'string') continue;
+    const name = nameCell.trim();
+    if (!looksLikePilotName(name)) continue;
+
+    for (const [day, col] of dayCols.entries()) {
+      const v1 = cellValue(ws, r, col);
+      const v2 = cellValue(ws, r, col + 1);
+      const has1 = isPresent(v1);
+      const has2 = isPresent(v2);
+      if (!has1 && !has2) continue;
+      const period: FullPlanPilot['period'] =
+        has1 && has2 ? 'full' : has1 ? 'half_am' : 'half_pm';
+      const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      days[iso].pilots.push({ name, period });
+    }
+  }
+
+  // Sort each day's pilot list alphabetically for stable display.
+  for (const d of Object.values(days)) {
+    d.pilots.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  return { month: monthFirst, days };
+}
+

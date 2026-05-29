@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { AvailabilityCalendar, type ScheduleMap } from '@/components/AvailabilityCalendar';
 import { addMonths, monthFirst, type AvailabilityDay } from '@/lib/availability';
+import type { FullPlan } from '@/lib/einsatzplanParser';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,12 +13,11 @@ export default async function AvailabilityPage() {
 
   const { data: pilot } = await supabase
     .from('pilots')
-    .select('full_name, office_email, season_override, einsatzplan_schedule')
+    .select('full_name, office_email, season_override, einsatzplan_schedule, einsatzplan_full_plan')
     .eq('id', user.id)
     .maybeSingle();
   if (!pilot) redirect('/settings?welcome=1');
 
-  // Load current + next month submissions so navigating doesn't refetch.
   const now = new Date();
   const cur = { year: now.getFullYear(), monthIndex0: now.getMonth() };
   const next = addMonths(cur.year, cur.monthIndex0, 1);
@@ -37,8 +37,8 @@ export default async function AvailabilityPage() {
     submittedByMonth[key] = !!(s.submitted_at || s.email_sent);
   }
 
-  // Skywings plan overlay: date → { period, times }
   const schedule = (pilot.einsatzplan_schedule as ScheduleMap | null) ?? {};
+  const fullPlan = (pilot.einsatzplan_full_plan as FullPlan | null) ?? null;
 
   return (
     <div className="p-4 space-y-4 max-w-xl mx-auto">
@@ -51,6 +51,7 @@ export default async function AvailabilityPage() {
         initialDaysByMonth={initialDaysByMonth}
         submittedByMonth={submittedByMonth}
         schedule={schedule}
+        fullPlan={fullPlan}
       />
     </div>
   );
