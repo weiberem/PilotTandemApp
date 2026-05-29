@@ -49,8 +49,30 @@ export type ParseOptions = {
   };
 };
 
-const NO_07_RE = /no\s*7[:.]?10|no\s*7\b|kein\s*7/i;
-const NO_17_RE = /no\s*17[:.]?00|no\s*17\b|kein\s*17/i;
+/**
+ * Read the pilot's general monthly exceptions and return the set of HOURS to
+ * exclude from every scheduled day. Skywings writes notes like
+ * "No 7:10 No 17:00" or "No 7:10, 16:00, 17:00" in a cell at the end of the
+ * pilot's row. We scan the whole row for any cell that mentions "no <time>"
+ * and collect the hours (7 → 07:xx, 16 → 16:xx, 17 → 17:xx, …).
+ */
+function collectExcludedHours(ws: ExcelJS.Worksheet, pilotRow: number): Set<number> {
+  const hours = new Set<number>();
+  const lastCol = Math.max(ws.columnCount, 70);
+  for (let c = 2; c <= lastCol; c++) {
+    const v = cellValue(ws, pilotRow, c);
+    if (typeof v !== 'string') continue;
+    const text = v.toLowerCase();
+    if (!/\bno\b|kein/.test(text)) continue;
+    // Every number in such a note is an excluded time (hour part).
+    const matches = text.matchAll(/\b(\d{1,2})(?::?\d{2})?\b/g);
+    for (const m of matches) {
+      const h = Number(m[1]);
+      if (h >= 5 && h <= 20) hours.add(h);
+    }
+  }
+  return hours;
+}
 
 const MONTHS: Record<string, number> = {
   // English
@@ -179,14 +201,21 @@ export async function parseEinsatzplan(
   const seasonTimes = (season === 'summer' ? [...SUMMER_TRIP_TIMES] : [...WINTER_TRIP_TIMES]);
   const half = Math.ceil(seasonTimes.length / 2);
 
-  // A shift cell counts as "scheduled" if it holds a positive number
-  // (1 / 0.5) OR any non-empty annotation text (e.g. "No 7:10" means the
-  // pilot works that shift but skips the 7:10 flight).
+  // A shift cell counts as "scheduled" if it holds a positive number (1 / 0.5).
   const isPresent = (v: unknown): boolean => {
     const n = asNumber(v);
-    if (n !== null) return n > 0;
-    return typeof v === 'string' && v.trim() !== '';
+    return n !== null && n > 0;
   };
+
+  // General monthly exceptions: Skywings writes notes like "No 7:10 No 17:00"
+  // or "No 7:10, 16:00, 17:00" in a notes cell at the END of the pilot's row.
+  // These apply to EVERY scheduled day, so collect the excluded hours once.
+  const excludedHours = collectExcludedHours(ws, pilotRow);
+
+  const applyExclusions = (times: string[]): string[] =>
+    excludedHours.size === 0
+      ? times
+      : times.filter(t => !excludedHours.has(Number(t.slice(0, 2))));
 
   const out: ParsedSchedule = {};
   for (const [day, col] of dayCols.entries()) {
@@ -202,12 +231,7 @@ export async function parseEinsatzplan(
     else if (has1) { period = 'half_am'; times = seasonTimes.slice(0, half); }
     else { period = 'half_pm'; times = seasonTimes.slice(half); }
 
-    // Exceptions from any text in the two shift cells.
-    const text = [v1, v2].filter(x => typeof x === 'string').join(' ');
-    if (season === 'summer' && text) {
-      if (NO_07_RE.test(text)) times = times.filter(t => t !== '07:10');
-      if (NO_17_RE.test(text)) times = times.filter(t => t !== '17:00');
-    }
+    times = applyExclusions(times);
 
     const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     out[iso] = { period, times };

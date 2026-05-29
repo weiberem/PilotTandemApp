@@ -63,6 +63,9 @@ export default async function HomePage() {
           <Link href="/today" className="btn-ghost flex-1 border border-border">Heutige Flüge</Link>
           <Link href="/summary" className="btn-primary flex-1">Tagesabschluss</Link>
         </div>
+        <Link href="/flights" className="btn-ghost w-full border border-border mt-2 text-sm">
+          📅 Alle Flüge (Monatsübersicht)
+        </Link>
       </section>
 
       <section className="card p-4">

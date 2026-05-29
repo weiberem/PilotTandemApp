@@ -12,6 +12,7 @@ async function makeMatrix(
   sheetName: string,
   pilotName: string,
   perDay: Array<[unknown, unknown]>,
+  notes?: string,
 ): Promise<ArrayBuffer> {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet(sheetName);
@@ -24,6 +25,8 @@ async function makeMatrix(
     if (s1 !== null && s1 !== '') pRow.getCell(2 + i * 2).value = s1 as ExcelJS.CellValue;
     if (s2 !== null && s2 !== '') pRow.getCell(3 + i * 2).value = s2 as ExcelJS.CellValue;
   });
+  // General monthly exception note in a column past the day grid (like col 62 in real plans).
+  if (notes) pRow.getCell(2 + perDay.length * 2 + 4).value = notes;
   pRow.commit();
   return await wb.xlsx.writeBuffer() as ArrayBuffer;
 }
@@ -59,16 +62,27 @@ describe('parseEinsatzplan (matrix format)', () => {
     expect(Object.keys(s)).toContain('2026-06-01');
   });
 
-  it('honours No 7:10 / No 17:00 exception text in a shift cell', async () => {
-    const buf = await makeMatrix('June_2026', 'Remy', [
-      ['No 7:10', 1],
-      [1, 'No 17:00'],
-      [1, 1],
-    ]);
+  it('applies general monthly exception note ("No 7:10, 16:00, 17:00") to all days', async () => {
+    const buf = await makeMatrix(
+      'June_2026', 'Remy',
+      [[1, 1], [1, 1], [1, 1]],
+      'No 7:10, 16:00, 17:00',   // end-of-row note, applies to the whole month
+    );
     const s = await parseEinsatzplan(buf, { pilotName: 'Remy' });
-    expect(s['2026-06-01'].period).toBe('full');
-    expect(s['2026-06-01'].times).not.toContain('07:10');
-    expect(s['2026-06-02'].times).not.toContain('17:00');
+    for (const d of ['2026-06-01', '2026-06-02', '2026-06-03']) {
+      expect(s[d].period).toBe('full');
+      expect(s[d].times).not.toContain('07:10');
+      expect(s[d].times).not.toContain('16:00');
+      expect(s[d].times).not.toContain('17:00');
+      expect(s[d].times).toContain('08:10'); // normal times stay
+    }
+  });
+
+  it('leaves all times when the pilot has no exception note', async () => {
+    const buf = await makeMatrix('June_2026', 'Remy', [[1, 1], [1, 1], [1, 1]]);
+    const s = await parseEinsatzplan(buf, { pilotName: 'Remy' });
+    expect(s['2026-06-01'].times).toContain('07:10');
+    expect(s['2026-06-01'].times).toContain('17:00');
   });
 
   it('uses winter season times in Nov–Mar', async () => {
