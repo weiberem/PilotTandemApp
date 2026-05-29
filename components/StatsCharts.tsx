@@ -36,11 +36,11 @@ export function MonthlyChart({ data }: { data: MonthlyStat[] }) {
               }
             />
             <Legend />
-            <Bar yAxisId="left" dataKey="flights" name="Flüge" fill="#0EA5E9" radius={[4, 4, 0, 0]} />
+            <Bar yAxisId="left" dataKey="flights" name="Flüge" fill="#E08A0B" radius={[4, 4, 0, 0]} />
             {showRevenue && (
               <Line
                 yAxisId="right" type="monotone" dataKey="revenue" name="Umsatz"
-                stroke="#F97316" strokeWidth={2} dot={{ r: 3 }}
+                stroke="#13293D" strokeWidth={2} dot={{ r: 3 }}
               />
             )}
           </ComposedChart>

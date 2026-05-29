@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { ChevronLeft, ChevronRight, Mail, Check, Plane } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Mail, Check, Plane, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  addMonths, buildMailto, monthGrid, monthLabel, monthFirst, periodLabel,
+  addMonths, buildMailto, monthGrid, monthLabel, monthFirst,
   type AvailabilityDay, type DayPeriod,
 } from '@/lib/availability';
 import { resolveSeason } from '@/lib/tripTimes';
@@ -14,16 +14,22 @@ const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'] as const;
 
 export type ScheduleMap = Record<string, { period: DayPeriod; times: string[] }>;
 
-const PERIOD_SHORT: Record<DayPeriod, string> = {
-  full: 'Ganztag', half_am: '½ Vormittag', half_pm: '½ Nachmittag',
-};
-
 const PERIOD_ABBR: Record<DayPeriod, string> = {
   full: 'GT', half_am: 'VM', half_pm: 'NM',
 };
 
 function periodAbbr(p: DayPeriod): string {
   return PERIOD_ABBR[p];
+}
+
+/** Cycle a calendar cell: none → full → half_am → half_pm → none. */
+function cellCycle(current: DayPeriod | undefined): DayPeriod | null {
+  switch (current) {
+    case undefined: return 'full';
+    case 'full': return 'half_am';
+    case 'half_am': return 'half_pm';
+    default: return null;
+  }
 }
 
 type Props = {
@@ -49,7 +55,6 @@ export function AvailabilityCalendar({
     }
     return out;
   });
-  const [sheetFor, setSheetFor] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
@@ -128,7 +133,7 @@ export function AvailabilityCalendar({
     <div className="space-y-4">
       {showDeadline && (
         <div className="card p-3 border-l-4 border-l-warning text-sm flex items-start gap-2">
-          <span>⚠️</span>
+          <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
           <span>Verfügbarkeit bis Monatsmitte einreichen!</span>
         </div>
       )}
@@ -165,23 +170,29 @@ export function AvailabilityCalendar({
         {grid.map(({ date, inMonth }) => {
           const entry = dayMap[date];
           const period = entry?.period;
-          const hasExcl = entry?.exclude_7am || entry?.exclude_5pm;
           const dayNum = Number(date.slice(-2));
           const sched = schedule[date];
+          const showEdges = season === 'summer' && !!period;
           return (
-            <button
+            <div
               key={date}
-              type="button"
-              onClick={() => inMonth && setSheetFor(date)}
-              disabled={!inMonth}
+              role={inMonth ? 'button' : undefined}
+              tabIndex={inMonth ? 0 : undefined}
+              onClick={() => inMonth && setDayState(date, cellCycle(period))}
+              onKeyDown={(e) => {
+                if (inMonth && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  setDayState(date, cellCycle(period));
+                }
+              }}
               className={cn(
-                'aspect-square rounded-lg min-h-tap text-sm font-medium relative select-none transition overflow-hidden',
+                'aspect-square rounded-lg text-sm font-medium relative select-none transition overflow-hidden',
+                inMonth && 'cursor-pointer',
                 !inMonth && 'opacity-30',
                 inMonth && !period && 'bg-bg border border-border text-text',
                 period === 'full' && 'bg-success/85 text-white',
                 period === 'half_am' && 'bg-gradient-to-b from-warning/85 to-warning/40 text-white',
                 period === 'half_pm' && 'bg-gradient-to-t from-warning/85 to-warning/40 text-white',
-                // Skywings scheduled but no own availability set → blue ring so it stands out
                 sched && !period && 'ring-2 ring-primary ring-inset',
               )}
             >
@@ -206,18 +217,32 @@ export function AvailabilityCalendar({
                   }}
                 />
               )}
-              <span className="relative">{dayNum}</span>
-              {/* Period abbreviation: own availability if set, else Skywings plan */}
+              <span className="absolute top-1 left-0 right-0 text-center">{dayNum}</span>
               {(period || sched) && (
                 <span className={cn(
-                  'absolute bottom-0.5 inset-x-0 text-center text-[9px] font-semibold leading-none',
+                  'absolute top-1/2 -translate-y-1/2 inset-x-0 text-center text-[10px] font-semibold leading-none',
                   period ? 'text-white/95' : 'text-primary',
                 )}>
                   {periodAbbr(period ?? sched!.period)}
                 </span>
               )}
-              {hasExcl && <span className="absolute top-0.5 right-1 text-[9px] leading-none">×</span>}
-            </button>
+              {showEdges && (
+                <>
+                  <EdgeDot
+                    pos="left"
+                    active={!entry?.exclude_7am}
+                    onToggle={() => setExclude(date, 'exclude_7am', !entry?.exclude_7am)}
+                    title="07:10 Flug"
+                  />
+                  <EdgeDot
+                    pos="right"
+                    active={!entry?.exclude_5pm}
+                    onToggle={() => setExclude(date, 'exclude_5pm', !entry?.exclude_5pm)}
+                    title="17:00 Flug"
+                  />
+                </>
+              )}
+            </div>
           );
         })}
       </div>
@@ -229,20 +254,22 @@ export function AvailabilityCalendar({
         <span className="inline-flex items-center gap-1">
           <span className="w-3 h-3 rounded ring-2 ring-primary ring-inset bg-primary/15" /> Skywings geplant
         </span>
-        <span>▦ eingereicht</span>
-        <span>× = kein 07:10/17:00</span>
       </div>
+      <p className="text-xs text-text-muted">
+        Tag antippen: frei → Ganztag → ½ Vormittag → ½ Nachmittag.
+        {season === 'summer' && ' Die Punkte unten links/rechts (07:10 / 17:00) antippen, um eine Randzeit abzuwählen.'}
+      </p>
 
       {!hasSchedule && (
         <p className="text-xs text-text-muted">
-          Tipp: Importiere den Skywings-Einsatzplan, damit die geplanten Einsätze (✈) hier erscheinen.
+          Tipp: Einsatzplan importieren, damit die von Skywings geplanten Einsätze hier erscheinen.
         </p>
       )}
 
       {/* Actions */}
       <div className="flex gap-2">
         <button onClick={() => void persist(false)} disabled={pending} className="btn-ghost flex-1 border border-border">
-          {pending ? '…' : 'Speichern'}
+          {pending ? 'Speichern…' : 'Speichern'}
         </button>
         <button onClick={onPrepareEmail} disabled={pending} className="btn-primary flex-1">
           <Mail className="w-4 h-4 mr-2" /> E-Mail vorbereiten
@@ -253,18 +280,6 @@ export function AvailabilityCalendar({
         <p className={cn('text-sm', msg.kind === 'ok' ? 'text-success' : 'text-danger')}>
           {msg.kind === 'ok' && <Check className="inline w-4 h-4 mr-1" />}{msg.text}
         </p>
-      )}
-
-      {sheetFor && (
-        <DayOptionsSheet
-          date={sheetFor}
-          season={season}
-          current={dayMap[sheetFor]}
-          scheduled={schedule[sheetFor]}
-          onSetPeriod={(p) => setDayState(sheetFor, p)}
-          onSetExclude={(k, v) => setExclude(sheetFor, k, v)}
-          onClose={() => setSheetFor(null)}
-        />
       )}
     </div>
   );
@@ -278,129 +293,21 @@ function Legend({ swatch, label }: { swatch: string; label: string }) {
   );
 }
 
-const NEXT_PERIOD: Record<DayPeriod, DayPeriod> = {
-  full: 'half_am', half_am: 'half_pm', half_pm: 'full',
-};
-
-function DayOptionsSheet({
-  date, season, current, scheduled, onSetPeriod, onSetExclude, onClose,
-}: {
-  date: string;
-  season: 'summer' | 'winter';
-  current: AvailabilityDay | undefined;
-  scheduled: { period: DayPeriod; times: string[] } | undefined;
-  onSetPeriod: (p: DayPeriod | null) => void;
-  onSetExclude: (key: 'exclude_7am' | 'exclude_5pm', value: boolean) => void;
-  onClose: () => void;
-}) {
-  const [, m, d] = date.split('-');
-  const period = current?.period;
-  const isSummer = season === 'summer';
-
-  // Tap the centre tile: if not yet available → set Ganztag; else cycle.
-  function onCentreTap() {
-    if (!period) onSetPeriod('full');
-    else onSetPeriod(NEXT_PERIOD[period]);
-  }
-
-  const centreClass =
-    period === 'full' ? 'bg-success/85 text-white'
-    : period === 'half_am' ? 'bg-gradient-to-b from-warning/85 to-warning/40 text-white'
-    : period === 'half_pm' ? 'bg-gradient-to-t from-warning/85 to-warning/40 text-white'
-    : 'bg-bg border border-border text-text';
-
-  // Side toggle for an edge time. Active (filled) = pilot flies it.
-  function EdgeToggle({
-    active, disabled, label, onClick,
-  }: { active: boolean; disabled: boolean; label: string; onClick: () => void }) {
-    return (
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={onClick}
-        className={cn(
-          'flex flex-col items-center justify-center rounded-xl border w-16 shrink-0 transition select-none',
-          disabled && 'opacity-30',
-          !disabled && active && 'border-primary bg-primary/10 text-primary-dark',
-          !disabled && !active && 'border-border bg-bg text-text-muted line-through',
-        )}
-      >
-        <Plane className="w-4 h-4 mb-1" />
-        <span className="text-xs font-mono">{label}</span>
-        <span className="text-[10px] mt-0.5">{active ? 'dabei' : 'kein'}</span>
-      </button>
-    );
-  }
-
+/** Small tappable edge-time dot in a cell corner. Filled = pilot flies it. */
+function EdgeDot({
+  pos, active, onToggle, title,
+}: { pos: 'left' | 'right'; active: boolean; onToggle: () => void; title: string }) {
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-end justify-center" onClick={onClose}>
-      <div
-        className="bg-white w-full max-w-sm rounded-t-2xl p-4 space-y-3 pb-[calc(1rem+env(safe-area-inset-bottom))]"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="h-1 w-10 bg-border rounded-full mx-auto" />
-        <h3 className="font-display font-semibold text-center">{d}.{m}.</h3>
-
-        {scheduled && (
-          <div className="rounded-lg bg-primary/5 border border-primary/20 p-2 text-sm flex items-center gap-2">
-            <Plane className="w-4 h-4 text-primary shrink-0" />
-            <span>
-              <span className="font-medium">Skywings geplant:</span> {PERIOD_SHORT[scheduled.period]}
-              {scheduled.times.length > 0 && (
-                <span className="text-text-muted"> · {scheduled.times[0]}–{scheduled.times[scheduled.times.length - 1]}</span>
-              )}
-            </span>
-          </div>
-        )}
-
-        {/* Rectangular control: 07:10 left · day tile centre · 17:00 right */}
-        <div className="flex items-stretch gap-2">
-          {isSummer ? (
-            <EdgeToggle
-              active={!current?.exclude_7am}
-              disabled={!period}
-              label="07:10"
-              onClick={() => onSetExclude('exclude_7am', !current?.exclude_7am ? true : false)}
-            />
-          ) : <div className="w-16 shrink-0" />}
-
-          <button
-            type="button"
-            onClick={onCentreTap}
-            className={cn(
-              'flex-1 rounded-xl min-h-[88px] flex flex-col items-center justify-center font-medium transition',
-              centreClass,
-            )}
-          >
-            <span className="text-2xl font-mono leading-none">{d}.{m}.</span>
-            <span className="text-sm mt-1">{period ? periodLabel(period) : 'Tippen für Ganztag'}</span>
-            {period && <span className="text-[10px] opacity-80 mt-0.5">tippen zum Wechseln</span>}
-          </button>
-
-          {isSummer ? (
-            <EdgeToggle
-              active={!current?.exclude_5pm}
-              disabled={!period}
-              label="17:00"
-              onClick={() => onSetExclude('exclude_5pm', !current?.exclude_5pm ? true : false)}
-            />
-          ) : <div className="w-16 shrink-0" />}
-        </div>
-
-        {isSummer && (
-          <p className="text-[11px] text-text-muted text-center">
-            07:10 &amp; 17:00 sind standardmässig dabei – antippen zum Abwählen.
-          </p>
-        )}
-
-        <button
-          type="button"
-          onClick={() => { onSetPeriod(null); onClose(); }}
-          className="w-full min-h-tap rounded-lg border border-border px-3 py-2 text-center text-text-muted"
-        >Nicht verfügbar</button>
-
-        <button type="button" onClick={onClose} className="btn-primary w-full">Fertig</button>
-      </div>
-    </div>
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      onClick={(e) => { e.stopPropagation(); onToggle(); }}
+      className={cn(
+        'absolute bottom-0.5 w-3.5 h-3.5 rounded-full border-2 transition',
+        pos === 'left' ? 'left-0.5' : 'right-0.5',
+        active ? 'bg-white border-white' : 'bg-transparent border-white/60',
+      )}
+    />
   );
 }
