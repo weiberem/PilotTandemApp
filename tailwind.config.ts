@@ -15,28 +15,30 @@ const config: Config = {
     },
     extend: {
       colors: {
+        // Skywings brand: amber CTAs on a deep navy frame.
         primary: {
-          DEFAULT: '#0EA5E9',
-          dark: '#0284C7',
+          DEFAULT: '#E08A0B',
+          dark: '#C2740A',
           foreground: '#FFFFFF',
         },
         accent: {
-          DEFAULT: '#F97316',
+          DEFAULT: '#13293D',
           foreground: '#FFFFFF',
         },
-        success: '#22C55E',
-        warning: '#EAB308',
-        danger: '#EF4444',
+        success: '#2F855A',
+        warning: '#B45309',
+        danger: '#B91C1C',
         bg: {
-          DEFAULT: '#F8FAFC',
+          DEFAULT: '#F4F6F8',
           card: '#FFFFFF',
-          dark: '#0F172A',
+          dark: '#13293D',
+          subtle: '#E6EBF0',
         },
         text: {
-          DEFAULT: '#0F172A',
-          muted: '#64748B',
+          DEFAULT: '#13293D',
+          muted: '#5A6B7B',
         },
-        border: '#E2E8F0',
+        border: '#DDE3EA',
       },
       fontFamily: {
         sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
