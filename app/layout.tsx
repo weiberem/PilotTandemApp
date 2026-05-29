@@ -9,13 +9,6 @@ const jetbrains = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrai
 export const metadata: Metadata = {
   title: 'TandemLog',
   description: 'Tandem Paragliding Flight Logger',
-  applicationName: 'TandemLog',
-  manifest: '/manifest.json',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'TandemLog',
-  },
   formatDetection: { telephone: false },
 };
 
