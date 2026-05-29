@@ -266,7 +266,7 @@ export function AvailabilityCalendar({
       </div>
       <p className="text-xs text-text-muted">
         Tag antippen: frei → Ganztag → ½ Vormittag → ½ Nachmittag.
-        {season === 'summer' && ' Die Punkte unten links/rechts (07:10 / 17:00) antippen, um eine Randzeit abzuwählen.'}
+        {season === 'summer' && ' Darunter erscheinen 07:10 / 17:00 zum Ab- oder Anwählen.'}
       </p>
 
       {!hasSchedule && (
