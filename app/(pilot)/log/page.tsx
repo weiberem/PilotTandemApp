@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { FlightForm } from '@/components/FlightForm';
-import { isoDate, formatDateDe } from '@/lib/utils';
+import { isoDate, isoDateZurich, nowInZurich, formatDateDe } from '@/lib/utils';
 import {
   getCurrentTripTimes, getNextTripTime, resolveSeason, suggestCurrentTripTime, type Season,
 } from '@/lib/tripTimes';
@@ -26,7 +26,7 @@ export default async function LogPage({
 
   const flightDate = searchParams.date && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.date)
     ? searchParams.date
-    : isoDate();
+    : isoDateZurich();
 
   const { data: existing } = await supabase
     .from('flights')
@@ -54,11 +54,11 @@ export default async function LogPage({
   //   Only applied when logging TODAY; for a past/other date we start at the
   //   first scheduled time.
   // - Flights already logged → the NEXT trip time after the last one.
-  const isToday = flightDate === isoDate();
+  const isToday = flightDate === isoDateZurich();
   let prefillTime: string;
   if (!lastSkywings) {
     const suggested = isToday
-      ? suggestCurrentTripTime(scheduledTimes, new Date())
+      ? suggestCurrentTripTime(scheduledTimes, nowInZurich())
       : scheduledTimes[0];
     prefillTime = suggested ?? scheduledTimes[0] ?? seasonTimes[0];
   } else {

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Plane, CalendarRange } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { formatDateDe, isoDate, formatChf } from '@/lib/utils';
+import { formatDateDe, isoDateZurich, formatChf } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +17,7 @@ export default async function HomePage() {
     redirect('/settings?welcome=1');
   }
 
-  const today = isoDate();
+  const today = isoDateZurich();
   const { data: flights } = await supabase
     .from('flights')
     .select('id, photo_status, is_no_show, is_double_airtime, tip_chf')

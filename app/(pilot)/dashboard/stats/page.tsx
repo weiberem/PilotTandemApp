@@ -52,9 +52,8 @@ export default async function StatsPage({
 
       <MonthlyChart data={stats.months} />
 
-      <div className="grid lg:grid-cols-[2fr_1fr] gap-4">
-        <div className="card p-4 overflow-x-auto">
-          <h2 className="font-display font-semibold mb-2">Jahresdetail</h2>
+      <div className="card p-4 overflow-x-auto">
+        <h2 className="font-display font-semibold mb-2">Jahresdetail</h2>
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-text-muted text-xs uppercase">
@@ -93,10 +92,10 @@ export default async function StatsPage({
                 <td className="font-mono text-right">{formatChf(stats.totals.revenue)}</td>
               </tr>
             </tbody>
-          </table>
+        </table>
+        <div className="border-t border-border mt-2 pt-1">
+          <VkpiCard year={year} count={stats.vkpiFlights} />
         </div>
-
-        <VkpiCard year={year} count={stats.vkpiFlights} />
       </div>
 
       {stats.byCompany.length > 0 && (

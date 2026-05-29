@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { FlightListItem } from '@/components/FlightListItem';
-import { formatDateDe, isoDate, formatChf } from '@/lib/utils';
+import { formatDateDe, isoDateZurich, formatChf } from '@/lib/utils';
 import { computeDayTotals, type FlightRow, type PilotRates } from '@/lib/flights';
 
 export const dynamic = 'force-dynamic';
@@ -16,7 +16,7 @@ export default async function TodayPage({
 
   const date = searchParams.date && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.date)
     ? searchParams.date
-    : isoDate();
+    : isoDateZurich();
 
   const [{ data: pilot }, { data: rows }] = await Promise.all([
     supabase.from('pilots').select('flight_rate_chf, photo_prepaid_rate_chf, thermal_rate_chf, no_show_rate_chf').eq('id', user.id).maybeSingle(),

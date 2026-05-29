@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { SummaryActions } from '@/components/SummaryActions';
 import { computeDayTotals, type FlightRow, type PilotRates } from '@/lib/flights';
-import { isoDate } from '@/lib/utils';
+import { isoDateZurich } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +16,7 @@ export default async function SummaryPage({
 
   const date = searchParams.date && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.date)
     ? searchParams.date
-    : isoDate();
+    : isoDateZurich();
 
   const [{ data: pilot }, { data: rows }] = await Promise.all([
     supabase.from('pilots').select('full_name, flight_rate_chf, photo_prepaid_rate_chf, thermal_rate_chf, no_show_rate_chf').eq('id', user.id).maybeSingle(),
