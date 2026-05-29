@@ -12,6 +12,8 @@ import { isoDateZurich, nowInZurich } from '@/lib/utils';
 import { saveAvailability } from '@/app/(pilot)/availability/actions';
 import type { FullPlan, FullPlanPilot } from '@/lib/einsatzplanParser';
 
+export type FullPlansByMonth = Record<string, FullPlan>;
+
 const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'] as const;
 
 export type ScheduleMap = Record<string, { period: DayPeriod; times: string[] }>;
@@ -44,7 +46,7 @@ type Props = {
   initialDaysByMonth: Record<string, AvailabilityDay[]>;
   submittedByMonth: Record<string, boolean>;
   schedule: ScheduleMap;
-  fullPlan: FullPlan | null;
+  fullPlansByMonth: FullPlansByMonth;
 };
 
 // Pilot-count thresholds for the "Einsatzplan"-mode tile colour.
@@ -54,7 +56,7 @@ const OK_THRESHOLD = 11;
 
 export function AvailabilityCalendar({
   pilotName, officeEmail, seasonOverride, initialMonth, initialDaysByMonth,
-  submittedByMonth, schedule, fullPlan,
+  submittedByMonth, schedule, fullPlansByMonth,
 }: Props) {
   const [mode, setMode] = useState<Mode>('own');
   const [planDate, setPlanDate] = useState<string | null>(null);
@@ -160,9 +162,15 @@ export function AvailabilityCalendar({
 
   const hasSchedule = Object.keys(schedule).some(d => d.startsWith(monthKey.slice(0, 7)));
 
-  // Show plan mode only if we have full-plan data for the current month.
-  const planMonthKey = `${monthKey.slice(0, 7)}`;
-  const planHasMonth = !!fullPlan && fullPlan.month.startsWith(planMonthKey);
+  // Per-month full plan: keyed by YYYY-MM. Tab is enabled only when the
+  // currently-viewed month actually has a plan loaded.
+  const planMonthKey = monthKey.slice(0, 7);
+  const fullPlan = fullPlansByMonth[planMonthKey] ?? null;
+  const planHasMonth = !!fullPlan;
+  // Disabling the tab globally would also disable navigating to a month that
+  // *does* have a plan, so the tab is enabled if ANY month has a plan and the
+  // empty-state banner explains which months are covered.
+  const anyMonthHasPlan = Object.keys(fullPlansByMonth).length > 0;
 
   return (
     <div className="space-y-4">
@@ -176,12 +184,12 @@ export function AvailabilityCalendar({
           )}
         >Meine Verfügbarkeit</button>
         <button
-          onClick={() => fullPlan && setMode('plan')}
-          disabled={!fullPlan}
+          onClick={() => anyMonthHasPlan && setMode('plan')}
+          disabled={!anyMonthHasPlan}
           className={cn(
             'min-h-[40px] rounded-md font-medium transition',
             mode === 'plan' ? 'bg-white text-text shadow-sm' : 'text-text-muted',
-            !fullPlan && 'opacity-40',
+            !anyMonthHasPlan && 'opacity-40',
           )}
         >Einsatzplan</button>
       </div>
