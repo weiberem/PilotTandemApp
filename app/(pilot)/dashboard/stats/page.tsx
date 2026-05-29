@@ -67,16 +67,23 @@ export default async function StatsPage({
               </tr>
             </thead>
             <tbody>
-              {stats.months.map(m => (
-                <tr key={m.monthIndex0} className="border-t border-border">
-                  <td className="py-1">{m.label}</td>
-                  <td className="font-mono text-right">{m.flights}</td>
-                  <td className="font-mono text-right">{m.pp}</td>
-                  <td className="font-mono text-right">{m.thermal}</td>
-                  <td className="font-mono text-right">{m.noShow}</td>
-                  <td className="font-mono text-right">{formatChf(m.revenue)}</td>
-                </tr>
-              ))}
+              {stats.months.map(m => {
+                const monthParam = `${year}-${String(m.monthIndex0 + 1).padStart(2, '0')}`;
+                return (
+                  <tr key={m.monthIndex0} className="border-t border-border hover:bg-bg">
+                    <td className="py-1">
+                      <Link href={`/flights?month=${monthParam}`} className="text-primary hover:underline">
+                        {m.label}
+                      </Link>
+                    </td>
+                    <td className="font-mono text-right">{m.flights}</td>
+                    <td className="font-mono text-right">{m.pp}</td>
+                    <td className="font-mono text-right">{m.thermal}</td>
+                    <td className="font-mono text-right">{m.noShow}</td>
+                    <td className="font-mono text-right">{formatChf(m.revenue)}</td>
+                  </tr>
+                );
+              })}
               <tr className="border-t-2 border-text font-semibold">
                 <td className="py-1">Total</td>
                 <td className="font-mono text-right">{stats.totals.flights}</td>
