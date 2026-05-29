@@ -7,7 +7,7 @@ import {
   getCurrentTripTimes,
   getNextTripTime,
   isOptionalSummerTime,
-  suggestFirstTripTime,
+  suggestCurrentTripTime,
 } from './tripTimes';
 
 describe('trip time constants', () => {
@@ -70,28 +70,41 @@ describe('isOptionalSummerTime', () => {
   });
 });
 
-describe('suggestFirstTripTime', () => {
-  const summerSchedule = [...SUMMER_TRIP_TIMES];
+describe('suggestCurrentTripTime', () => {
+  const summer = [...SUMMER_TRIP_TIMES]; // 07:10 08:10 09:20 10:30 11:45 13:30 14:45 16:00 17:00
 
-  it('suggests 07:10 before 09:10 if scheduled', () => {
-    const at0800 = new Date(2025, 5, 1, 8, 0);
-    expect(suggestFirstTripTime('summer', summerSchedule, at0800)).toBe('07:10');
+  it('before 09:00 → first scheduled time', () => {
+    expect(suggestCurrentTripTime(summer, new Date(2025, 5, 1, 8, 0))).toBe('07:10');
   });
 
-  it('returns null at 09:10 or later', () => {
-    const at0910 = new Date(2025, 5, 1, 9, 10);
-    expect(suggestFirstTripTime('summer', summerSchedule, at0910)).toBeNull();
+  it('before 09:00 without 07:10 → earliest scheduled', () => {
+    const noEarly = summer.filter(t => t !== '07:10'); // starts 08:10
+    expect(suggestCurrentTripTime(noEarly, new Date(2025, 5, 1, 6, 30))).toBe('08:10');
   });
 
-  it('returns null when pilot is not scheduled for 07:10', () => {
-    const withoutEarly = summerSchedule.filter(t => t !== '07:10');
-    const at0800 = new Date(2025, 5, 1, 8, 0);
-    expect(suggestFirstTripTime('summer', withoutEarly, at0800)).toBeNull();
+  it('at 11:16 → latest past time 10:30 (real-world bug case)', () => {
+    expect(suggestCurrentTripTime(summer, new Date(2025, 5, 1, 11, 16))).toBe('10:30');
   });
 
-  it('returns null in winter', () => {
-    const at0800 = new Date(2025, 0, 1, 8, 0);
-    expect(suggestFirstTripTime('winter', [...WINTER_TRIP_TIMES], at0800)).toBeNull();
+  it('at 12:50 → 11:45', () => {
+    expect(suggestCurrentTripTime(summer, new Date(2025, 5, 1, 12, 50))).toBe('11:45');
+  });
+
+  it('at 14:30 → 13:30', () => {
+    expect(suggestCurrentTripTime(summer, new Date(2025, 5, 1, 14, 30))).toBe('13:30');
+  });
+
+  it('late evening → last time of the day', () => {
+    expect(suggestCurrentTripTime(summer, new Date(2025, 5, 1, 22, 0))).toBe('17:00');
+  });
+
+  it('09:00 exactly but before the 09:20 slot → still first (07:10)', () => {
+    // at 09:05 no published time <= now except 07:10/08:10 → latest past is 08:10
+    expect(suggestCurrentTripTime(summer, new Date(2025, 5, 1, 9, 5))).toBe('08:10');
+  });
+
+  it('empty schedule → null', () => {
+    expect(suggestCurrentTripTime([], new Date())).toBeNull();
   });
 });
 

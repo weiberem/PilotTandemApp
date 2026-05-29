@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { FlightForm } from '@/components/FlightForm';
 import { isoDate, formatDateDe } from '@/lib/utils';
 import {
-  getCurrentTripTimes, getNextTripTime, resolveSeason, suggestFirstTripTime, type Season,
+  getCurrentTripTimes, getNextTripTime, resolveSeason, suggestCurrentTripTime, type Season,
 } from '@/lib/tripTimes';
 import type { FlightInput } from '@/lib/flights';
 
@@ -46,14 +46,20 @@ export default async function LogPage({
     .reverse()
     .find(f => (f.company ?? '').toLowerCase().startsWith('skyw'));
 
-  // Smart pre-fill (per spec):
-  // - No flights logged yet:
-  //     • before 09:10 AND scheduled for 07:10 → "07:10"
-  //     • otherwise → first scheduled time (form is fully visible; pilot can still change)
-  // - Flights already logged: NEXT trip time after the last one.
+  // Smart pre-fill:
+  // - No flights logged yet → the trip time closest to "now":
+  //     • before 09:00 → first scheduled time
+  //     • later → latest published time already in the past (a flight is
+  //       logged ~50-60 min after its departure)
+  //   Only applied when logging TODAY; for a past/other date we start at the
+  //   first scheduled time.
+  // - Flights already logged → the NEXT trip time after the last one.
+  const isToday = flightDate === isoDate();
   let prefillTime: string;
   if (!lastSkywings) {
-    const suggested = suggestFirstTripTime(season, scheduledTimes, new Date());
+    const suggested = isToday
+      ? suggestCurrentTripTime(scheduledTimes, new Date())
+      : scheduledTimes[0];
     prefillTime = suggested ?? scheduledTimes[0] ?? seasonTimes[0];
   } else {
     const next = getNextTripTime(lastSkywings.trip_time, season);

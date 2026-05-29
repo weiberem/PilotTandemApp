@@ -49,20 +49,37 @@ export function isOptionalSummerTime(time: string): boolean {
   return (OPTIONAL_SUMMER_TIMES as readonly string[]).includes(time);
 }
 
+function toMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
 /**
- * Smart pre-fill for first flight of the day:
- * - Before 09:10 AND scheduled for 07:10 → suggest "07:10"
- * - Otherwise → no suggestion (caller should prompt for selection)
+ * Smart pre-fill for the FIRST flight of the day, based on the wall clock.
+ *
+ * Rule (agreed with the pilot): a flight can only be logged ~50–60 min after
+ * its published departure, so:
+ *   - before 09:00 → the first scheduled time (07:10 if scheduled, else the
+ *     earliest of the day)
+ *   - from 09:00 on → the LATEST scheduled departure time whose published
+ *     time is already in the past (≤ now). e.g. at 12:50 → 11:45, at 14:30 →
+ *     13:30, at 11:16 → 10:30.
+ *
+ * `scheduledTimes` must be ascending (they are). Returns null only if the
+ * list is empty.
  */
-export function suggestFirstTripTime(
-  season: Season,
+export function suggestCurrentTripTime(
   scheduledTimes: readonly string[],
   now: Date = new Date(),
 ): string | null {
-  if (season !== 'summer') return null;
-  const minutes = now.getHours() * 60 + now.getMinutes();
-  const before0910 = minutes < 9 * 60 + 10;
-  const has0710 = scheduledTimes.includes('07:10');
-  if (before0910 && has0710) return '07:10';
-  return null;
+  if (scheduledTimes.length === 0) return null;
+  const mins = now.getHours() * 60 + now.getMinutes();
+  if (mins < 9 * 60) return scheduledTimes[0];
+
+  let chosen = scheduledTimes[0];
+  for (const t of scheduledTimes) {
+    if (toMinutes(t) <= mins) chosen = t;
+    else break;
+  }
+  return chosen;
 }
