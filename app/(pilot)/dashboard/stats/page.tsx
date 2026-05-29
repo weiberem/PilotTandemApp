@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { yearStats } from '@/lib/stats';
 import { MonthlyChart } from '@/components/StatsCharts';
 import { VkpiCard } from '@/components/VkpiCard';
+import { YearPicker } from './YearPicker';
 import { formatChf } from '@/lib/utils';
 import type { FlightRow, PilotRates } from '@/lib/flights';
 
@@ -46,18 +47,7 @@ export default async function StatsPage({
           <h1 className="text-2xl lg:text-3xl font-display font-bold">Statistik</h1>
           <p className="text-text-muted text-sm">{primaryCompany} · Jahr {year}</p>
         </div>
-        <label className="text-xs">
-          <span className="text-text-muted block">Jahr</span>
-          <select
-            defaultValue={year}
-            className="min-h-tap rounded-lg border border-border px-3 py-1.5 bg-white"
-            onChange={(e) => {
-              window.location.href = `/dashboard/stats?year=${e.target.value}`;
-            }}
-          >
-            {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </label>
+        <YearPicker year={year} options={yearOptions} />
       </div>
 
       <MonthlyChart data={stats.months} />
