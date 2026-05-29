@@ -18,6 +18,14 @@ const PERIOD_SHORT: Record<DayPeriod, string> = {
   full: 'Ganztag', half_am: '½ Vormittag', half_pm: '½ Nachmittag',
 };
 
+const PERIOD_ABBR: Record<DayPeriod, string> = {
+  full: 'GT', half_am: 'VM', half_pm: 'NM',
+};
+
+function periodAbbr(p: DayPeriod): string {
+  return PERIOD_ABBR[p];
+}
+
 type Props = {
   pilotName: string;
   officeEmail: string | null;
@@ -177,6 +185,17 @@ export function AvailabilityCalendar({
                 sched && !period && 'ring-2 ring-primary ring-inset',
               )}
             >
+              {/* Skywings plan half-fill tint (only when no own availability set) */}
+              {sched && !period && (
+                <span
+                  className={cn(
+                    'absolute inset-x-0 pointer-events-none bg-primary/15',
+                    sched.period === 'full' && 'inset-y-0',
+                    sched.period === 'half_am' && 'top-0 h-1/2',
+                    sched.period === 'half_pm' && 'bottom-0 h-1/2',
+                  )}
+                />
+              )}
               {/* Submitted hatch overlay */}
               {submitted && period && (
                 <span
@@ -188,12 +207,14 @@ export function AvailabilityCalendar({
                 />
               )}
               <span className="relative">{dayNum}</span>
-              {/* Skywings scheduled marker */}
-              {sched && (
-                <Plane className={cn(
-                  'absolute bottom-0.5 left-1 w-3 h-3',
-                  period ? 'text-white/90' : 'text-primary',
-                )} />
+              {/* Period abbreviation: own availability if set, else Skywings plan */}
+              {(period || sched) && (
+                <span className={cn(
+                  'absolute bottom-0.5 inset-x-0 text-center text-[9px] font-semibold leading-none',
+                  period ? 'text-white/95' : 'text-primary',
+                )}>
+                  {periodAbbr(period ?? sched!.period)}
+                </span>
               )}
               {hasExcl && <span className="absolute top-0.5 right-1 text-[9px] leading-none">×</span>}
             </button>
@@ -203,10 +224,11 @@ export function AvailabilityCalendar({
 
       {/* Legend */}
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-text-muted">
-        <Legend swatch="bg-bg border border-border" label="frei" />
-        <Legend swatch="bg-success/85" label="Ganztag" />
-        <Legend swatch="bg-warning/85" label="½ Tag" />
-        <span className="inline-flex items-center gap-1"><Plane className="w-3 h-3 text-primary" /> Skywings-Plan</span>
+        <Legend swatch="bg-success/85" label="GT Ganztag" />
+        <Legend swatch="bg-warning/85" label="VM / NM Halbtag" />
+        <span className="inline-flex items-center gap-1">
+          <span className="w-3 h-3 rounded ring-2 ring-primary ring-inset bg-primary/15" /> Skywings geplant
+        </span>
         <span>▦ eingereicht</span>
         <span>× = kein 07:10/17:00</span>
       </div>
