@@ -36,6 +36,8 @@ export function getGoogleEnv(): GoogleEnv {
 export const DRIVE_SCOPES = [
   'https://www.googleapis.com/auth/drive.file',
   'https://www.googleapis.com/auth/drive.readonly',
+  // Calendar: create/update the app's own events in the pilot's calendar
+  'https://www.googleapis.com/auth/calendar.events',
 ].join(' ');
 
 export function buildAuthUrl(state: string): string {

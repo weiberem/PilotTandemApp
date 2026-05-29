@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { EinsatzplanImporter } from './EinsatzplanImporter';
+import { CalendarPushButton } from '@/components/CalendarPushButton';
 import { formatDateDe } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -43,7 +44,10 @@ export default async function EinsatzplanPage() {
           </Link>
         </div>
       ) : (
-        <EinsatzplanImporter seasonOverride={pilot.season_override ?? null} />
+        <>
+          <EinsatzplanImporter seasonOverride={pilot.season_override ?? null} />
+          {pilot.einsatzplan_synced_at && <CalendarPushButton />}
+        </>
       )}
     </div>
   );
