@@ -54,10 +54,16 @@ export function MonthFlightsView({
           onClick={() => router.push(`/flights?month=${shiftMonth(month, -1)}`)}
           className="btn-ghost border border-border min-w-tap" aria-label="Vorheriger Monat"
         ><ChevronLeft className="w-5 h-5" /></button>
-        <div className="text-center">
+        <button
+          onClick={() => {
+            const now = new Date();
+            router.push(`/flights?month=${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
+          }}
+          className="text-center"
+        >
           <div className="font-display font-semibold text-lg capitalize">{monthLabel(year, monthIndex0)}</div>
-          <div className="text-xs text-text-muted">Flugübersicht</div>
-        </div>
+          <div className="text-xs text-primary">↻ Aktueller Monat</div>
+        </button>
         <button
           onClick={() => router.push(`/flights?month=${shiftMonth(month, 1)}`)}
           className="btn-ghost border border-border min-w-tap" aria-label="Nächster Monat"

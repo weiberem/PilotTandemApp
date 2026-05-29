@@ -256,6 +256,10 @@ function Legend({ swatch, label }: { swatch: string; label: string }) {
   );
 }
 
+const NEXT_PERIOD: Record<DayPeriod, DayPeriod> = {
+  full: 'half_am', half_am: 'half_pm', half_pm: 'full',
+};
+
 function DayOptionsSheet({
   date, season, current, scheduled, onSetPeriod, onSetExclude, onClose,
 }: {
@@ -268,10 +272,48 @@ function DayOptionsSheet({
   onClose: () => void;
 }) {
   const [, m, d] = date.split('-');
+  const period = current?.period;
+  const isSummer = season === 'summer';
+
+  // Tap the centre tile: if not yet available → set Ganztag; else cycle.
+  function onCentreTap() {
+    if (!period) onSetPeriod('full');
+    else onSetPeriod(NEXT_PERIOD[period]);
+  }
+
+  const centreClass =
+    period === 'full' ? 'bg-success/85 text-white'
+    : period === 'half_am' ? 'bg-gradient-to-b from-warning/85 to-warning/40 text-white'
+    : period === 'half_pm' ? 'bg-gradient-to-t from-warning/85 to-warning/40 text-white'
+    : 'bg-bg border border-border text-text';
+
+  // Side toggle for an edge time. Active (filled) = pilot flies it.
+  function EdgeToggle({
+    active, disabled, label, onClick,
+  }: { active: boolean; disabled: boolean; label: string; onClick: () => void }) {
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onClick}
+        className={cn(
+          'flex flex-col items-center justify-center rounded-xl border w-16 shrink-0 transition select-none',
+          disabled && 'opacity-30',
+          !disabled && active && 'border-primary bg-primary/10 text-primary-dark',
+          !disabled && !active && 'border-border bg-bg text-text-muted line-through',
+        )}
+      >
+        <Plane className="w-4 h-4 mb-1" />
+        <span className="text-xs font-mono">{label}</span>
+        <span className="text-[10px] mt-0.5">{active ? 'dabei' : 'kein'}</span>
+      </button>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-end justify-center" onClick={onClose}>
       <div
-        className="bg-white w-full max-w-sm rounded-t-2xl p-4 space-y-2 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+        className="bg-white w-full max-w-sm rounded-t-2xl p-4 space-y-3 pb-[calc(1rem+env(safe-area-inset-bottom))]"
         onClick={e => e.stopPropagation()}
       >
         <div className="h-1 w-10 bg-border rounded-full mx-auto" />
@@ -289,66 +331,54 @@ function DayOptionsSheet({
           </div>
         )}
 
-        <p className="text-xs text-text-muted pt-1">Meine Verfügbarkeit:</p>
-        {(['full', 'half_am', 'half_pm'] as DayPeriod[]).map(p => (
-          <button
-            key={p} type="button"
-            onClick={() => onSetPeriod(p)}
-            className={cn(
-              'w-full min-h-tap rounded-lg border px-3 py-2 text-left',
-              current?.period === p ? 'border-primary bg-primary/5' : 'border-border',
-            )}
-          >{periodLabel(p)}</button>
-        ))}
-
-        {season === 'summer' && current?.period && (
-          <div className="pt-2 border-t border-border space-y-1">
-            <p className="text-xs text-text-muted">Randzeiten (standardmässig dabei):</p>
-            <Toggle
-              checked={!current.exclude_7am}
-              onChange={v => onSetExclude('exclude_7am', !v)}
-              label="07:10 Flug"
+        {/* Rectangular control: 07:10 left · day tile centre · 17:00 right */}
+        <div className="flex items-stretch gap-2">
+          {isSummer ? (
+            <EdgeToggle
+              active={!current?.exclude_7am}
+              disabled={!period}
+              label="07:10"
+              onClick={() => onSetExclude('exclude_7am', !current?.exclude_7am ? true : false)}
             />
-            <Toggle
-              checked={!current.exclude_5pm}
-              onChange={v => onSetExclude('exclude_5pm', !v)}
-              label="17:00 Flug"
-            />
-          </div>
-        )}
+          ) : <div className="w-16 shrink-0" />}
 
-        <div className="pt-2 border-t border-border">
           <button
             type="button"
-            onClick={() => { onSetPeriod(null); onClose(); }}
-            className="w-full min-h-tap rounded-lg border border-border px-3 py-2 text-left text-text-muted"
-          >Nicht verfügbar</button>
+            onClick={onCentreTap}
+            className={cn(
+              'flex-1 rounded-xl min-h-[88px] flex flex-col items-center justify-center font-medium transition',
+              centreClass,
+            )}
+          >
+            <span className="text-2xl font-mono leading-none">{d}.{m}.</span>
+            <span className="text-sm mt-1">{period ? periodLabel(period) : 'Tippen für Ganztag'}</span>
+            {period && <span className="text-[10px] opacity-80 mt-0.5">tippen zum Wechseln</span>}
+          </button>
+
+          {isSummer ? (
+            <EdgeToggle
+              active={!current?.exclude_5pm}
+              disabled={!period}
+              label="17:00"
+              onClick={() => onSetExclude('exclude_5pm', !current?.exclude_5pm ? true : false)}
+            />
+          ) : <div className="w-16 shrink-0" />}
         </div>
 
-        <button type="button" onClick={onClose} className="btn-primary w-full mt-2">Fertig</button>
+        {isSummer && (
+          <p className="text-[11px] text-text-muted text-center">
+            07:10 &amp; 17:00 sind standardmässig dabei – antippen zum Abwählen.
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={() => { onSetPeriod(null); onClose(); }}
+          className="w-full min-h-tap rounded-lg border border-border px-3 py-2 text-center text-text-muted"
+        >Nicht verfügbar</button>
+
+        <button type="button" onClick={onClose} className="btn-primary w-full">Fertig</button>
       </div>
     </div>
-  );
-}
-
-/** Switch styled toggle. checked = "fliege diese Randzeit". */
-function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      className="w-full flex items-center justify-between min-h-tap px-1"
-    >
-      <span>{label}</span>
-      <span className={cn(
-        'inline-flex w-10 h-6 rounded-full transition relative',
-        checked ? 'bg-primary' : 'bg-border',
-      )}>
-        <span className={cn(
-          'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition',
-          checked ? 'left-[18px]' : 'left-0.5',
-        )} />
-      </span>
-    </button>
   );
 }
