@@ -58,6 +58,8 @@ export function AvailabilityCalendar({
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
   const monthKey = monthFirst(cursor.year, cursor.monthIndex0);
   const grid = useMemo(() => monthGrid(cursor.year, cursor.monthIndex0), [cursor]);
   const dayMap = daysByMonth[monthKey] ?? {};
@@ -65,6 +67,15 @@ export function AvailabilityCalendar({
   const submitted = !!submittedByMonth[monthKey];
 
   const deadline = useMemo(() => nextDeadlineInfo(new Date()), []);
+
+  // Tapping a day cycles its period AND selects it (so the edge-time strip
+  // below the grid shows for that day). Clearing to "frei" deselects.
+  function onDayTap(date: string) {
+    const current = dayMap[date]?.period;
+    const next = cellCycle(current);
+    setDayState(date, next);
+    setSelectedDate(next ? date : null);
+  }
 
   function setDayState(date: string, period: DayPeriod | null) {
     setDaysByMonth(prev => {
@@ -175,17 +186,17 @@ export function AvailabilityCalendar({
           const period = entry?.period;
           const dayNum = Number(date.slice(-2));
           const sched = schedule[date];
-          const showEdges = season === 'summer' && !!period;
+          const isSelected = selectedDate === date;
           return (
             <div
               key={date}
               role={inMonth ? 'button' : undefined}
               tabIndex={inMonth ? 0 : undefined}
-              onClick={() => inMonth && setDayState(date, cellCycle(period))}
+              onClick={() => inMonth && onDayTap(date)}
               onKeyDown={(e) => {
                 if (inMonth && (e.key === 'Enter' || e.key === ' ')) {
                   e.preventDefault();
-                  setDayState(date, cellCycle(period));
+                  onDayTap(date);
                 }
               }}
               className={cn(
@@ -197,6 +208,7 @@ export function AvailabilityCalendar({
                 period === 'half_am' && 'bg-gradient-to-b from-warning/85 to-warning/40 text-white',
                 period === 'half_pm' && 'bg-gradient-to-t from-warning/85 to-warning/40 text-white',
                 sched && !period && 'ring-2 ring-primary ring-inset',
+                isSelected && 'outline outline-2 outline-offset-1 outline-accent',
               )}
             >
               {/* Skywings plan half-fill tint (only when no own availability set) */}
@@ -223,32 +235,26 @@ export function AvailabilityCalendar({
               <span className="absolute top-1 left-0 right-0 text-center">{dayNum}</span>
               {(period || sched) && (
                 <span className={cn(
-                  'absolute top-1/2 -translate-y-1/2 inset-x-0 text-center text-[10px] font-semibold leading-none',
+                  'absolute bottom-1 inset-x-0 text-center text-[10px] font-semibold leading-none',
                   period ? 'text-white/95' : 'text-primary',
                 )}>
                   {periodAbbr(period ?? sched!.period)}
                 </span>
               )}
-              {showEdges && (
-                <>
-                  <EdgeDot
-                    pos="left"
-                    active={!entry?.exclude_7am}
-                    onToggle={() => setExclude(date, 'exclude_7am', !entry?.exclude_7am)}
-                    title="07:10 Flug"
-                  />
-                  <EdgeDot
-                    pos="right"
-                    active={!entry?.exclude_5pm}
-                    onToggle={() => setExclude(date, 'exclude_5pm', !entry?.exclude_5pm)}
-                    title="17:00 Flug"
-                  />
-                </>
-              )}
             </div>
           );
         })}
       </div>
+
+      {/* Inline edge-time control for the selected day: 07:10 | day | 17:00 */}
+      {selectedDate && dayMap[selectedDate]?.period && season === 'summer' && (
+        <EdgeTimeStrip
+          date={selectedDate}
+          entry={dayMap[selectedDate]}
+          onToggle7={() => setExclude(selectedDate, 'exclude_7am', !dayMap[selectedDate].exclude_7am)}
+          onToggle17={() => setExclude(selectedDate, 'exclude_5pm', !dayMap[selectedDate].exclude_5pm)}
+        />
+      )}
 
       {/* Legend */}
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-text-muted">
@@ -297,20 +303,54 @@ function Legend({ swatch, label }: { swatch: string; label: string }) {
 }
 
 /** Small tappable edge-time dot in a cell corner. Filled = pilot flies it. */
-function EdgeDot({
-  pos, active, onToggle, title,
-}: { pos: 'left' | 'right'; active: boolean; onToggle: () => void; title: string }) {
+/**
+ * Inline strip shown under the grid for the tapped day:
+ *   [ 07:10 toggle ] [ day · period ] [ 17:00 toggle ]
+ * Filled/active = pilot flies that edge time; tap to deselect.
+ */
+function EdgeTimeStrip({
+  date, entry, onToggle7, onToggle17,
+}: {
+  date: string;
+  entry: AvailabilityDay;
+  onToggle7: () => void;
+  onToggle17: () => void;
+}) {
+  const [, m, d] = date.split('-');
+  const fly7 = !entry.exclude_7am;
+  const fly17 = !entry.exclude_5pm;
+  return (
+    <div className="flex items-stretch gap-2">
+      <EdgeButton time="07:10" active={fly7} onClick={onToggle7} />
+      <div className="flex-1 rounded-xl bg-accent text-white flex flex-col items-center justify-center py-2">
+        <span className="font-mono text-base leading-none">{d}.{m}.</span>
+        <span className="text-xs mt-1 opacity-90">{PERIOD_FULL[entry.period]}</span>
+      </div>
+      <EdgeButton time="17:00" active={fly17} onClick={onToggle17} />
+    </div>
+  );
+}
+
+const PERIOD_FULL: Record<DayPeriod, string> = {
+  full: 'Ganztag', half_am: '½ Vormittag', half_pm: '½ Nachmittag',
+};
+
+function EdgeButton({
+  time, active, onClick,
+}: { time: string; active: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
-      title={title}
-      aria-label={title}
-      onClick={(e) => { e.stopPropagation(); onToggle(); }}
+      onClick={onClick}
       className={cn(
-        'absolute bottom-0.5 w-3.5 h-3.5 rounded-full border-2 transition',
-        pos === 'left' ? 'left-0.5' : 'right-0.5',
-        active ? 'bg-white border-white' : 'bg-transparent border-white/60',
+        'w-20 shrink-0 rounded-xl border-2 flex flex-col items-center justify-center py-2 transition',
+        active
+          ? 'border-primary bg-primary/10 text-primary-dark'
+          : 'border-border bg-bg text-text-muted',
       )}
-    />
+    >
+      <span className="font-mono text-sm font-semibold">{time}</span>
+      <span className="text-[11px] mt-0.5">{active ? 'dabei' : 'kein'}</span>
+    </button>
   );
 }
