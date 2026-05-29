@@ -179,14 +179,21 @@ export async function parseEinsatzplan(
   const seasonTimes = (season === 'summer' ? [...SUMMER_TRIP_TIMES] : [...WINTER_TRIP_TIMES]);
   const half = Math.ceil(seasonTimes.length / 2);
 
+  // A shift cell counts as "scheduled" if it holds a positive number
+  // (1 / 0.5) OR any non-empty annotation text (e.g. "No 7:10" means the
+  // pilot works that shift but skips the 7:10 flight).
+  const isPresent = (v: unknown): boolean => {
+    const n = asNumber(v);
+    if (n !== null) return n > 0;
+    return typeof v === 'string' && v.trim() !== '';
+  };
+
   const out: ParsedSchedule = {};
   for (const [day, col] of dayCols.entries()) {
     const v1 = cellValue(ws, pilotRow, col);
     const v2 = cellValue(ws, pilotRow, col + 1);
-    const n1 = asNumber(v1);
-    const n2 = asNumber(v2);
-    const has1 = n1 !== null && n1 > 0;
-    const has2 = n2 !== null && n2 > 0;
+    const has1 = isPresent(v1);
+    const has2 = isPresent(v2);
     if (!has1 && !has2) continue; // not scheduled
 
     let period: ParsedScheduleEntry['period'];
