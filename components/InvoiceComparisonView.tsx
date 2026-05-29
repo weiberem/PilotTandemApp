@@ -30,9 +30,13 @@ type Props = {
 };
 
 export function InvoiceComparisonView(p: Props) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [confirming, setConfirming] = useState(false);
+
+  const verifyReady = p.verification.ready;
+  const verifyMissing = p.verification.unverifiedDates.length;
 
   const daysWithFlights = groupByDate(p.flights, p.rates);
 
