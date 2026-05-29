@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { AvailabilityCalendar, type ScheduleMap } from '@/components/AvailabilityCalendar';
+import { PlanManager } from '@/components/PlanManager';
 import { addMonths, monthFirst, type AvailabilityDay } from '@/lib/availability';
 import type { FullPlan } from '@/lib/einsatzplanParser';
 
@@ -65,6 +66,7 @@ export default async function AvailabilityPage() {
         schedule={schedule}
         fullPlan={fullPlan}
       />
+      <PlanManager />
     </div>
   );
 }

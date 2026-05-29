@@ -4,6 +4,7 @@ import { buildInvoiceRows, monthLabelDe } from '@/lib/invoice';
 import { computeDayTotals, type FlightRow, type PilotRates } from '@/lib/flights';
 import { getResend, getFromAddress } from '@/lib/email';
 import { runMonthlyBackup } from '@/lib/runBackup';
+import { archivePreviousMonthImports } from '@/lib/archiveImports';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -158,7 +159,17 @@ export async function GET(req: NextRequest) {
     summary.push({ pilot_id: pilot.id, companies: companyResults, emailed, backup });
   }
 
-  return NextResponse.json({ ok: true, month: monthFirst, pilots: summary });
+  // Archive any per-month Einsatzplan imports whose month has fully ended.
+  // The "previous month key" is the same monthFirst we just invoiced for.
+  const prevMonthKey = monthFirst.slice(0, 7); // YYYY-MM
+  let archived: Array<{ pilot_id: string; archived: number }> = [];
+  try {
+    archived = await archivePreviousMonthImports(prevMonthKey);
+  } catch (e) {
+    console.warn('archivePreviousMonthImports failed:', e);
+  }
+
+  return NextResponse.json({ ok: true, month: monthFirst, pilots: summary, archived });
 }
 
 function isoDate(d: Date): string {
