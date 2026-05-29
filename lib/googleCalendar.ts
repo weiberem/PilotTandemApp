@@ -1,6 +1,6 @@
 /**
  * Google Calendar push — writes the pilot's Skywings-scheduled days into
- * their Google Calendar as all-day-ish events with the trip-time window.
+ * their Google Calendar as timed events.
  *
  * Uses the same OAuth token as Drive (scope calendar.events added in
  * lib/googleDrive.ts). Plain fetch against the Calendar v3 REST API.
@@ -93,36 +93,35 @@ export async function upsertCalendarEvent(
   if (!res.ok) throw new Error(`calendar insert failed: ${res.status} ${await res.text()}`);
   return { action: 'created' };
 }
-  entry: CalendarEntry,
+
+/**
+ * Delete every TandemLog-tagged event for the given month.
+ * Iterates each day, looks up tag "<source>:<YYYY-MM-DD>" written by
+ * upsertCalendarEvent, deletes it. Idempotent — missing days are skipped.
+ * Returns the count of events actually deleted.
+ */
+export async function deleteMonthCalendarEvents(
+  monthKey: string,                 // "YYYY-MM"
   accessToken: string,
   source = 'skywings',
   calendarId = 'primary',
-): Promise<{ action: 'created' | 'updated' }> {
-  const tag = `${source}:${entry.date}`;
-  const existing = await findTaggedEvent(calendarId, tag, accessToken);
-  const body = JSON.stringify(eventBody(entry, tag));
-
-  if (existing) {
+): Promise<number> {
+  const [y, m] = monthKey.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  let deleted = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const tag = `${source}:${date}`;
+    const event = await findTaggedEvent(calendarId, tag, accessToken);
+    if (!event) continue;
     const res = await fetch(
-      `${CAL_BASE}/calendars/${encodeURIComponent(calendarId)}/events/${existing.id}`,
-      {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
-        body,
-      },
+      `${CAL_BASE}/calendars/${encodeURIComponent(calendarId)}/events/${event.id}`,
+      { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } },
     );
-    if (!res.ok) throw new Error(`calendar update failed: ${res.status} ${await res.text()}`);
-    return { action: 'updated' };
+    if (res.ok) deleted++;
+    else if (res.status !== 404 && res.status !== 410) {
+      console.warn(`calendar delete failed for ${date}: ${res.status} ${await res.text()}`);
+    }
   }
-
-  const res = await fetch(
-    `${CAL_BASE}/calendars/${encodeURIComponent(calendarId)}/events`,
-    {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
-      body,
-    },
-  );
-  if (!res.ok) throw new Error(`calendar insert failed: ${res.status} ${await res.text()}`);
-  return { action: 'created' };
+  return deleted;
 }
