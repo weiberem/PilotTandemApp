@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from 'react';
 import { ChevronLeft, ChevronRight, Mail, Check, Plane, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  addMonths, buildMailto, monthGrid, monthLabel, monthFirst,
+  addMonths, buildMailto, monthGrid, monthLabel, monthFirst, nextDeadlineInfo,
   type AvailabilityDay, type DayPeriod,
 } from '@/lib/availability';
 import { resolveSeason } from '@/lib/tripTimes';
@@ -64,8 +64,7 @@ export function AvailabilityCalendar({
   const season = resolveSeason(seasonOverride, new Date(monthKey));
   const submitted = !!submittedByMonth[monthKey];
 
-  const todayDom = new Date().getDate();
-  const showDeadline = todayDom >= 10;
+  const deadline = useMemo(() => nextDeadlineInfo(new Date()), []);
 
   function setDayState(date: string, period: DayPeriod | null) {
     setDaysByMonth(prev => {
@@ -131,12 +130,16 @@ export function AvailabilityCalendar({
 
   return (
     <div className="space-y-4">
-      {showDeadline && (
-        <div className="card p-3 border-l-4 border-l-warning text-sm flex items-start gap-2">
-          <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
-          <span>Verfügbarkeit bis Monatsmitte einreichen!</span>
-        </div>
-      )}
+      <div className={cn(
+        'card p-3 border-l-4 text-sm flex items-start gap-2',
+        deadline.urgent ? 'border-l-warning' : 'border-l-primary',
+      )}>
+        <AlertTriangle className={cn('w-4 h-4 shrink-0 mt-0.5', deadline.urgent ? 'text-warning' : 'text-primary')} />
+        <span>
+          Einsatzdaten für <span className="font-semibold capitalize">{deadline.targetMonthLabel}</span>{' '}
+          bis <span className="font-semibold">15. {deadline.deadlineMonthLabel}</span> einreichen.
+        </span>
+      </div>
 
       {submitted && (
         <div className="card p-3 border-l-4 border-l-success text-sm flex items-center gap-2">

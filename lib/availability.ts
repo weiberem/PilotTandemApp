@@ -60,6 +60,48 @@ export function monthLabel(year: number, monthIndex0: number): string {
   return new Intl.DateTimeFormat('de-CH', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(d);
 }
 
+/** German month name only (no year). */
+export function monthNameDe(year: number, monthIndex0: number): string {
+  const d = new Date(Date.UTC(year, monthIndex0, 1));
+  return new Intl.DateTimeFormat('de-CH', { month: 'long', timeZone: 'UTC' }).format(d);
+}
+
+export type DeadlineInfo = {
+  deadlineDay: 15;
+  deadlineMonthLabel: string;  // e.g. "Juni"
+  targetMonthLabel: string;    // e.g. "Juli 2026"
+  targetMonth: string;         // YYYY-MM-01 of the month being planned
+  urgent: boolean;             // deadline within ~5 days
+};
+
+/**
+ * Availability is submitted by the 15th of the month BEFORE the planned month.
+ * From "now", work out the next actionable deadline + which month it plans:
+ *   - today <= 15th → deadline is the 15th of THIS month, plans NEXT month
+ *   - today >  15th → deadline is the 15th of NEXT month, plans the month after
+ *
+ * Example: on 29 May → "bis 15. Juni" plans "Juli".
+ */
+export function nextDeadlineInfo(now: Date = new Date()): DeadlineInfo {
+  const day = now.getDate();
+  const y = now.getFullYear();
+  const m = now.getMonth(); // 0-based
+  const deadline = day <= 15 ? { year: y, monthIndex0: m } : addMonths(y, m, 1);
+  const target = addMonths(deadline.year, deadline.monthIndex0, 1);
+
+  // Urgent if the deadline 15th is within 5 days from now.
+  const deadlineDate = new Date(deadline.year, deadline.monthIndex0, 15);
+  const daysLeft = Math.ceil((deadlineDate.getTime() - now.getTime()) / 86_400_000);
+
+  return {
+    deadlineDay: 15,
+    deadlineMonthLabel: monthNameDe(deadline.year, deadline.monthIndex0),
+    targetMonthLabel: monthLabel(target.year, target.monthIndex0),
+    targetMonth: `${target.year}-${String(target.monthIndex0 + 1).padStart(2, '0')}-01`,
+    urgent: daysLeft <= 5,
+  };
+}
+
 const PERIOD_LABEL: Record<DayPeriod, string> = {
   full: 'Ganztag',
   half_am: 'Halbtag Vormittag',

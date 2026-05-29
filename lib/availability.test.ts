@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  addMonths, monthFirst, monthGrid, monthLabel,
+  addMonths, monthFirst, monthGrid, monthLabel, nextDeadlineInfo,
   buildMailto, dayMailtoLine, type AvailabilityDay,
 } from './availability';
 
@@ -76,5 +76,32 @@ describe('buildMailto', () => {
     // Days sorted ascending in body
     const body = decodeURIComponent(url.split('body=')[1]);
     expect(body.indexOf('01.01.')).toBeLessThan(body.indexOf('15.01.'));
+  });
+});
+
+describe('nextDeadlineInfo', () => {
+  it('on 29 May → submit by 15 Juni for Juli', () => {
+    const info = nextDeadlineInfo(new Date(2026, 4, 29)); // month 4 = May
+    expect(info.deadlineMonthLabel.toLowerCase()).toContain('juni');
+    expect(info.targetMonthLabel.toLowerCase()).toContain('juli');
+    expect(info.targetMonth).toBe('2026-07-01');
+  });
+
+  it('on 10 May (before 15th) → submit by 15 Mai for Juni', () => {
+    const info = nextDeadlineInfo(new Date(2026, 4, 10));
+    expect(info.deadlineMonthLabel.toLowerCase()).toContain('mai');
+    expect(info.targetMonthLabel.toLowerCase()).toContain('juni');
+    expect(info.targetMonth).toBe('2026-06-01');
+  });
+
+  it('rolls over the year: 20 Dec → 15 Jan for Feb', () => {
+    const info = nextDeadlineInfo(new Date(2026, 11, 20)); // Dec
+    expect(info.deadlineMonthLabel.toLowerCase()).toContain('januar');
+    expect(info.targetMonth).toBe('2027-02-01');
+  });
+
+  it('flags urgent within 5 days of the deadline', () => {
+    expect(nextDeadlineInfo(new Date(2026, 4, 12)).urgent).toBe(true);  // 3 days before 15 May
+    expect(nextDeadlineInfo(new Date(2026, 4, 2)).urgent).toBe(false);  // 13 days before
   });
 });

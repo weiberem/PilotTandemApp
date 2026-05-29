@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { Plane, CalendarRange } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatDateDe, isoDate, formatChf } from '@/lib/utils';
 
@@ -36,8 +37,8 @@ export default async function HomePage() {
         <h1 className="text-2xl font-display font-bold">Heute</h1>
       </section>
 
-      <Link href="/log" className="btn-accent w-full text-base shadow-md">
-        ✈️ Flug erfassen
+      <Link href="/log" className="btn-accent w-full text-base">
+        <Plane className="w-5 h-5 mr-2 -rotate-45" /> Flug erfassen
       </Link>
 
       <section className="card p-4">
@@ -64,7 +65,7 @@ export default async function HomePage() {
           <Link href="/summary" className="btn-primary flex-1">Tagesabschluss</Link>
         </div>
         <Link href="/flights" className="btn-ghost w-full border border-border mt-2 text-sm">
-          📅 Alle Flüge (Monatsübersicht)
+<CalendarRange className="w-4 h-4 mr-2" /> Alle Flüge (Monatsübersicht)
         </Link>
       </section>
 
