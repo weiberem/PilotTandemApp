@@ -22,10 +22,11 @@ export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (!secret) return NextResponse.json({ error: 'cron not configured' }, { status: 500 });
 
+  // Header only — never accept the secret as a query param (it would land in
+  // server/proxy access logs). Vercel Cron sends "authorization: Bearer <CRON_SECRET>".
   const provided =
     req.headers.get('x-cron-secret') ??
-    req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ??
-    new URL(req.url).searchParams.get('secret') ?? '';
+    req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? '';
   if (provided !== secret) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const svc = createServiceClient();

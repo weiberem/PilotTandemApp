@@ -2,28 +2,26 @@ import { createServiceClient } from './supabase/server';
 import { formatInvoiceNumber } from './invoice';
 
 /**
- * Atomically increments the per-pilot, per-year invoice counter and returns
- * the next formatted invoice number ("YYYY-NNN"). Uses the service-role
- * client so we can read+write the pilots row in a single round trip,
- * bypassing the user-scoped RLS update path.
+ * Atomically reserves the next per-pilot, per-year invoice number ("YYYY-NNN").
+ *
+ * Calls the Postgres `reserve_invoice_number` RPC which does the
+ * increment in a single statement under a row lock, so concurrent
+ * /api/invoice/send calls for the same pilot can never produce duplicate
+ * numbers (Swiss bookkeeping requires unique sequential numbers).
+ *
+ * Uses the service-role client. IMPORTANT: callers must only ever pass the
+ * authenticated user's own id (server-derived) — this bypasses RLS.
  */
 export async function reserveNextInvoiceNumber(pilotId: string, year: number): Promise<string> {
   const sb = createServiceClient();
-  const { data: pilot, error } = await sb
-    .from('pilots')
-    .select('invoice_counter, invoice_counter_year')
-    .eq('id', pilotId)
-    .single();
-  if (error) throw new Error(`invoice counter read failed: ${error.message}`);
-
-  const sameYear = pilot.invoice_counter_year === year;
-  const next = (sameYear ? (pilot.invoice_counter ?? 0) : 0) + 1;
-
-  const { error: upErr } = await sb
-    .from('pilots')
-    .update({ invoice_counter: next, invoice_counter_year: year })
-    .eq('id', pilotId);
-  if (upErr) throw new Error(`invoice counter write failed: ${upErr.message}`);
-
+  const { data, error } = await sb.rpc('reserve_invoice_number', {
+    p_pilot: pilotId,
+    p_year: year,
+  });
+  if (error) throw new Error(`invoice counter reservation failed: ${error.message}`);
+  const next = Number(data);
+  if (!Number.isFinite(next) || next < 1) {
+    throw new Error('invoice counter reservation returned an invalid value');
+  }
   return formatInvoiceNumber(year, next);
 }

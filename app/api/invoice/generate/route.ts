@@ -3,6 +3,7 @@ import { assembleInvoice } from '@/lib/invoiceAssemble';
 import { generateInvoiceXlsx } from '@/lib/invoiceGenerator';
 import { generateInvoicePdf } from '@/lib/pdfGenerator';
 import { monthLabelDe } from '@/lib/invoice';
+import { createClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,6 +14,13 @@ export const dynamic = 'force-dynamic';
  * and does NOT increment the invoice counter — that happens in /send.
  */
 export async function GET(req: NextRequest) {
+  // Explicit auth gate at the route boundary (consistent with every other
+  // /api route). assembleInvoice also scopes to the caller, but we reject
+  // unauthenticated callers up front with a proper 401.
+  const sb = createClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+
   const url = new URL(req.url);
   const monthFirst = url.searchParams.get('month') ?? '';
   const company = url.searchParams.get('company') ?? 'Skywings';
