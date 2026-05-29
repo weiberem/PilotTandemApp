@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  ChevronLeft, ChevronRight, ChevronDown, Camera, AlertCircle, Wind, Plus,
+  ChevronLeft, ChevronRight, ChevronDown, Camera, AlertCircle, Wind, Plus, RotateCcw,
 } from 'lucide-react';
 import { cn, formatChf, formatDateDe } from '@/lib/utils';
 import type { DayTotals, FlightRow } from '@/lib/flights';
@@ -62,7 +62,9 @@ export function MonthFlightsView({
           className="text-center"
         >
           <div className="font-display font-semibold text-lg capitalize">{monthLabel(year, monthIndex0)}</div>
-          <div className="text-xs text-primary">↻ Aktueller Monat</div>
+          <div className="text-xs text-primary inline-flex items-center gap-1 justify-center">
+            <RotateCcw className="w-3 h-3" /> Aktueller Monat
+          </div>
         </button>
         <button
           onClick={() => router.push(`/flights?month=${shiftMonth(month, 1)}`)}
