@@ -3,34 +3,40 @@ import { Plane } from 'lucide-react';
 
 /**
  * Static root page — no server-side auth probe, no Supabase calls.
- * Purely renders a welcome screen with a link to /login. This avoids
- * any failure path that could surface as a 404 on the root URL.
- *
- * Auth-protected pages still do their own auth.getUser() check.
+ * Renders a welcome screen with a Skywings-style navy hero block on top
+ * and a light card with CTAs below.
  */
 export default function Index() {
   return (
-    <main className="min-h-dvh flex items-center justify-center p-4 bg-bg">
-      <div className="w-full max-w-sm text-center">
-        <div className="mb-8">
-          <div className="inline-flex items-center gap-2.5">
-            <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-bg-dark text-white">
-              <Plane className="w-5 h-5 -rotate-45" />
-            </span>
-            <span className="text-3xl font-display font-bold tracking-tight">TandemLog</span>
-          </div>
-          <p className="text-text-muted text-sm mt-2">Flugrapport für Tandempiloten</p>
+    <main className="min-h-dvh flex flex-col bg-bg">
+      <section className="bg-bg-dark text-white px-6 pt-16 pb-12 text-center">
+        <div className="inline-flex items-center gap-3 mb-6">
+          <span className="inline-flex items-center justify-center w-11 h-11 rounded-lg bg-primary text-white shadow-md">
+            <Plane className="w-6 h-6 -rotate-45" />
+          </span>
+          <span className="text-4xl font-display font-bold tracking-tight">
+            Tandem<span className="text-primary">Log</span>
+          </span>
         </div>
-        <div className="card p-6 space-y-3">
-          <p className="text-sm text-text-muted">
-            Willkommen. Melde dich an, um deine Flüge zu erfassen oder die Monatsabrechnung zu öffnen.
-          </p>
+        <h1 className="text-2xl font-display font-bold tracking-tight">
+          Flugrapport für Tandempiloten
+        </h1>
+        <p className="text-white/70 text-sm mt-3 max-w-sm mx-auto">
+          Flüge erfassen, Verfügbarkeit planen, Rechnungen senden — direkt aus dem Cockpit.
+        </p>
+      </section>
+
+      <section className="flex-1 flex items-start justify-center p-4 -mt-6">
+        <div className="card p-6 space-y-3 w-full max-w-sm">
           <Link href="/login" className="btn-primary w-full">Anmelden</Link>
           <Link href="/register" className="btn-ghost w-full border border-border">
             Einladung einlösen
           </Link>
+          <p className="text-xs text-text-muted text-center pt-2">
+            Konto auf Einladung des Admins.
+          </p>
         </div>
-      </div>
+      </section>
     </main>
   );
 }
