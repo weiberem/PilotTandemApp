@@ -11,12 +11,25 @@ export default async function AvailabilityPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // Base query: only columns guaranteed to exist after migration 001/002.
   const { data: pilot } = await supabase
     .from('pilots')
-    .select('full_name, office_email, season_override, einsatzplan_schedule, einsatzplan_full_plan')
+    .select('full_name, office_email, season_override, einsatzplan_schedule')
     .eq('id', user.id)
     .maybeSingle();
   if (!pilot) redirect('/settings?welcome=1');
+
+  // Optional column from migration 004 — fetched separately so the page
+  // still works if that migration hasn't been applied yet.
+  let fullPlan: FullPlan | null = null;
+  const { data: fullRow } = await supabase
+    .from('pilots')
+    .select('einsatzplan_full_plan')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (fullRow && 'einsatzplan_full_plan' in fullRow) {
+    fullPlan = (fullRow.einsatzplan_full_plan as FullPlan | null) ?? null;
+  }
 
   const now = new Date();
   const cur = { year: now.getFullYear(), monthIndex0: now.getMonth() };
@@ -38,7 +51,6 @@ export default async function AvailabilityPage() {
   }
 
   const schedule = (pilot.einsatzplan_schedule as ScheduleMap | null) ?? {};
-  const fullPlan = (pilot.einsatzplan_full_plan as FullPlan | null) ?? null;
 
   return (
     <div className="p-4 space-y-4 max-w-xl mx-auto">
