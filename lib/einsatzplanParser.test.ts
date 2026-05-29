@@ -2,62 +2,90 @@ import { describe, it, expect } from 'vitest';
 import ExcelJS from 'exceljs';
 import { parseEinsatzplan } from './einsatzplanParser';
 
-async function makeWorkbook(rows: (string | Date)[][]): Promise<ArrayBuffer> {
+/**
+ * Build a synthetic Skywings-style matrix workbook:
+ *   sheet name encodes month/year
+ *   row 4: weekday labels (cosmetic)
+ *   row 5: day numbers in even columns (B=1, D=2, F=3, ...)
+ *   pilot row: two shift cells per day
+ */
+async function makeMatrix(sheetName: string, pilotName: string, perDay: Array<[unknown, unknown]>): Promise<ArrayBuffer> {
   const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet('Plan');
-  for (const r of rows) ws.addRow(r);
+  const ws = wb.addWorksheet(sheetName);
+  // day-number header (row 5): day d at column 2d
+  const dayRow = ws.getRow(5);
+  perDay.forEach((_, i) => { dayRow.getCell(2 + i * 2).value = i + 1; });
+  dayRow.commit();
+  // pilot row (row 8)
+  const pRow = ws.getRow(8);
+  pRow.getCell(1).value = pilotName;
+  perDay.forEach(([s1, s2], i) => {
+    if (s1 !== null && s1 !== '') pRow.getCell(2 + i * 2).value = s1 as ExcelJS.CellValue;
+    if (s2 !== null && s2 !== '') pRow.getCell(3 + i * 2).value = s2 as ExcelJS.CellValue;
+  });
+  pRow.commit();
   return await wb.xlsx.writeBuffer() as ArrayBuffer;
 }
 
-describe('parseEinsatzplan', () => {
-  it('parses full / half-am / half-pm / exclusions', async () => {
-    const buf = await makeWorkbook([
-      ['Datum', 'Weibel', 'Müller'],
-      [new Date(Date.UTC(2025, 5, 1)), 'GT', 'frei'],          // summer full
-      [new Date(Date.UTC(2025, 5, 2)), 'VM', ''],              // half AM
-      [new Date(Date.UTC(2025, 5, 3)), 'NM', ''],              // half PM
-      [new Date(Date.UTC(2025, 5, 4)), 'GT, kein 07', ''],     // full minus 07:10
-      [new Date(Date.UTC(2025, 5, 5)), 'GT, kein 17', ''],     // full minus 17:00
+describe('parseEinsatzplan (matrix format)', () => {
+  it('maps both/AM/PM shifts to periods + season times', async () => {
+    const buf = await makeMatrix('June_2026', 'Remy', [
+      [1, 1],     // day 1 full
+      ['', 1],    // day 2 PM
+      [1, ''],    // day 3 AM
+      ['', ''],   // day 4 not scheduled
+      [0.5, 0.5], // day 5 full (halves still count as present)
     ]);
+    const s = await parseEinsatzplan(buf, { pilotName: 'Rémy Weibel' });
 
-    const schedule = await parseEinsatzplan(buf, { pilotName: 'Rémy Weibel' });
+    expect(s['2026-06-01'].period).toBe('full');
+    expect(s['2026-06-01'].times).toContain('07:10');
+    expect(s['2026-06-01'].times).toContain('17:00');
 
-    expect(schedule['2025-06-01'].period).toBe('full');
-    expect(schedule['2025-06-01'].times).toContain('07:10');
-    expect(schedule['2025-06-01'].times).toContain('17:00');
+    expect(s['2026-06-02'].period).toBe('half_pm');
+    expect(s['2026-06-02'].times.at(-1)).toBe('17:00');
 
-    expect(schedule['2025-06-02'].period).toBe('half_am');
-    expect(schedule['2025-06-02'].times[0]).toBe('07:10');
+    expect(s['2026-06-03'].period).toBe('half_am');
+    expect(s['2026-06-03'].times[0]).toBe('07:10');
 
-    expect(schedule['2025-06-03'].period).toBe('half_pm');
-    expect(schedule['2025-06-03'].times.at(-1)).toBe('17:00');
+    expect(s['2026-06-04']).toBeUndefined();   // both empty → skipped
 
-    expect(schedule['2025-06-04'].times).not.toContain('07:10');
-    expect(schedule['2025-06-04'].times).toContain('17:00');
-
-    expect(schedule['2025-06-05'].times).toContain('07:10');
-    expect(schedule['2025-06-05'].times).not.toContain('17:00');
-
-    expect(schedule['2025-06-01'].times).toHaveLength(9); // all 9 summer times
-    expect(schedule['2025-06-06']).toBeUndefined();      // "frei" → skipped
+    expect(s['2026-06-05'].period).toBe('full');
   });
 
-  it('falls back to winter season times in Nov–Mar', async () => {
-    const buf = await makeWorkbook([
-      ['Datum', 'Weibel'],
-      [new Date(Date.UTC(2025, 0, 15)), 'GT'],
-    ]);
-    const s = await parseEinsatzplan(buf, { pilotName: 'Weibel' });
-    expect(s['2025-01-15'].times).toContain('08:30');
-    expect(s['2025-01-15'].times).not.toContain('07:10'); // winter has no 07:10
+  it('matches pilot name accent-insensitively (Remy vs Rémy)', async () => {
+    const buf = await makeMatrix('June_2026', 'Remy', [[1, 1]]);
+    const s = await parseEinsatzplan(buf, { pilotName: 'Rémy' });
+    expect(Object.keys(s)).toContain('2026-06-01');
   });
 
-  it('throws clearly when the pilot column is missing', async () => {
-    const buf = await makeWorkbook([
-      ['Datum', 'Müller'],
-      [new Date(Date.UTC(2025, 5, 1)), 'GT'],
+  it('honours No 7:10 / No 17:00 exception text in a shift cell', async () => {
+    const buf = await makeMatrix('June_2026', 'Remy', [
+      ['No 7:10', 1],     // full day but no early
+      [1, 'No 17:00'],    // full day but no late
     ]);
-    await expect(parseEinsatzplan(buf, { pilotName: 'Weibel' }))
+    const s = await parseEinsatzplan(buf, { pilotName: 'Remy' });
+    expect(s['2026-06-01'].period).toBe('full');
+    expect(s['2026-06-01'].times).not.toContain('07:10');
+    expect(s['2026-06-02'].times).not.toContain('17:00');
+  });
+
+  it('uses winter season times in Nov–Mar', async () => {
+    const buf = await makeMatrix('Januar_2026', 'Remy', [[1, 1]]);
+    const s = await parseEinsatzplan(buf, { pilotName: 'Remy' });
+    expect(s['2026-01-01'].times).toContain('08:30');
+    expect(s['2026-01-01'].times).not.toContain('07:10');
+  });
+
+  it('throws clearly when the pilot is missing', async () => {
+    const buf = await makeMatrix('June_2026', 'Stefan', [[1, 1]]);
+    await expect(parseEinsatzplan(buf, { pilotName: 'Remy' }))
       .rejects.toThrow(/pilot/i);
+  });
+
+  it('throws when the month cannot be read from the sheet name', async () => {
+    const buf = await makeMatrix('Tabelle1', 'Remy', [[1, 1]]);
+    await expect(parseEinsatzplan(buf, { pilotName: 'Remy' }))
+      .rejects.toThrow(/month\/year/i);
   });
 });

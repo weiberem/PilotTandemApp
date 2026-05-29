@@ -1,53 +1,149 @@
 import ExcelJS from 'exceljs';
 import {
-  SUMMER_TRIP_TIMES, WINTER_TRIP_TIMES, OPTIONAL_SUMMER_TIMES, resolveSeason,
+  SUMMER_TRIP_TIMES, WINTER_TRIP_TIMES, resolveSeason,
 } from './tripTimes';
 
 /**
- * The Skywings Einsatzplan format isn't fully specified — we make it robust
- * to common shapes. The parser:
+ * Skywings Einsatzplan parser — MATRIX format.
  *
- *   1. Loads the workbook from an Excel buffer.
- *   2. Scans all worksheets for the first row containing a "Datum" header
- *      (or any cell parseable as a Date in column A).
- *   3. Looks for a column whose header matches the pilot's name
- *      (case-insensitive, partial match on first/last name).
- *   4. For each data row, reads the cell at (date row × pilot column):
- *        - empty / "frei" / "-" → not working
- *        - "GT" / "Ganztag" / "X" / "1" → full day, all season times
- *        - "VM" / "AM" / "1/2 V" → half day morning (first half of season times)
- *        - "NM" / "PM" / "1/2 N" → half day afternoon (second half)
- *        - "07:10" / "no 07" / "kein 07" → exclude optional 07:10
- *        - "17:00" / "no 17" / "kein 17" → exclude optional 17:00
- *      Letters/markers can be combined (e.g. "GT, kein 17").
+ * The real Skywings plan (verified against Einsatzplan_Juni_2026.xlsx) is a
+ * wide matrix, NOT a date list:
  *
- * Returns a schedule keyed by ISO date with the resolved trip times so the
- * /log smart pre-fill can use them directly.
+ *   Row "JUNI" weekdays:  | Mo Mo | Di Di | Mi Mi | ...   (each day = 2 cols)
+ *   Row "JUNI" day nums:  | 1   1 | 2   2 | 3   3 | ...   (day d in even col 2d)
+ *   Col A = pilot names (one row per pilot)
+ *   Each pilot row, per day, has TWO shift cells:
+ *       1   = available/scheduled, full
+ *       0.5 = half
+ *       ""  = not working that shift
+ *   shift1 (left col) ≈ morning, shift2 (right col) ≈ afternoon.
+ *
+ * The sheet name encodes the month + year (e.g. "June_2026").
+ *
+ * We map each day to:
+ *   both shifts present  → period 'full'      → all season trip times
+ *   only shift1 present  → period 'half_am'   → first half of season times
+ *   only shift2 present  → period 'half_pm'   → second half of season times
+ *   neither present      → skipped (not scheduled)
+ *
+ * Per-day exception text ("No 7:10" / "No 17:00") found in either shift cell
+ * removes the corresponding optional summer slot.
+ *
+ * Output is keyed by ISO date so the /log smart pre-fill can use the exact
+ * scheduled trip times for that day.
  */
+
 export type ParsedScheduleEntry = {
   period: 'full' | 'half_am' | 'half_pm';
   times: string[];
 };
-
 export type ParsedSchedule = Record<string, ParsedScheduleEntry>;
 
 export type ParseOptions = {
   pilotName: string;
   seasonOverride?: 'summer' | 'winter' | null;
-  /** Optional explicit overrides if the auto-detection misses. */
   columnMapping?: {
     sheetName?: string;
-    dateColumn?: number;        // 1-based
-    pilotColumn?: number;       // 1-based
-    headerRow?: number;         // 1-based
+    dayHeaderRow?: number;   // 1-based; row that holds day-of-month numbers
+    pilotRow?: number;       // 1-based; the pilot's row
   };
 };
 
-const FULL_MARKERS = ['gt', 'ganztag', 'x', 'ja', 'yes', '1', '✓', 'full'];
-const AM_MARKERS = ['vm', 'am', '1/2 v', '1/2v', 'halb v', 'half am', '½v', '½ v'];
-const PM_MARKERS = ['nm', 'pm', '1/2 n', '1/2n', 'halb n', 'half pm', '½n', '½ n'];
-const NO_07_MARKERS = ['07:10', 'no 07', 'kein 07', '-07'];
-const NO_17_MARKERS = ['17:00', 'no 17', 'kein 17', '-17'];
+const NO_07_RE = /no\s*7[:.]?10|no\s*7\b|kein\s*7/i;
+const NO_17_RE = /no\s*17[:.]?00|no\s*17\b|kein\s*17/i;
+
+const MONTHS: Record<string, number> = {
+  // English
+  january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
+  july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+  jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9,
+  oct: 10, nov: 11, dec: 12,
+  // German
+  januar: 1, februar: 2, märz: 3, maerz: 3, mai: 5, juni: 6, juli: 7,
+  oktober: 10, dezember: 12,
+};
+
+function normalize(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
+function cellValue(ws: ExcelJS.Worksheet, r: number, c: number): unknown {
+  let v: unknown = ws.getRow(r).getCell(c).value;
+  if (v && typeof v === 'object' && 'result' in (v as Record<string, unknown>)) {
+    v = (v as { result: unknown }).result;
+  }
+  if (v && typeof v === 'object' && 'richText' in (v as Record<string, unknown>)) {
+    v = (v as { richText: { text: string }[] }).richText.map(t => t.text).join('');
+  }
+  return v;
+}
+
+function asNumber(v: unknown): number | null {
+  if (typeof v === 'number') return v;
+  if (typeof v === 'string' && v.trim() !== '' && !isNaN(Number(v))) return Number(v);
+  return null;
+}
+
+/** "June_2026" / "Juni 2026" / "06_2026" → { month, year } */
+function parseSheetMonth(name: string): { month: number; year: number } | null {
+  const yearM = name.match(/(20\d{2})/);
+  const year = yearM ? Number(yearM[1]) : new Date().getFullYear();
+  const lower = normalize(name);
+  for (const [key, m] of Object.entries(MONTHS)) {
+    if (lower.includes(key)) return { month: m, year };
+  }
+  const numM = name.match(/\b(0?[1-9]|1[0-2])[_\-./ ]+20\d{2}\b/);
+  if (numM) return { month: Number(numM[1]), year };
+  return null;
+}
+
+/**
+ * Find the day-number header row: the row where consecutive days 1,2,3 appear
+ * in even columns 2,4,6 (the Skywings grid). Returns row index or null.
+ */
+function findDayHeaderRow(ws: ExcelJS.Worksheet): number | null {
+  const maxScan = Math.min(30, ws.rowCount);
+  for (let r = 1; r <= maxScan; r++) {
+    if (asNumber(cellValue(ws, r, 2)) === 1 &&
+        asNumber(cellValue(ws, r, 4)) === 2 &&
+        asNumber(cellValue(ws, r, 6)) === 3) {
+      return r;
+    }
+  }
+  return null;
+}
+
+/** Map day-of-month → first (left) column, reading the header row's even columns. */
+function buildDayColumns(ws: ExcelJS.Worksheet, headerRow: number): Map<number, number> {
+  const map = new Map<number, number>();
+  for (let c = 2; c <= 70; c += 2) {
+    const d = asNumber(cellValue(ws, headerRow, c));
+    if (d !== null && Number.isInteger(d) && d >= 1 && d <= 31) {
+      map.set(d, c);
+    }
+  }
+  return map;
+}
+
+/** Find the pilot's row by accent-insensitive name match in column A. */
+function findPilotRow(ws: ExcelJS.Worksheet, pilotName: string): number | null {
+  const target = normalize(pilotName);
+  const tokens = target.split(/\s+/).filter(t => t.length >= 3);
+  // Exact full-name match first
+  for (let r = 1; r <= ws.rowCount; r++) {
+    const a = cellValue(ws, r, 1);
+    if (typeof a === 'string' && normalize(a) === target) return r;
+  }
+  // Token match (first or last name)
+  for (let r = 1; r <= ws.rowCount; r++) {
+    const a = cellValue(ws, r, 1);
+    if (typeof a === 'string') {
+      const na = normalize(a);
+      if (tokens.some(t => na === t || na.split(/\s+/).includes(t))) return r;
+    }
+  }
+  return null;
+}
 
 export async function parseEinsatzplan(
   buffer: ArrayBuffer | Buffer,
@@ -56,125 +152,62 @@ export async function parseEinsatzplan(
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buffer as ArrayBuffer);
 
-  const sheet = opts.columnMapping?.sheetName
+  const ws = opts.columnMapping?.sheetName
     ? wb.getWorksheet(opts.columnMapping.sheetName)
-    : wb.worksheets[0];
-  if (!sheet) throw new Error('No worksheet found in Einsatzplan');
+    : (wb.worksheets.find(s => s.state !== 'hidden') ?? wb.worksheets[0]);
+  if (!ws) throw new Error('No worksheet found in Einsatzplan');
 
-  // Find header row.
-  const headerRow = opts.columnMapping?.headerRow ?? findHeaderRow(sheet);
-  if (!headerRow) throw new Error('Could not locate header row (no "Datum" column found).');
-
-  const dateCol = opts.columnMapping?.dateColumn ?? findDateColumn(sheet, headerRow);
-  const pilotCol = opts.columnMapping?.pilotColumn ?? findPilotColumn(sheet, headerRow, opts.pilotName);
-  if (!pilotCol) {
-    throw new Error(`Could not find a column for pilot "${opts.pilotName}". Configure pilotColumn in Settings.`);
+  const monthInfo = parseSheetMonth(ws.name);
+  if (!monthInfo) {
+    throw new Error(`Could not determine month/year from sheet name "${ws.name}". Expected something like "June_2026".`);
   }
+  const { month, year } = monthInfo;
+
+  const headerRow = opts.columnMapping?.dayHeaderRow ?? findDayHeaderRow(ws);
+  if (!headerRow) {
+    throw new Error('Could not locate the day-number header row (expected days 1,2,3… in columns B,D,F).');
+  }
+
+  const pilotRow = opts.columnMapping?.pilotRow ?? findPilotRow(ws, opts.pilotName);
+  if (!pilotRow) {
+    throw new Error(`Could not find a row for pilot "${opts.pilotName}". Check the spelling or set pilotRow in Settings.`);
+  }
+
+  const dayCols = buildDayColumns(ws, headerRow);
+  const season = resolveSeason(opts.seasonOverride ?? null, new Date(Date.UTC(year, month - 1, 1)));
+  const seasonTimes = (season === 'summer' ? [...SUMMER_TRIP_TIMES] : [...WINTER_TRIP_TIMES]);
+  const half = Math.ceil(seasonTimes.length / 2);
 
   const out: ParsedSchedule = {};
-  const lastRow = sheet.lastRow?.number ?? headerRow;
-  for (let r = headerRow + 1; r <= lastRow; r++) {
-    const row = sheet.getRow(r);
-    const dateCell = row.getCell(dateCol).value;
-    const date = coerceDate(dateCell);
-    if (!date) continue;
-    const cellValue = String(row.getCell(pilotCol).value ?? '').trim();
-    if (!cellValue) continue;
-    const season = resolveSeason(opts.seasonOverride ?? null, date);
-    const parsed = parseCell(cellValue, season);
-    if (parsed) out[isoDate(date)] = parsed;
-  }
-  return out;
-}
+  for (const [day, col] of dayCols.entries()) {
+    const v1 = cellValue(ws, pilotRow, col);
+    const v2 = cellValue(ws, pilotRow, col + 1);
+    const n1 = asNumber(v1);
+    const n2 = asNumber(v2);
+    const has1 = n1 !== null && n1 > 0;
+    const has2 = n2 !== null && n2 > 0;
+    if (!has1 && !has2) continue; // not scheduled
 
-function findHeaderRow(sheet: ExcelJS.Worksheet): number | null {
-  const lastRow = Math.min(20, sheet.lastRow?.number ?? 20);
-  for (let r = 1; r <= lastRow; r++) {
-    const row = sheet.getRow(r);
-    for (let c = 1; c <= Math.min(20, row.cellCount); c++) {
-      const v = String(row.getCell(c).value ?? '').trim().toLowerCase();
-      if (v === 'datum' || v === 'date') return r;
+    let period: ParsedScheduleEntry['period'];
+    let times: string[];
+    if (has1 && has2) { period = 'full'; times = [...seasonTimes]; }
+    else if (has1) { period = 'half_am'; times = seasonTimes.slice(0, half); }
+    else { period = 'half_pm'; times = seasonTimes.slice(half); }
+
+    // Exceptions from any text in the two shift cells.
+    const text = [v1, v2].filter(x => typeof x === 'string').join(' ');
+    if (season === 'summer' && text) {
+      if (NO_07_RE.test(text)) times = times.filter(t => t !== '07:10');
+      if (NO_17_RE.test(text)) times = times.filter(t => t !== '17:00');
     }
-  }
-  return null;
-}
 
-function findDateColumn(sheet: ExcelJS.Worksheet, headerRow: number): number {
-  const row = sheet.getRow(headerRow);
-  for (let c = 1; c <= Math.min(20, row.cellCount); c++) {
-    const v = String(row.getCell(c).value ?? '').trim().toLowerCase();
-    if (v === 'datum' || v === 'date') return c;
-  }
-  return 1;
-}
-
-function findPilotColumn(sheet: ExcelJS.Worksheet, headerRow: number, pilotName: string): number | null {
-  const row = sheet.getRow(headerRow);
-  const name = pilotName.toLowerCase();
-  const tokens = name.split(/\s+/).filter(t => t.length >= 3);
-  // Exact match first
-  for (let c = 1; c <= row.cellCount; c++) {
-    const v = String(row.getCell(c).value ?? '').trim().toLowerCase();
-    if (v === name) return c;
-  }
-  // Token match (last name or first name)
-  for (let c = 1; c <= row.cellCount; c++) {
-    const v = String(row.getCell(c).value ?? '').trim().toLowerCase();
-    if (tokens.some(t => v.includes(t))) return c;
-  }
-  return null;
-}
-
-function coerceDate(v: unknown): Date | null {
-  if (v instanceof Date) return v;
-  if (typeof v === 'number') return new Date(Math.round((v - 25569) * 86400 * 1000)); // Excel serial
-  if (typeof v === 'string') {
-    const d = new Date(v);
-    if (!isNaN(d.getTime())) return d;
-  }
-  if (v && typeof v === 'object' && 'result' in (v as Record<string, unknown>)) {
-    return coerceDate((v as { result: unknown }).result);
-  }
-  return null;
-}
-
-function isoDate(d: Date): string {
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(d.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${dd}`;
-}
-
-function parseCell(raw: string, season: 'summer' | 'winter'): ParsedScheduleEntry | null {
-  const v = raw.toLowerCase();
-  // Tokenize on whitespace, commas, semicolons, slashes for robust marker matching.
-  const tokens = v.split(/[\s,;/]+/).map(t => t.trim()).filter(Boolean);
-  const hasToken = (markers: string[]) => tokens.some(t => markers.includes(t));
-
-  const isAm = hasToken(AM_MARKERS) || AM_MARKERS.some(m => m.includes(' ') && v.includes(m));
-  const isPm = hasToken(PM_MARKERS) || PM_MARKERS.some(m => m.includes(' ') && v.includes(m));
-  const isFull = !isAm && !isPm && hasToken(FULL_MARKERS);
-  if (!isAm && !isPm && !isFull) {
-    // Cell present but doesn't match any marker — skip rather than guess.
-    return null;
-  }
-  const exclude7 = NO_07_MARKERS.some(m => v.includes(m));
-  const exclude17 = NO_17_MARKERS.some(m => v.includes(m));
-
-  const all = (season === 'summer' ? [...SUMMER_TRIP_TIMES] : [...WINTER_TRIP_TIMES]);
-  const half = Math.ceil(all.length / 2);
-  let times: string[];
-  if (isAm) times = all.slice(0, half);
-  else if (isPm) times = all.slice(half);
-  else times = all;
-
-  if (season === 'summer') {
-    if (exclude7) times = times.filter(t => t !== '07:10');
-    if (exclude17) times = times.filter(t => t !== '17:00');
-    // If the optional times weren't excluded, leave them — the pilot can still skip them.
-    void OPTIONAL_SUMMER_TIMES;
+    const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    out[iso] = { period, times };
   }
 
-  const period = isAm ? 'half_am' : isPm ? 'half_pm' : 'full';
-  return { period, times };
+  if (Object.keys(out).length === 0) {
+    throw new Error(`Found pilot "${opts.pilotName}" (row ${pilotRow}) but no scheduled days. Plan may be empty for this month.`);
+  }
+
+  return out;
 }
