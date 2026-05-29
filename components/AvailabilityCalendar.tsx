@@ -8,6 +8,7 @@ import {
   type AvailabilityDay, type DayPeriod,
 } from '@/lib/availability';
 import { resolveSeason } from '@/lib/tripTimes';
+import { isoDateZurich, nowInZurich } from '@/lib/utils';
 import { saveAvailability } from '@/app/(pilot)/availability/actions';
 import type { FullPlan, FullPlanPilot } from '@/lib/einsatzplanParser';
 
@@ -76,6 +77,15 @@ export function AvailabilityCalendar({
   const dayMap = daysByMonth[monthKey] ?? {};
   const season = resolveSeason(seasonOverride, new Date(monthKey));
   const submitted = !!submittedByMonth[monthKey];
+
+  // Today in Europe/Zurich — past days in the *current* month are hidden
+  // (Skywings does the same in their plan).
+  const today = isoDateZurich();
+  const todayMonthKey = today.slice(0, 7); // YYYY-MM
+  const isPastDay = (date: string): boolean =>
+    monthKey.slice(0, 7) === todayMonthKey && date < today;
+  // Reference for the nowInZurich helper so future tweaks have it handy.
+  void nowInZurich;
 
   const deadline = useMemo(() => nextDeadlineInfo(new Date()), []);
 
@@ -232,6 +242,7 @@ export function AvailabilityCalendar({
           const planDay = fullPlan?.days?.[date];
           const count = planDay?.pilots.length ?? 0;
           const isPlanMode = mode === 'plan';
+          const past = inMonth && isPastDay(date);
 
           if (isPlanMode) {
             // Skywings plan mode: show pilot count tinted by threshold; tap → list.
@@ -247,12 +258,13 @@ export function AvailabilityCalendar({
               <button
                 key={date}
                 type="button"
-                onClick={() => inMonth && planDay && setPlanDate(date)}
-                disabled={!inMonth || !planDay}
+                onClick={() => inMonth && !past && planDay && setPlanDate(date)}
+                disabled={!inMonth || !planDay || past}
                 className={cn(
                   'aspect-square rounded-lg text-sm font-medium relative select-none transition overflow-hidden',
-                  inMonth && planDay && 'cursor-pointer hover:brightness-95',
+                  inMonth && planDay && !past && 'cursor-pointer hover:brightness-95',
                   !inMonth && 'opacity-30',
+                  past && 'opacity-20',
                   colour,
                 )}
               >
@@ -269,19 +281,20 @@ export function AvailabilityCalendar({
           return (
             <div
               key={date}
-              role={inMonth ? 'button' : undefined}
-              tabIndex={inMonth ? 0 : undefined}
-              onClick={() => inMonth && onDayTap(date)}
+              role={inMonth && !past ? 'button' : undefined}
+              tabIndex={inMonth && !past ? 0 : undefined}
+              onClick={() => inMonth && !past && onDayTap(date)}
               onKeyDown={(e) => {
-                if (inMonth && (e.key === 'Enter' || e.key === ' ')) {
+                if (inMonth && !past && (e.key === 'Enter' || e.key === ' ')) {
                   e.preventDefault();
                   onDayTap(date);
                 }
               }}
               className={cn(
                 'aspect-square rounded-lg text-sm font-medium relative select-none transition overflow-hidden',
-                inMonth && 'cursor-pointer',
+                inMonth && !past && 'cursor-pointer',
                 !inMonth && 'opacity-30',
+                past && 'opacity-20 pointer-events-none',
                 inMonth && !period && 'bg-bg border border-border text-text',
                 period === 'full' && 'bg-success/85 text-white',
                 period === 'half_am' && 'bg-gradient-to-b from-warning/85 to-warning/40 text-white',
