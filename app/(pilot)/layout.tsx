@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { BottomNav } from '@/components/BottomNav';
+import { PilotHeader } from '@/components/PilotHeader';
 
 export default async function PilotLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
@@ -19,10 +19,7 @@ export default async function PilotLayout({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-dvh flex flex-col bg-bg">
-      <header className="bg-bg-dark text-white px-4 py-3 flex items-center justify-between">
-        <Link href="/home" className="font-display font-semibold">TandemLog</Link>
-        <span className="text-xs text-white/70">{pilot?.full_name ?? user.email}</span>
-      </header>
+      <PilotHeader pilotLabel={pilot?.full_name ?? user.email ?? ''} />
       <main className="flex-1 pb-24">{children}</main>
       <BottomNav />
     </div>
