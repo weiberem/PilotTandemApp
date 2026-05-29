@@ -297,7 +297,6 @@ PilotTandemApp/
 ├── supabase/migrations/
 │   ├── 001_initial_schema.sql    ← Tabellen + RLS + Trigger
 │   └── 002_einsatzplan_folder.sql ← Zusätzliche Drive-Felder
-├── public/                       ← Statische Assets
 ├── vercel.json                   ← Cron-Schedule
 ├── next.config.js                ← Build-Config
 ├── package.json                  ← Dependencies
