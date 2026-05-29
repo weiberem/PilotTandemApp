@@ -29,13 +29,15 @@ export default async function FlightsPage({
     : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const { first, last, year, monthIndex0 } = monthRange(month);
 
-  const [{ data: pilot }, { data: rows }] = await Promise.all([
+  const [{ data: pilot }, { data: rows }, { data: vers }] = await Promise.all([
     supabase.from('pilots').select(
       'flight_rate_chf, photo_prepaid_rate_chf, thermal_rate_chf, no_show_rate_chf',
     ).eq('id', user.id).maybeSingle(),
     supabase.from('flights').select('*')
       .gte('flight_date', first).lte('flight_date', last)
       .order('flight_date').order('trip_time'),
+    supabase.from('day_verifications').select('flight_date')
+      .gte('flight_date', first).lte('flight_date', last),
   ]);
 
   const rates: PilotRates = {
@@ -52,9 +54,15 @@ export default async function FlightsPage({
     list.push(f);
     byDate.set(f.flight_date, list);
   }
+  const verifiedDates = new Set<string>((vers ?? []).map(v => v.flight_date as string));
   const days: DayGroup[] = [...byDate.entries()]
     .sort(([a], [b]) => b.localeCompare(a)) // newest first
-    .map(([date, list]) => ({ date, flights: list, totals: computeDayTotals(list, rates) }));
+    .map(([date, list]) => ({
+      date,
+      flights: list,
+      totals: computeDayTotals(list, rates),
+      verified: verifiedDates.has(date),
+    }));
 
   const monthTotals = computeDayTotals(flights, rates);
 

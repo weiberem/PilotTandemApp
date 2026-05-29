@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  ChevronLeft, ChevronRight, ChevronDown, Camera, AlertCircle, Wind, Plus, RotateCcw,
+  ChevronLeft, ChevronRight, ChevronDown, Camera, AlertCircle, Wind, Plus, RotateCcw, Check, Circle,
 } from 'lucide-react';
 import { cn, formatChf, formatDateDe } from '@/lib/utils';
 import type { DayTotals, FlightRow } from '@/lib/flights';
@@ -13,6 +13,7 @@ export type DayGroup = {
   date: string;
   flights: FlightRow[];
   totals: DayTotals;
+  verified: boolean;
 };
 
 function shiftMonth(month: string, delta: number): string {
@@ -91,7 +92,7 @@ export function MonthFlightsView({
         </div>
       ) : (
         <ul className="space-y-2">
-          {days.map(({ date, flights, totals }) => {
+          {days.map(({ date, flights, totals, verified }) => {
             const isOpen = open.has(date);
             return (
               <li key={date} className="card overflow-hidden">
@@ -101,8 +102,12 @@ export function MonthFlightsView({
                 >
                   <ChevronDown className={cn('w-4 h-4 text-text-muted transition-transform', isOpen && 'rotate-180')} />
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium">
-                      {formatDateDe(date, { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                    <div className="flex items-center gap-2 font-medium">
+                      <span>{formatDateDe(date, { weekday: 'short', day: '2-digit', month: '2-digit' })}</span>
+                      {verified
+                        ? <span className="inline-flex items-center text-success" title="Verifiziert"><Check className="w-3.5 h-3.5" /></span>
+                        : <span className="inline-flex items-center text-warning" title="Noch nicht verifiziert"><Circle className="w-3.5 h-3.5" /></span>
+                      }
                     </div>
                     <div className="text-xs text-text-muted">
                       {totals.flightsBilled} Flüge

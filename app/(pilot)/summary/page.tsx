@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { SummaryActions } from '@/components/SummaryActions';
+import { DayVerifyControl } from '@/components/DayVerifyControl';
 import { computeDayTotals, type FlightRow, type PilotRates } from '@/lib/flights';
 import { isoDateZurich } from '@/lib/utils';
 
@@ -18,9 +19,14 @@ export default async function SummaryPage({
     ? searchParams.date
     : isoDateZurich();
 
-  const [{ data: pilot }, { data: rows }] = await Promise.all([
+  const [{ data: pilot }, { data: rows }, { data: verification }] = await Promise.all([
     supabase.from('pilots').select('full_name, flight_rate_chf, photo_prepaid_rate_chf, thermal_rate_chf, no_show_rate_chf').eq('id', user.id).maybeSingle(),
     supabase.from('flights').select('*').eq('flight_date', date).order('trip_time'),
+    supabase.from('day_verifications')
+      .select('verified_at')
+      .eq('pilot_id', user.id)
+      .eq('flight_date', date)
+      .maybeSingle(),
   ]);
 
   const flights = (rows ?? []) as FlightRow[];
@@ -44,12 +50,19 @@ export default async function SummaryPage({
           Keine Flüge an diesem Tag.
         </div>
       ) : (
-        <SummaryActions
-          pilotName={pilot?.full_name ?? ''}
-          date={date}
-          totals={totals}
-          rates={rates}
-        />
+        <>
+          <SummaryActions
+            pilotName={pilot?.full_name ?? ''}
+            date={date}
+            totals={totals}
+            rates={rates}
+          />
+          <DayVerifyControl
+            date={date}
+            verifiedAt={(verification?.verified_at as string | undefined) ?? null}
+            flightCount={flights.length}
+          />
+        </>
       )}
     </div>
   );

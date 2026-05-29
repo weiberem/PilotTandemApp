@@ -21,10 +21,15 @@ type Props = {
   totals: InvoiceTotals;
   flights: FlightRow[];
   alreadySent: { invoiceNumber: string | null; sentAt: string | null };
+  verification: {
+    total: number;
+    verified: number;
+    unverifiedDates: string[];
+    ready: boolean;
+  };
 };
 
 export function InvoiceComparisonView(p: Props) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -60,6 +65,29 @@ export function InvoiceComparisonView(p: Props) {
       <div className="card p-3 border-l-4 border-l-warning text-sm">
         Bitte kontrollieren Sie Ihre Abrechnung bevor Sie senden.
       </div>
+
+      {!verifyReady && p.verification.total > 0 && (
+        <div className="card p-3 border-l-4 border-l-danger text-sm space-y-1">
+          <div className="font-semibold">
+            {verifyMissing} von {p.verification.total} Flugtag{p.verification.total === 1 ? '' : 'en'} noch nicht verifiziert
+          </div>
+          <p className="text-text-muted text-xs">
+            Senden ist gesperrt, bis jeder Flugtag mit dem Skywings-Desk-Tagesblatt abgeglichen und verifiziert ist.
+          </p>
+          <ul className="text-xs text-text-muted mt-1 space-y-0.5">
+            {p.verification.unverifiedDates.slice(0, 6).map(d => (
+              <li key={d}>
+                <a href={`/summary?date=${d}`} className="text-primary underline-offset-2 hover:underline">
+                  {d.split('-').reverse().join('.')}.
+                </a>
+              </li>
+            ))}
+            {p.verification.unverifiedDates.length > 6 && (
+              <li className="text-text-muted">… und {p.verification.unverifiedDates.length - 6} weitere</li>
+            )}
+          </ul>
+        </div>
+      )}
 
       {p.alreadySent.invoiceNumber && (
         <div className="card p-3 border-l-4 border-l-success text-sm">
@@ -136,9 +164,13 @@ export function InvoiceComparisonView(p: Props) {
         ) : (
           <button
             onClick={() => setConfirming(true)}
-            disabled={p.totals.amount <= 0}
-            className="btn-accent"
-            title={p.totals.amount <= 0 ? 'Nichts zu fakturieren' : ''}
+            disabled={p.totals.amount <= 0 || !verifyReady}
+            className="btn-primary"
+            title={
+              p.totals.amount <= 0 ? 'Nichts zu fakturieren'
+              : !verifyReady ? `${verifyMissing} Tag${verifyMissing === 1 ? '' : 'e'} noch nicht verifiziert`
+              : ''
+            }
           >
             <Send className="w-4 h-4 mr-2" /> Rechnung senden
           </button>

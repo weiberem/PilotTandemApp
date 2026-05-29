@@ -3,12 +3,12 @@ import { createClient } from '@/lib/supabase/server';
 import { assembleInvoice } from '@/lib/invoiceAssemble';
 import { InvoiceComparisonView } from '@/components/InvoiceComparisonView';
 import { monthLabelDe } from '@/lib/invoice';
+import { getMonthVerificationStatus } from '@/lib/dayVerify';
 import { MonthCompanyPicker } from './MonthCompanyPicker';
 
 export const dynamic = 'force-dynamic';
 
 function defaultMonth(): string {
-  // Default to last full month — invoicing usually happens on the 1st of the next.
   const now = new Date();
   const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const y = d.getFullYear();
@@ -35,7 +35,7 @@ export default async function InvoiceDashboardPage({
     : defaultMonth();
   const companyKey = searchParams.company || 'Skywings';
 
-  const [assembled, { data: invoiceRow }] = await Promise.all([
+  const [assembled, { data: invoiceRow }, verification] = await Promise.all([
     assembleInvoice({ monthFirst, company: companyKey }),
     supabase
       .from('invoices')
@@ -43,6 +43,7 @@ export default async function InvoiceDashboardPage({
       .eq('month', monthFirst)
       .eq('company', companyKey)
       .maybeSingle(),
+    getMonthVerificationStatus(user.id, monthFirst),
   ]);
 
   if ('error' in assembled) {
@@ -80,6 +81,12 @@ export default async function InvoiceDashboardPage({
         alreadySent={{
           invoiceNumber: invoiceRow?.status === 'sent' ? invoiceRow.invoice_number ?? null : null,
           sentAt: invoiceRow?.sent_at ?? null,
+        }}
+        verification={{
+          total: verification.total,
+          verified: verification.verified,
+          unverifiedDates: verification.unverifiedDates,
+          ready: verification.ready,
         }}
       />
     </div>
