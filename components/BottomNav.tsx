@@ -15,7 +15,7 @@ type Item = {
 const items: readonly Item[] = [
   { href: '/availability', label: 'Einsatztage', icon: Calendar },
   { href: '/home', label: 'Erfassen', icon: Plane, primary: true },
-  { href: '/dashboard/stats', label: 'Stats', icon: BarChart3 },
+  { href: '/dashboard/stats', label: 'Rechnung', icon: BarChart3 },
   { href: '/settings', label: 'Einstellungen', icon: Settings },
 ];
 
