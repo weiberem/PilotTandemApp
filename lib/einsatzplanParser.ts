@@ -251,6 +251,8 @@ export async function parseEinsatzplan(
 export type FullPlanPilot = {
   name: string;                        // as written in the sheet, trimmed
   period: 'full' | 'half_am' | 'half_pm';
+  number: number;                      // 1-based row order in the Skywings roster
+                                       // = priority order (1 = first to be booked)
 };
 export type FullPlanDay = {
   date: string;                        // YYYY-MM-DD
@@ -327,12 +329,21 @@ export async function parseFullPlan(
     days[iso] = { date: iso, pilots: [] };
   }
 
+  // The Skywings roster is implicitly numbered by row order — first pilot row
+  // = Nummer 1, etc. Pilots are booked in this order when there aren't enough
+  // customers, so we preserve it for the UI to surface and to split into 7er-
+  // Bus-Gruppen.
   const lastRow = ws.lastRow?.number ?? headerRow;
+  let nextNumber = 1;
+  const numberOf = new Map<string, number>();
   for (let r = headerRow + 1; r <= lastRow; r++) {
     const nameCell = cellValue(ws, r, 1);
     if (typeof nameCell !== 'string') continue;
     const name = nameCell.trim();
     if (!looksLikePilotName(name)) continue;
+
+    if (!numberOf.has(name)) numberOf.set(name, nextNumber++);
+    const number = numberOf.get(name)!;
 
     for (const [day, col] of dayCols.entries()) {
       const v1 = cellValue(ws, r, col);
@@ -343,13 +354,13 @@ export async function parseFullPlan(
       const period: FullPlanPilot['period'] =
         has1 && has2 ? 'full' : has1 ? 'half_am' : 'half_pm';
       const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      days[iso].pilots.push({ name, period });
+      days[iso].pilots.push({ name, period, number });
     }
   }
 
-  // Sort each day's pilot list alphabetically for stable display.
+  // Sort each day's pilot list by Skywings roster number (priority order).
   for (const d of Object.values(days)) {
-    d.pilots.sort((a, b) => a.name.localeCompare(b.name));
+    d.pilots.sort((a, b) => a.number - b.number);
   }
 
   return { month: monthFirst, days };

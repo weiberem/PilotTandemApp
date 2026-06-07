@@ -402,6 +402,7 @@ export function AvailabilityCalendar({
         <PilotListSheet
           date={planDate}
           pilots={fullPlan.days[planDate].pilots}
+          ownName={pilotName}
           onClose={() => setPlanDate(null)}
         />
       )}
@@ -456,12 +457,25 @@ const PERIOD_FULL: Record<DayPeriod, string> = {
   full: 'Ganztag', half_am: '½ Vormittag', half_pm: '½ Nachmittag',
 };
 
+const BUS_SIZE = 7;
+
+function isOwnPilot(rosterName: string, ownName: string): boolean {
+  if (!ownName) return false;
+  const r = rosterName.toLowerCase().trim();
+  const o = ownName.toLowerCase().trim();
+  return r === o || o.includes(r) || r.includes(o);
+}
+
 function PilotListSheet({
-  date, pilots, onClose,
-}: { date: string; pilots: FullPlanPilot[]; onClose: () => void }) {
+  date, pilots, ownName, onClose,
+}: { date: string; pilots: FullPlanPilot[]; ownName: string; onClose: () => void }) {
   const [, m, d] = date.split('-');
-  const am = pilots.filter(p => p.period === 'full' || p.period === 'half_am');
-  const pm = pilots.filter(p => p.period === 'full' || p.period === 'half_pm');
+  // Older imports stored before the number-field was added: fall back to
+  // array position so display still works. Re-import gives proper numbers.
+  const normalized = pilots.map((p, i) => ({ ...p, number: p.number ?? i + 1 }));
+  normalized.sort((a, b) => a.number - b.number);
+  const am = normalized.filter(p => p.period === 'full' || p.period === 'half_am');
+  const pm = normalized.filter(p => p.period === 'full' || p.period === 'half_pm');
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-end justify-center" onClick={onClose}>
       <div
@@ -477,8 +491,8 @@ function PilotListSheet({
           </button>
         </div>
 
-        <RosterSection title="Vormittag" pilots={am} />
-        <RosterSection title="Nachmittag" pilots={pm} />
+        <RosterSection title="Vormittag" pilots={am} ownName={ownName} />
+        <RosterSection title="Nachmittag" pilots={pm} ownName={ownName} />
 
         <button type="button" onClick={onClose} className="btn-primary w-full">Fertig</button>
       </div>
@@ -486,18 +500,63 @@ function PilotListSheet({
   );
 }
 
-function RosterSection({ title, pilots }: { title: string; pilots: FullPlanPilot[] }) {
+function RosterSection({
+  title, pilots, ownName,
+}: { title: string; pilots: FullPlanPilot[]; ownName: string }) {
   if (pilots.length === 0) return null;
+  // Pilots are already sorted by Skywings number (priority). Chunk into 7s
+  // — that's the bus assignment: first 7 = Bus 1, next 7 = Bus 2, etc.
+  const buses: FullPlanPilot[][] = [];
+  for (let i = 0; i < pilots.length; i += BUS_SIZE) {
+    buses.push(pilots.slice(i, i + BUS_SIZE));
+  }
   return (
-    <div>
-      <p className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-1">{title} · {pilots.length}</p>
-      <ul className="grid grid-cols-2 gap-y-1 gap-x-3 text-sm">
-        {pilots.map((p, i) => (
-          <li key={`${p.name}-${i}`} className="flex items-center gap-1">
-            <span>{p.name}</span>
-            {p.period !== 'full' && <span className="text-[10px] text-text-muted">({p.period === 'half_am' ? 'VM' : 'NM'})</span>}
-          </li>
-        ))}
+    <div className="space-y-2">
+      <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+        {title} · {pilots.length}
+      </p>
+      {buses.map((bus, idx) => (
+        <BusGroup key={idx} index={idx} total={buses.length} pilots={bus} ownName={ownName} />
+      ))}
+    </div>
+  );
+}
+
+function BusGroup({
+  index, total, pilots, ownName,
+}: { index: number; total: number; pilots: FullPlanPilot[]; ownName: string }) {
+  const label = total === 1 ? 'Roster' : `Bus ${index + 1}`;
+  return (
+    <div className="rounded-lg border border-border overflow-hidden">
+      <div className="flex items-baseline justify-between bg-bg-subtle/60 px-2.5 py-1">
+        <span className="text-xs font-semibold text-text">{label}</span>
+        <span className="text-[10px] text-text-muted">
+          {pilots.length} · Nr. {pilots[0].number}–{pilots[pilots.length - 1].number}
+        </span>
+      </div>
+      <ul className="divide-y divide-border text-sm">
+        {pilots.map(p => {
+          const own = isOwnPilot(p.name, ownName);
+          return (
+            <li
+              key={`${p.name}-${p.number}`}
+              className={cn(
+                'flex items-center gap-2 px-2.5 py-1.5',
+                own && 'bg-primary/10',
+              )}
+            >
+              <span className="font-mono tabular-nums text-xs text-text-muted w-5 text-right">
+                {p.number}
+              </span>
+              <span className={cn('flex-1 min-w-0 truncate', own && 'font-semibold text-primary-dark')}>
+                {p.name}
+              </span>
+              {p.period !== 'full' && (
+                <span className="text-[10px] text-text-muted">{p.period === 'half_am' ? 'VM' : 'NM'}</span>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
