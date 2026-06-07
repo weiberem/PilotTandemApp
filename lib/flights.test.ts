@@ -27,10 +27,13 @@ describe('computeDayTotals', () => {
     expect(t.tipChf).toBe(20);
     expect(t.flightsChf).toBe(525);
     expect(t.ppChf).toBe(80);
+    expect(t.ccChf).toBe(40);              // pilot keeps the CC-paid photo (not invoiced)
+    expect(t.cChf).toBe(0);
     expect(t.thermalChf).toBe(50);
     expect(t.noShowChf).toBe(32);
     expect(t.totalChf).toBe(687);          // invoiced amount
-    expect(t.totalWithTipsChf).toBe(707);  // matches the spec receipt
+    expect(t.personalTotalChf).toBe(727);  // invoice + CC + cash
+    expect(t.totalWithTipsChf).toBe(747);  // personal + tip
   });
 
   it('no-show is NOT counted as a flight', () => {

@@ -78,23 +78,34 @@ export default async function StatsPage({
   const yearIsComplete = year < currentYear;
   const yearReported = reportedYears.includes(year);
 
-  // Group billing flights by month + company.
-  type Group = { month: string; company: string; flights: number; amount: number };
+  // Group billing flights by month + company. Compute both the invoice amount
+  // (what the company will be billed) and the CC/Cash side that the pilot
+  // collected directly.
+  type Group = {
+    month: string; company: string; flights: number;
+    amount: number;       // invoice amount (totalChf)
+    cashChf: number;      // direct cash from customers
+    ccChf: number;        // direct CC from customers
+    personalChf: number;  // amount + cashChf + ccChf
+  };
   const groupMap = new Map<string, Group>();
   for (const f of billingFlights ?? []) {
     const m = (f.flight_date as string).slice(0, 7) + '-01';
     const c = (f.company as string) || 'Unbekannt';
     const key = `${m}__${c}`;
     let g = groupMap.get(key);
-    if (!g) { g = { month: m, company: c, flights: 0, amount: 0 }; groupMap.set(key, g); }
+    if (!g) { g = { month: m, company: c, flights: 0, amount: 0, cashChf: 0, ccChf: 0, personalChf: 0 }; groupMap.set(key, g); }
     g.flights += 1;
   }
-  // Amounts (re-iterate, computing per group with the flight rows so we use the same totals math).
-  for (const [key, g] of groupMap) {
+  for (const g of groupMap.values()) {
     const rows = (billingFlights ?? []).filter(
       f => (f.flight_date as string).startsWith(g.month.slice(0, 7)) && (f.company as string) === g.company,
     );
-    g.amount = computeDayTotals(rows as Pick<FlightRow, 'photo_status' | 'is_no_show' | 'is_double_airtime' | 'tip_chf'>[], rates).totalChf;
+    const tot = computeDayTotals(rows as Pick<FlightRow, 'photo_status' | 'is_no_show' | 'is_double_airtime' | 'tip_chf'>[], rates);
+    g.amount = tot.totalChf;
+    g.cashChf = tot.cChf;
+    g.ccChf = tot.ccChf;
+    g.personalChf = tot.personalTotalChf;
   }
   const groups = [...groupMap.values()];
 
@@ -160,7 +171,9 @@ export default async function StatsPage({
               <th className="py-1">Monat</th>
               <th className="text-right">Flüge</th>
               <th className="text-right">PP</th>
-              <th className="text-right">Thermal</th>
+              <th className="text-right">CC</th>
+              <th className="text-right">Bar</th>
+              <th className="text-right">Therm.</th>
               <th className="text-right">No-Show</th>
               <th className="text-right">Umsatz</th>
             </tr>
@@ -180,6 +193,8 @@ export default async function StatsPage({
                   </td>
                   <td className="font-mono text-right">{m.flights}</td>
                   <td className="font-mono text-right">{m.pp}</td>
+                  <td className="font-mono text-right">{m.cc}</td>
+                  <td className="font-mono text-right">{m.cash}</td>
                   <td className="font-mono text-right">{m.thermal}</td>
                   <td className="font-mono text-right">{m.noShow}</td>
                   <td className="font-mono text-right">{formatChf(m.revenue)}</td>
@@ -190,6 +205,8 @@ export default async function StatsPage({
               <td className="py-1">Total</td>
               <td className="font-mono text-right">{stats.totals.flights}</td>
               <td className="font-mono text-right">{stats.totals.pp}</td>
+              <td className="font-mono text-right">{stats.totals.cc}</td>
+              <td className="font-mono text-right">{stats.totals.cash}</td>
               <td className="font-mono text-right">{stats.totals.thermal}</td>
               <td className="font-mono text-right">{stats.totals.noShow}</td>
               <td className="font-mono text-right">{formatChf(stats.totals.revenue)}</td>
@@ -201,7 +218,10 @@ export default async function StatsPage({
   );
 }
 
-type Group = { month: string; company: string; flights: number; amount: number };
+type Group = {
+  month: string; company: string; flights: number;
+  amount: number; cashChf: number; ccChf: number; personalChf: number;
+};
 type Verification = { total: number; verified: number; unverifiedDates: string[]; ready: boolean };
 type InvoiceMap = Map<string, { invoice_number: string | null; sent_at: string | null; status: string | null }>;
 
@@ -215,7 +235,10 @@ function MonthBillingCard({
   invoiceByKey: InvoiceMap;
 }) {
   const totalFlights = groups.reduce((s, g) => s + g.flights, 0);
-  const totalAmount = groups.reduce((s, g) => s + g.amount, 0);
+  const totalInvoiceAmount = groups.reduce((s, g) => s + g.amount, 0);
+  const totalCash = groups.reduce((s, g) => s + g.cashChf, 0);
+  const totalCc = groups.reduce((s, g) => s + g.ccChf, 0);
+  const totalPersonal = groups.reduce((s, g) => s + g.personalChf, 0);
 
   return (
     <div className="card overflow-hidden">
@@ -226,7 +249,16 @@ function MonthBillingCard({
             {totalFlights === 0 ? 'Keine Flüge' : `${totalFlights} Flüge · ${groups.length} Firma${groups.length === 1 ? '' : 'en'}`}
           </div>
         </div>
-        <div className="font-mono font-semibold">{formatChf(totalAmount)}</div>
+        <div className="text-right">
+          <div className="font-mono font-semibold">{formatChf(totalPersonal)}</div>
+          {(totalCash > 0 || totalCc > 0) && (
+            <div className="text-[10px] text-text-muted">
+              Rechnung {formatChf(totalInvoiceAmount)}
+              {totalCash > 0 && ` · Bar ${formatChf(totalCash)}`}
+              {totalCc > 0 && ` · CC ${formatChf(totalCc)}`}
+            </div>
+          )}
+        </div>
       </div>
 
       {totalFlights === 0 ? (
@@ -259,13 +291,20 @@ function MonthBillingCard({
                   <div className="flex-1 min-w-0">
                     <div className="font-medium">{g.company}</div>
                     <div className="text-xs text-text-muted">
-                      {g.flights} Flüge · <span className="font-mono">{formatChf(g.amount)}</span>
+                      {g.flights} Flüge · Rechnung <span className="font-mono">{formatChf(g.amount)}</span>
                       {sent && inv?.invoice_number && (
                         <span className="ml-2 inline-flex items-center gap-1 text-success">
                           <Check className="w-3 h-3" /> {inv.invoice_number} gesendet
                         </span>
                       )}
                     </div>
+                    {(g.cashChf > 0 || g.ccChf > 0) && (
+                      <div className="text-[11px] text-text-muted mt-0.5">
+                        + direkt vereinnahmt
+                        {g.cashChf > 0 && <> · Bar <span className="font-mono">{formatChf(g.cashChf)}</span></>}
+                        {g.ccChf > 0 && <> · CC <span className="font-mono">{formatChf(g.ccChf)}</span></>}
+                      </div>
+                    )}
                   </div>
                   <Link
                     href={`/dashboard/invoice?month=${month}&company=${encodeURIComponent(g.company)}`}
