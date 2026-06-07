@@ -83,3 +83,29 @@ export function suggestCurrentTripTime(
   }
   return chosen;
 }
+
+/**
+ * Combined pre-fill: picks the right next trip time for a new flight given
+ * the day's existing entries.
+ * - No Skywings flights logged yet AND today → smart suggestion from wall clock
+ * - No Skywings flights AND past/other date → first scheduled time
+ * - Last logged Skywings flight exists → next published time after it
+ */
+export function prefillNextTripTime(args: {
+  scheduledTimes: readonly string[];
+  seasonTimes: readonly string[];
+  season: Season;
+  lastSkywingsTime: string | null;
+  isToday: boolean;
+  now?: Date;
+}): string {
+  const { scheduledTimes, seasonTimes, season, lastSkywingsTime, isToday, now } = args;
+  if (!lastSkywingsTime) {
+    const suggested = isToday
+      ? suggestCurrentTripTime(scheduledTimes, now ?? new Date())
+      : scheduledTimes[0];
+    return suggested ?? scheduledTimes[0] ?? seasonTimes[0];
+  }
+  const next = getNextTripTime(lastSkywingsTime, season);
+  return next ?? scheduledTimes[scheduledTimes.length - 1] ?? seasonTimes[seasonTimes.length - 1];
+}

@@ -80,7 +80,7 @@ export default async function AvailabilityPage() {
 
   return (
     <div className="p-4 space-y-4 max-w-xl mx-auto">
-      <h1 className="text-2xl font-display font-bold">Verfügbarkeit</h1>
+      <h1 className="text-2xl font-display font-bold">Einsatztage planen</h1>
       <AvailabilityCalendar
         pilotName={pilot.full_name ?? ''}
         officeEmail={pilot.office_email ?? null}

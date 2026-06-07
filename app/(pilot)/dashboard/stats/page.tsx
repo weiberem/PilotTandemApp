@@ -50,6 +50,8 @@ export default async function StatsPage({
         <YearPicker year={year} options={yearOptions} />
       </div>
 
+      <VkpiCard year={year} count={stats.vkpiFlights} />
+
       <MonthlyChart data={stats.months} />
 
       <div className="card p-4 overflow-x-auto">
@@ -93,9 +95,6 @@ export default async function StatsPage({
               </tr>
             </tbody>
         </table>
-        <div className="border-t border-border mt-2 pt-1">
-          <VkpiCard year={year} count={stats.vkpiFlights} />
-        </div>
       </div>
 
       {stats.byCompany.length > 0 && (

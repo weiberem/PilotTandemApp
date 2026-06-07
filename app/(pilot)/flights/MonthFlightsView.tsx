@@ -4,10 +4,11 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  ChevronLeft, ChevronRight, ChevronDown, Camera, AlertCircle, Wind, Plus, RotateCcw, Check, Circle,
+  ChevronLeft, ChevronRight, ChevronDown, AlertCircle, Wind, Plus, RotateCcw, Check, Circle,
 } from 'lucide-react';
 import { cn, formatChf, formatDateDe } from '@/lib/utils';
 import type { DayTotals, FlightRow } from '@/lib/flights';
+import { PhotoStatusSwitch } from '@/components/PhotoStatusSwitch';
 
 export type DayGroup = {
   date: string;
@@ -122,37 +123,30 @@ export function MonthFlightsView({
                 {isOpen && (
                   <div className="border-t border-border divide-y divide-border">
                     {flights.map(f => (
-                      <Link
-                        key={f.id}
-                        href={`/log/${f.id}/edit`}
-                        className="flex items-center gap-3 p-3 pl-10 hover:bg-bg active:bg-bg"
-                      >
+                      <div key={f.id} className="flex items-center gap-3 p-3 pl-10 flex-wrap">
                         <span className="font-mono text-sm tabular-nums w-12">{f.trip_time}</span>
                         <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary-dark">
                           {f.company}
                         </span>
-                        <div className="flex-1 flex items-center gap-1 flex-wrap">
-                          {f.photo_status !== 'none' && (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-bg border border-border inline-flex items-center gap-1">
-                              <Camera className="w-3 h-3" /> {f.photo_status}
-                            </span>
-                          )}
-                          {f.is_no_show && (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-warning/15 text-warning inline-flex items-center gap-1">
-                              <AlertCircle className="w-3 h-3" /> No-Show
-                            </span>
-                          )}
-                          {f.is_double_airtime && (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-accent/15 text-accent inline-flex items-center gap-1">
-                              <Wind className="w-3 h-3" /> Thermal
-                            </span>
-                          )}
-                        </div>
+                        <PhotoStatusSwitch flightId={f.id} current={f.photo_status} disabled={f.is_no_show} />
+                        {f.is_no_show && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-warning/15 text-warning inline-flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" /> No-Show
+                          </span>
+                        )}
+                        {f.is_double_airtime && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-accent/15 text-accent inline-flex items-center gap-1">
+                            <Wind className="w-3 h-3" /> Thermal
+                          </span>
+                        )}
+                        <div className="flex-1" />
                         {Number(f.tip_chf) > 0 && (
                           <span className="font-mono text-xs text-text-muted">{formatChf(Number(f.tip_chf))}</span>
                         )}
-                        <span className="text-xs text-primary">bearbeiten</span>
-                      </Link>
+                        <Link href={`/log/${f.id}/edit`} className="text-xs text-primary hover:underline">
+                          bearbeiten
+                        </Link>
+                      </div>
                     ))}
                     <Link
                       href={`/log?date=${date}`}
@@ -179,3 +173,4 @@ function Stat({ n, label }: { n: number; label: string }) {
     </div>
   );
 }
+
