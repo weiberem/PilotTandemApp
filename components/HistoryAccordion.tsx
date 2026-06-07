@@ -69,7 +69,7 @@ export function DayDetails({ day, rates }: { day: DayData; rates: PilotRates }) 
             {totals.noShowCount > 0 && ` · ${totals.noShowCount} No-Show`}
           </div>
         </div>
-        <div className="font-mono text-sm">{formatChf(totals.totalChf)}</div>
+        <div className="font-mono text-sm">{formatChf(totals.personalTotalChf)}</div>
       </summary>
       <div className="divide-y divide-border bg-bg-subtle/30">
         <div className="flex items-center justify-between gap-2 px-3 py-2 pl-10">
@@ -102,7 +102,7 @@ export function MonthDetails({ month, rates }: { month: MonthData; rates: PilotR
           </div>
         </div>
         <div className="text-right">
-          <div className="font-mono text-sm">{formatChf(totals.totalChf)}</div>
+          <div className="font-mono text-sm">{formatChf(totals.personalTotalChf)}</div>
           <Link
             href={`/flights?month=${month.monthKey}`}
             className="text-xs text-primary hover:underline"

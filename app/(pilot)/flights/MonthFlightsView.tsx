@@ -83,7 +83,7 @@ export function MonthFlightsView({
         <Stat n={monthTotals.noShowCount} label="No-Show" />
         <div className="col-span-4 border-t border-border pt-2 mt-1 flex items-baseline justify-between">
           <span className="text-sm text-text-muted">Umsatz (ohne Trinkgeld)</span>
-          <span className="font-mono font-semibold">{formatChf(monthTotals.totalChf)}</span>
+          <span className="font-mono font-semibold">{formatChf(monthTotals.personalTotalChf)}</span>
         </div>
       </div>
 
@@ -118,7 +118,7 @@ export function MonthFlightsView({
                       {totals.noShowCount > 0 && ` · ${totals.noShowCount} No-Show`}
                     </div>
                   </div>
-                  <div className="font-mono text-sm">{formatChf(totals.totalChf)}</div>
+                  <div className="font-mono text-sm">{formatChf(totals.personalTotalChf)}</div>
                 </button>
 
                 {isOpen && (

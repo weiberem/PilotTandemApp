@@ -46,10 +46,13 @@ export type DayTotals = {
   tipChf: number;
   flightsChf: number;
   ppChf: number;
+  ccChf: number;             // 40 CHF per CC-paid photo (kept by pilot, NOT invoiced)
+  cChf: number;              // 40 CHF per Cash-paid photo  (kept by pilot, NOT invoiced)
   thermalChf: number;
   noShowChf: number;
-  totalChf: number;          // tips NOT included (cash, never invoiced)
-  totalWithTipsChf: number;  // for daily display
+  totalChf: number;          // invoice-relevant amount (Skywings sees this)
+  personalTotalChf: number;  // totalChf + ccChf + cChf — real earnings
+  totalWithTipsChf: number;  // personal total + tips (for daily display)
 };
 
 export function computeDayTotals(
@@ -71,14 +74,18 @@ export function computeDayTotals(
 
   const flightsChf = flightsBilled * rates.flight_rate_chf;
   const ppChf = ppCount * rates.photo_prepaid_rate_chf;
+  const ccChf = ccCount * rates.photo_prepaid_rate_chf;
+  const cChf = cCount * rates.photo_prepaid_rate_chf;
   const thermalChf = thermalCount * rates.thermal_rate_chf;
   const noShowChf = noShowCount * rates.no_show_rate_chf;
   const totalChf = flightsChf + ppChf + thermalChf + noShowChf;
+  const personalTotalChf = totalChf + ccChf + cChf;
 
   return {
     flightsBilled, ppCount, ccCount, cCount, thermalCount, noShowCount, tipChf,
-    flightsChf, ppChf, thermalChf, noShowChf,
+    flightsChf, ppChf, ccChf, cChf, thermalChf, noShowChf,
     totalChf,
-    totalWithTipsChf: totalChf + tipChf,
+    personalTotalChf,
+    totalWithTipsChf: personalTotalChf + tipChf,
   };
 }
