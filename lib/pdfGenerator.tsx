@@ -5,6 +5,9 @@ import {
 } from './invoice';
 import type { PilotRates } from './flights';
 
+const GRID = '0.5pt solid #B0B0B0';
+const BOLD_RULE = '1pt solid #000';
+
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 10, fontFamily: 'Helvetica' },
   row: { flexDirection: 'row' },
@@ -13,28 +16,35 @@ const styles = StyleSheet.create({
   italic: { fontFamily: 'Helvetica-Oblique' },
   h1: { fontSize: 16, fontFamily: 'Helvetica-Bold' },
   small: { fontSize: 8, color: '#666' },
-  table: { marginTop: 16, borderBottom: '1pt solid #000' },
+  table: {
+    marginTop: 16,
+    borderTop: BOLD_RULE,
+    borderLeft: GRID,
+    borderRight: GRID,
+    borderBottom: BOLD_RULE,
+  },
   th: {
     fontFamily: 'Helvetica-Bold',
     fontSize: 9,
     paddingVertical: 4,
-    borderBottom: '1pt solid #000',
+    borderBottom: BOLD_RULE,
     flexDirection: 'row',
   },
   td: {
     paddingVertical: 2,
     flexDirection: 'row',
     fontSize: 9,
+    borderBottom: GRID,
   },
   totalRow: {
     flexDirection: 'row',
-    borderTop: '1pt solid #000',
+    borderTop: BOLD_RULE,
     paddingVertical: 4,
     fontFamily: 'Helvetica-Bold',
   },
-  cellDate: { width: '8%' },
-  cellNum: { width: '20%', textAlign: 'center' },
-  cellAmount: { width: '12%', textAlign: 'right' },
+  cellDate: { width: '8%', paddingHorizontal: 3, borderRight: GRID },
+  cellNum: { width: '20%', textAlign: 'center', paddingHorizontal: 3, borderRight: GRID },
+  cellAmount: { width: '12%', textAlign: 'right', paddingHorizontal: 3 },
   footer: { marginTop: 24, flexDirection: 'row', justifyContent: 'space-between' },
 });
 
