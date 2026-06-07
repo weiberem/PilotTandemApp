@@ -1,21 +1,30 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 export function YearPicker({
   year, options,
 }: { year: number; options: number[] }) {
-  const router = useRouter();
   return (
-    <label className="text-xs">
-      <span className="text-text-muted block">Jahr</span>
-      <select
-        defaultValue={year}
-        onChange={(e) => router.push(`/dashboard/stats?year=${e.target.value}`)}
-        className="min-h-tap rounded-lg border border-border px-3 py-1.5 bg-white"
-      >
-        {options.map(y => <option key={y} value={y}>{y}</option>)}
-      </select>
-    </label>
+    <div className="flex items-center gap-2 text-sm">
+      {options.map(y => {
+        const active = y === year;
+        return (
+          <Link
+            key={y}
+            href={`/dashboard/stats?year=${y}`}
+            className={cn(
+              'font-mono tabular-nums px-2 py-1 rounded-md',
+              active
+                ? 'bg-text text-white font-semibold'
+                : 'text-text-muted hover:bg-bg-subtle hover:text-text',
+            )}
+          >
+            {y}
+          </Link>
+        );
+      })}
+    </div>
   );
 }
