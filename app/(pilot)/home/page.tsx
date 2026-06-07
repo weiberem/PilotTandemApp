@@ -101,6 +101,7 @@ export default async function HomePage() {
         defaults={defaults}
         scheduledTimes={scheduledTimes}
         loggedCount={todayFlights.length}
+        usedTripTimes={todayFlights.map(f => f.trip_time)}
       />
 
       {todayFlights.length > 0 && (

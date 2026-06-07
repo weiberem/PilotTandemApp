@@ -9,6 +9,13 @@ export type FlightActionResult =
   | { ok: true; id: string }
   | { ok: false; error: string };
 
+function mapInsertError(message: string, tripTime: string): string {
+  if (/flights_pilot_date_time_unique|duplicate key/i.test(message)) {
+    return `Für ${tripTime} ist bereits ein Flug an diesem Tag erfasst. Pro Trip-Zeit ist nur ein Flug pro Pilot möglich.`;
+  }
+  return message;
+}
+
 export async function createFlight(input: FlightInput): Promise<FlightActionResult> {
   const parsed = flightInputSchema.safeParse(input);
   if (!parsed.success) {
@@ -18,13 +25,25 @@ export async function createFlight(input: FlightInput): Promise<FlightActionResu
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Not authenticated' };
 
+  // Each pilot may have only one flight per (date, trip_time). Pre-check
+  // so the migration 008 constraint isn't strictly required for correctness.
+  const { data: existing } = await supabase
+    .from('flights').select('id')
+    .eq('pilot_id', user.id)
+    .eq('flight_date', parsed.data.flight_date)
+    .eq('trip_time', parsed.data.trip_time)
+    .maybeSingle();
+  if (existing) {
+    return { ok: false, error: mapInsertError('duplicate key', parsed.data.trip_time) };
+  }
+
   const { data, error } = await supabase
     .from('flights')
     .insert({ ...parsed.data, pilot_id: user.id })
     .select('id')
     .single();
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: mapInsertError(error.message, parsed.data.trip_time) };
 
   revalidatePath('/');
   revalidatePath('/today');
@@ -42,13 +61,25 @@ export async function updateFlight(id: string, input: FlightInput): Promise<Flig
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Not authenticated' };
 
+  // Pre-check duplicate (excluding the row we're editing).
+  const { data: clash } = await supabase
+    .from('flights').select('id')
+    .eq('pilot_id', user.id)
+    .eq('flight_date', parsed.data.flight_date)
+    .eq('trip_time', parsed.data.trip_time)
+    .neq('id', id)
+    .maybeSingle();
+  if (clash) {
+    return { ok: false, error: mapInsertError('duplicate key', parsed.data.trip_time) };
+  }
+
   const { error } = await supabase
     .from('flights')
     .update(parsed.data)
     .eq('id', id)
     .eq('pilot_id', user.id);
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: mapInsertError(error.message, parsed.data.trip_time) };
 
   revalidatePath('/');
   revalidatePath('/today');

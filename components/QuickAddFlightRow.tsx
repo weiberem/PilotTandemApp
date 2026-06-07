@@ -12,9 +12,11 @@ type Props = {
   defaults: FlightInput;
   scheduledTimes: readonly string[];
   loggedCount: number;
+  usedTripTimes: readonly string[];
 };
 
-export function QuickAddFlightRow({ defaults, scheduledTimes, loggedCount }: Props) {
+export function QuickAddFlightRow({ defaults, scheduledTimes, loggedCount, usedTripTimes }: Props) {
+  const usedSet = new Set(usedTripTimes);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [tripTime, setTripTime] = useState(defaults.trip_time);
@@ -86,19 +88,29 @@ export function QuickAddFlightRow({ defaults, scheduledTimes, loggedCount }: Pro
 
       {timePickerOpen && (
         <div className="flex flex-wrap gap-1 pt-1 border-t border-border">
-          {scheduledTimes.map(t => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => { setTripTime(t); setTimePickerOpen(false); }}
-              className={cn(
-                'font-mono text-xs px-2 py-1 rounded-md border',
-                t === tripTime ? 'bg-primary text-white border-primary' : 'bg-bg-card border-border hover:bg-bg-subtle',
-              )}
-            >
-              {t}
-            </button>
-          ))}
+          {scheduledTimes.map(t => {
+            const used = usedSet.has(t);
+            const active = t === tripTime;
+            return (
+              <button
+                key={t}
+                type="button"
+                disabled={used && !active}
+                onClick={() => { setTripTime(t); setTimePickerOpen(false); }}
+                title={used && !active ? 'Bereits erfasst' : undefined}
+                className={cn(
+                  'font-mono text-xs px-2 py-1 rounded-md border',
+                  active
+                    ? 'bg-primary text-white border-primary'
+                    : used
+                      ? 'bg-bg-subtle border-border text-text-muted line-through cursor-not-allowed opacity-60'
+                      : 'bg-bg-card border-border hover:bg-bg-subtle',
+                )}
+              >
+                {t}
+              </button>
+            );
+          })}
         </div>
       )}
 
