@@ -1,8 +1,13 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Plane, CalendarRange } from 'lucide-react';
+import { CalendarRange } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { formatDateDe, isoDateZurich, formatChf } from '@/lib/utils';
+import { formatDateDe, isoDateZurich, nowInZurich, formatChf } from '@/lib/utils';
+import {
+  getCurrentTripTimes, prefillNextTripTime, resolveSeason, type Season,
+} from '@/lib/tripTimes';
+import { QuickAddFlightRow } from '@/components/QuickAddFlightRow';
+import type { FlightInput } from '@/lib/flights';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +17,6 @@ export default async function HomePage() {
   if (!user) redirect('/login');
 
   const { data: pilot } = await supabase.from('pilots').select('*').eq('id', user.id).maybeSingle();
-  // First-run: settings incomplete → go to /settings
   if (!pilot || !pilot.full_name || !pilot.iban) {
     redirect('/settings?welcome=1');
   }
@@ -20,7 +24,7 @@ export default async function HomePage() {
   const today = isoDateZurich();
   const { data: flights } = await supabase
     .from('flights')
-    .select('id, photo_status, is_no_show, is_double_airtime, tip_chf')
+    .select('id, photo_status, is_no_show, is_double_airtime, tip_chf, trip_time, company')
     .eq('flight_date', today)
     .order('trip_time');
 
@@ -30,6 +34,35 @@ export default async function HomePage() {
   const totalNoShow = list.filter(f => f.is_no_show).length;
   const totalTip = list.reduce((sum, f) => sum + Number(f.tip_chf ?? 0), 0);
 
+  const season: Season = resolveSeason(pilot.season_override, new Date(today));
+  const seasonTimes = getCurrentTripTimes(season);
+  const scheduleEntry = (pilot.einsatzplan_schedule as Record<string, { times?: string[] }> | null)?.[today];
+  const scheduledTimes = scheduleEntry?.times ?? [...seasonTimes];
+
+  const lastSkywings = [...list]
+    .reverse()
+    .find(f => (f.company ?? '').toLowerCase().startsWith('skyw'));
+
+  const prefillTime = prefillNextTripTime({
+    scheduledTimes,
+    seasonTimes,
+    season,
+    lastSkywingsTime: lastSkywings?.trip_time ?? null,
+    isToday: true,
+    now: nowInZurich(),
+  });
+
+  const defaults: FlightInput = {
+    flight_date: today,
+    trip_time: prefillTime,
+    company: pilot.primary_company_name ?? 'Skywings',
+    photo_status: 'none',
+    is_no_show: false,
+    is_double_airtime: false,
+    tip_chf: 0,
+    notes: null,
+  };
+
   return (
     <div className="p-4 space-y-4">
       <section>
@@ -37,9 +70,11 @@ export default async function HomePage() {
         <h1 className="text-2xl font-display font-bold">Heute</h1>
       </section>
 
-      <Link href="/log" className="btn-accent w-full text-base">
-        <Plane className="w-5 h-5 mr-2 -rotate-45" /> Flug erfassen
-      </Link>
+      <QuickAddFlightRow
+        defaults={defaults}
+        scheduledTimes={scheduledTimes}
+        loggedCount={list.length}
+      />
 
       <section className="card p-4">
         <div className="grid grid-cols-4 gap-2 text-center">
@@ -65,7 +100,7 @@ export default async function HomePage() {
           <Link href="/summary" className="btn-primary flex-1">Tagesabschluss</Link>
         </div>
         <Link href="/flights" className="btn-ghost w-full border border-border mt-2 text-sm">
-<CalendarRange className="w-4 h-4 mr-2" /> Alle Flüge (Monatsübersicht)
+          <CalendarRange className="w-4 h-4 mr-2" /> Alle Flüge (Monatsübersicht)
         </Link>
       </section>
 
