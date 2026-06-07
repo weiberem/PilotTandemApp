@@ -10,6 +10,7 @@ import { cn, formatChf, formatDateDe } from '@/lib/utils';
 import type { DayTotals, FlightRow } from '@/lib/flights';
 import { PhotoStatusSwitch } from '@/components/PhotoStatusSwitch';
 import { DayVerifyButton } from '@/components/DayVerifyButton';
+import { PeriodSummary } from '@/components/PeriodSummary';
 
 export type DayGroup = {
   date: string;
@@ -76,16 +77,7 @@ export function MonthFlightsView({
       </div>
 
       {/* Month summary */}
-      <div className="card p-4 grid grid-cols-4 gap-2 text-center">
-        <Stat n={monthTotals.flightsBilled} label="Flüge" />
-        <Stat n={monthTotals.ppCount} label="PP" />
-        <Stat n={monthTotals.thermalCount} label="Thermal" />
-        <Stat n={monthTotals.noShowCount} label="No-Show" />
-        <div className="col-span-4 border-t border-border pt-2 mt-1 flex items-baseline justify-between">
-          <span className="text-sm text-text-muted">Umsatz (ohne Trinkgeld)</span>
-          <span className="font-mono font-semibold">{formatChf(monthTotals.personalTotalChf)}</span>
-        </div>
-      </div>
+      <PeriodSummary totals={monthTotals} totalLabel="Umsatz (ohne Trinkgeld)" />
 
       {/* Day list */}
       {days.length === 0 ? (
@@ -172,12 +164,4 @@ export function MonthFlightsView({
   );
 }
 
-function Stat({ n, label }: { n: number; label: string }) {
-  return (
-    <div>
-      <div className="text-2xl font-mono font-semibold">{n}</div>
-      <div className="text-xs text-text-muted">{label}</div>
-    </div>
-  );
-}
 
