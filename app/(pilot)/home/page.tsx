@@ -10,6 +10,7 @@ import { computeDayTotals, type FlightInput, type FlightRow, type PilotRates } f
 import { QuickAddFlightRow } from '@/components/QuickAddFlightRow';
 import { FlightLine } from '@/components/FlightLine';
 import { buildMonths, DayDetails, MonthDetails } from '@/components/HistoryAccordion';
+import { PeriodSummary } from '@/components/PeriodSummary';
 
 export const dynamic = 'force-dynamic';
 
@@ -112,14 +113,15 @@ export default async function HomePage() {
         </section>
       )}
 
-      <section className="card p-4">
-        <div className="grid grid-cols-4 gap-2 text-center">
-          <Stat n={todayTotals.flightsBilled} label="Flüge" />
-          <Stat n={todayTotals.ppCount} label="PP" />
-          <Stat n={todayTotals.noShowCount} label="No-Show" />
-          <Stat n={todayTotals.tipChf} label="Trinkgeld" chf />
-        </div>
-        <div className="mt-4 flex gap-2">
+      <section className="space-y-3">
+        <PeriodSummary
+          totals={todayTotals}
+          totalLabel={todayTotals.tipChf > 0
+            ? `Umsatz inkl. Trinkgeld (${formatChf(todayTotals.tipChf)})`
+            : 'Umsatz heute'}
+          totalAmount={todayTotals.totalWithTipsChf}
+        />
+        <div className="flex gap-2">
           <Link href="/summary" className="btn-primary flex-1">Tagesabschluss</Link>
           <Link href="/flights" className="btn-ghost flex-1 border border-border">
             <CalendarRange className="w-4 h-4 mr-2" /> Monatsübersicht
@@ -170,11 +172,3 @@ export default async function HomePage() {
   );
 }
 
-function Stat({ n, label, chf = false }: { n: number; label: string; chf?: boolean }) {
-  return (
-    <div>
-      <div className="text-2xl font-mono font-semibold">{chf ? formatChf(n) : n}</div>
-      <div className="text-xs text-text-muted">{label}</div>
-    </div>
-  );
-}
