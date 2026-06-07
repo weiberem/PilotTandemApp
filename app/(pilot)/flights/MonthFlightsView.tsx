@@ -9,6 +9,7 @@ import {
 import { cn, formatChf, formatDateDe } from '@/lib/utils';
 import type { DayTotals, FlightRow } from '@/lib/flights';
 import { PhotoStatusSwitch } from '@/components/PhotoStatusSwitch';
+import { DayVerifyButton } from '@/components/DayVerifyButton';
 
 export type DayGroup = {
   date: string;
@@ -122,6 +123,12 @@ export function MonthFlightsView({
 
                 {isOpen && (
                   <div className="border-t border-border divide-y divide-border">
+                    <div className="flex items-center justify-between gap-2 px-3 py-2 pl-10 bg-bg-subtle/40">
+                      <span className="text-xs text-text-muted">
+                        Mit Skywings-Desk-Tagesblatt abgleichen, dann verifizieren.
+                      </span>
+                      <DayVerifyButton date={date} verified={verified} flightCount={flights.length} />
+                    </div>
                     {flights.map(f => (
                       <div key={f.id} className="flex items-center gap-3 p-3 pl-10 flex-wrap">
                         <span className="font-mono text-sm tabular-nums w-12">{f.trip_time}</span>
