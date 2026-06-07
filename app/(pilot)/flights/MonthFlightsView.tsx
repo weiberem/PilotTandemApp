@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ChevronLeft, ChevronRight, ChevronDown, AlertCircle, Wind, Plus, RotateCcw, Check, Circle,
 } from 'lucide-react';
 import { cn, formatChf, formatDateDe } from '@/lib/utils';
-import { PHOTO_STATUSES, type DayTotals, type FlightRow, type PhotoStatus } from '@/lib/flights';
-import { setFlightPhotoStatus } from '../log/actions';
+import type { DayTotals, FlightRow } from '@/lib/flights';
+import { PhotoStatusSwitch } from '@/components/PhotoStatusSwitch';
 
 export type DayGroup = {
   date: string;
@@ -128,11 +128,7 @@ export function MonthFlightsView({
                         <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary-dark">
                           {f.company}
                         </span>
-                        <PhotoStatusSwitch
-                          flightId={f.id}
-                          current={f.photo_status}
-                          disabled={f.is_no_show}
-                        />
+                        <PhotoStatusSwitch flightId={f.id} current={f.photo_status} disabled={f.is_no_show} />
                         {f.is_no_show && (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-warning/15 text-warning inline-flex items-center gap-1">
                             <AlertCircle className="w-3 h-3" /> No-Show
@@ -178,58 +174,3 @@ function Stat({ n, label }: { n: number; label: string }) {
   );
 }
 
-function PhotoStatusSwitch({
-  flightId, current, disabled,
-}: { flightId: string; current: PhotoStatus; disabled: boolean }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [optimistic, setOptimistic] = useState<PhotoStatus | null>(null);
-  const value = optimistic ?? current;
-
-  function pick(status: PhotoStatus) {
-    if (disabled || status === value) return;
-    setOptimistic(status);
-    startTransition(async () => {
-      const r = await setFlightPhotoStatus(flightId, status);
-      if (!r.ok) {
-        setOptimistic(null);
-        alert(r.error ?? 'Fehler beim Speichern');
-        return;
-      }
-      router.refresh();
-      setOptimistic(null);
-    });
-  }
-
-  return (
-    <div
-      role="radiogroup"
-      aria-label="Foto-Status"
-      className={cn(
-        'inline-flex rounded-full border border-border overflow-hidden text-xs',
-        disabled && 'opacity-40',
-        pending && 'opacity-70',
-      )}
-    >
-      {PHOTO_STATUSES.map(s => {
-        const active = s === value;
-        return (
-          <button
-            key={s}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            disabled={disabled || pending}
-            onClick={(e) => { e.preventDefault(); pick(s); }}
-            className={cn(
-              'px-2 py-0.5 min-w-[28px] transition-colors',
-              active ? 'bg-primary text-white font-semibold' : 'bg-bg-card text-text-muted hover:bg-bg-subtle',
-            )}
-          >
-            {s === 'none' ? '—' : s}
-          </button>
-        );
-      })}
-    </div>
-  );
-}

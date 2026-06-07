@@ -1,15 +1,25 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { CalendarRange } from 'lucide-react';
+import { CalendarRange, ChevronDown } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatDateDe, isoDateZurich, nowInZurich, formatChf } from '@/lib/utils';
 import {
   getCurrentTripTimes, prefillNextTripTime, resolveSeason, type Season,
 } from '@/lib/tripTimes';
+import { computeDayTotals, type FlightInput, type FlightRow, type PilotRates } from '@/lib/flights';
 import { QuickAddFlightRow } from '@/components/QuickAddFlightRow';
-import type { FlightInput } from '@/lib/flights';
+import { FlightLine } from '@/components/FlightLine';
+import { buildMonths, DayDetails, MonthDetails } from '@/components/HistoryAccordion';
 
 export const dynamic = 'force-dynamic';
+
+const HISTORY_MONTHS = 6;
+
+function monthsAgoIso(months: number): string {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() - months, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+}
 
 export default async function HomePage() {
   const supabase = createClient();
@@ -22,31 +32,39 @@ export default async function HomePage() {
   }
 
   const today = isoDateZurich();
-  const { data: flights } = await supabase
-    .from('flights')
-    .select('id, photo_status, is_no_show, is_double_airtime, tip_chf, trip_time, company')
-    .eq('flight_date', today)
-    .order('trip_time');
+  const historyFrom = monthsAgoIso(HISTORY_MONTHS);
 
-  const list = flights ?? [];
-  const totalFlights = list.filter(f => !f.is_no_show).length;
-  const totalPhoto = list.filter(f => f.photo_status === 'PP').length;
-  const totalNoShow = list.filter(f => f.is_no_show).length;
-  const totalTip = list.reduce((sum, f) => sum + Number(f.tip_chf ?? 0), 0);
+  const [{ data: rows }, { data: vers }] = await Promise.all([
+    supabase.from('flights').select('*')
+      .gte('flight_date', historyFrom)
+      .order('flight_date', { ascending: false })
+      .order('trip_time'),
+    supabase.from('day_verifications').select('flight_date')
+      .gte('flight_date', historyFrom),
+  ]);
+
+  const allFlights = (rows ?? []) as FlightRow[];
+  const verifiedDates = new Set<string>((vers ?? []).map(v => v.flight_date as string));
+  const todayFlights = allFlights.filter(f => f.flight_date === today)
+    .sort((a, b) => a.trip_time.localeCompare(b.trip_time));
+
+  const rates: PilotRates = {
+    flight_rate_chf: Number(pilot.flight_rate_chf ?? 105),
+    photo_prepaid_rate_chf: Number(pilot.photo_prepaid_rate_chf ?? 40),
+    thermal_rate_chf: Number(pilot.thermal_rate_chf ?? 50),
+    no_show_rate_chf: Number(pilot.no_show_rate_chf ?? 32),
+  };
+  const todayTotals = computeDayTotals(todayFlights, rates);
 
   const season: Season = resolveSeason(pilot.season_override, new Date(today));
   const seasonTimes = getCurrentTripTimes(season);
   const scheduleEntry = (pilot.einsatzplan_schedule as Record<string, { times?: string[] }> | null)?.[today];
   const scheduledTimes = scheduleEntry?.times ?? [...seasonTimes];
-
-  const lastSkywings = [...list]
+  const lastSkywings = [...todayFlights]
     .reverse()
     .find(f => (f.company ?? '').toLowerCase().startsWith('skyw'));
-
   const prefillTime = prefillNextTripTime({
-    scheduledTimes,
-    seasonTimes,
-    season,
+    scheduledTimes, seasonTimes, season,
     lastSkywingsTime: lastSkywings?.trip_time ?? null,
     isToday: true,
     now: nowInZurich(),
@@ -63,46 +81,74 @@ export default async function HomePage() {
     notes: null,
   };
 
+  const currentMonthKey = today.slice(0, 7);
+  const months = buildMonths(allFlights, verifiedDates);
+  const currentMonth = months.find(m => m.monthKey === currentMonthKey);
+  const previousDaysThisMonth = currentMonth
+    ? currentMonth.days.filter(d => d.date !== today)
+    : [];
+  const previousMonths = months.filter(m => m.monthKey !== currentMonthKey);
+
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-4 space-y-4 max-w-2xl mx-auto">
       <section>
         <p className="text-text-muted text-sm">{formatDateDe(new Date())}</p>
         <h1 className="text-2xl font-display font-bold">Heute</h1>
       </section>
 
       <QuickAddFlightRow
+        key={todayFlights.length}
         defaults={defaults}
         scheduledTimes={scheduledTimes}
-        loggedCount={list.length}
+        loggedCount={todayFlights.length}
       />
+
+      {todayFlights.length > 0 && (
+        <section className="card overflow-hidden">
+          <div className="divide-y divide-border">
+            {todayFlights.map(f => <FlightLine key={f.id} flight={f} indent="pl-3" />)}
+          </div>
+        </section>
+      )}
 
       <section className="card p-4">
         <div className="grid grid-cols-4 gap-2 text-center">
-          <div>
-            <div className="text-2xl font-mono font-semibold">{totalFlights}</div>
-            <div className="text-xs text-text-muted">Flüge</div>
-          </div>
-          <div>
-            <div className="text-2xl font-mono font-semibold">{totalPhoto}</div>
-            <div className="text-xs text-text-muted">PP</div>
-          </div>
-          <div>
-            <div className="text-2xl font-mono font-semibold">{totalNoShow}</div>
-            <div className="text-xs text-text-muted">No-Show</div>
-          </div>
-          <div>
-            <div className="text-2xl font-mono font-semibold">{formatChf(totalTip)}</div>
-            <div className="text-xs text-text-muted">Trinkgeld</div>
-          </div>
+          <Stat n={todayTotals.flightsBilled} label="Flüge" />
+          <Stat n={todayTotals.ppCount} label="PP" />
+          <Stat n={todayTotals.noShowCount} label="No-Show" />
+          <Stat n={todayTotals.tipChf} label="Trinkgeld" chf />
         </div>
         <div className="mt-4 flex gap-2">
-          <Link href="/today" className="btn-ghost flex-1 border border-border">Heutige Flüge</Link>
           <Link href="/summary" className="btn-primary flex-1">Tagesabschluss</Link>
+          <Link href="/flights" className="btn-ghost flex-1 border border-border">
+            <CalendarRange className="w-4 h-4 mr-2" /> Monatsübersicht
+          </Link>
         </div>
-        <Link href="/flights" className="btn-ghost w-full border border-border mt-2 text-sm">
-          <CalendarRange className="w-4 h-4 mr-2" /> Alle Flüge (Monatsübersicht)
-        </Link>
       </section>
+
+      {previousDaysThisMonth.length > 0 && (
+        <section>
+          <details className="card overflow-hidden group">
+            <summary className="flex items-center gap-3 p-3 cursor-pointer list-none hover:bg-bg-subtle">
+              <ChevronDown className="w-4 h-4 text-text-muted transition-transform group-open:rotate-180" />
+              <div className="flex-1">
+                <div className="font-display font-semibold">Vorherige Tage diesen Monat</div>
+                <div className="text-xs text-text-muted">{previousDaysThisMonth.length} Tag{previousDaysThisMonth.length === 1 ? '' : 'e'}</div>
+              </div>
+            </summary>
+            <div className="border-t border-border">
+              {previousDaysThisMonth.map(d => <DayDetails key={d.date} day={d} rates={rates} />)}
+            </div>
+          </details>
+        </section>
+      )}
+
+      {previousMonths.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-medium text-text-muted px-1">Vorherige Monate</h2>
+          {previousMonths.map(m => <MonthDetails key={m.monthKey} month={m} rates={rates} />)}
+        </section>
+      )}
 
       <section className="card p-4">
         <div className="flex items-center justify-between gap-2">
@@ -119,6 +165,15 @@ export default async function HomePage() {
           </Link>
         </div>
       </section>
+    </div>
+  );
+}
+
+function Stat({ n, label, chf = false }: { n: number; label: string; chf?: boolean }) {
+  return (
+    <div>
+      <div className="text-2xl font-mono font-semibold">{chf ? formatChf(n) : n}</div>
+      <div className="text-xs text-text-muted">{label}</div>
     </div>
   );
 }
