@@ -106,7 +106,6 @@ export function MonthDetails({ month, rates }: { month: MonthData; rates: PilotR
           <Link
             href={`/flights?month=${month.monthKey}`}
             className="text-xs text-primary hover:underline"
-            onClick={(e) => e.stopPropagation()}
           >
             Übersicht →
           </Link>
