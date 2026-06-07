@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { flightInputSchema, type FlightInput } from '@/lib/flights';
+import { flightInputSchema, PHOTO_STATUSES, type FlightInput, type PhotoStatus } from '@/lib/flights';
 
 export type FlightActionResult =
   | { ok: true; id: string }
@@ -73,4 +73,29 @@ export async function deleteFlight(id: string): Promise<{ ok: boolean; error?: s
 export async function deleteFlightAndGoHome(id: string) {
   await deleteFlight(id);
   redirect('/today');
+}
+
+export async function setFlightPhotoStatus(
+  id: string, status: PhotoStatus,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!PHOTO_STATUSES.includes(status)) return { ok: false, error: 'Invalid status' };
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Not authenticated' };
+
+  const { data: row, error: readErr } = await supabase
+    .from('flights').select('is_no_show').eq('id', id).eq('pilot_id', user.id).maybeSingle();
+  if (readErr) return { ok: false, error: readErr.message };
+  if (!row) return { ok: false, error: 'Flug nicht gefunden' };
+  if (row.is_no_show && status !== 'none') {
+    return { ok: false, error: 'No-Show kann kein Foto haben' };
+  }
+
+  const { error } = await supabase
+    .from('flights').update({ photo_status: status }).eq('id', id).eq('pilot_id', user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath('/flights');
+  revalidatePath('/summary');
+  return { ok: true };
 }

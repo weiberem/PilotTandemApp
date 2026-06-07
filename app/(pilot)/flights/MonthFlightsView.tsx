@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  ChevronLeft, ChevronRight, ChevronDown, Camera, AlertCircle, Wind, Plus, RotateCcw, Check, Circle,
+  ChevronLeft, ChevronRight, ChevronDown, AlertCircle, Wind, Plus, RotateCcw, Check, Circle,
 } from 'lucide-react';
 import { cn, formatChf, formatDateDe } from '@/lib/utils';
-import type { DayTotals, FlightRow } from '@/lib/flights';
+import { PHOTO_STATUSES, type DayTotals, type FlightRow, type PhotoStatus } from '@/lib/flights';
+import { setFlightPhotoStatus } from '../log/actions';
 
 export type DayGroup = {
   date: string;
@@ -122,37 +123,34 @@ export function MonthFlightsView({
                 {isOpen && (
                   <div className="border-t border-border divide-y divide-border">
                     {flights.map(f => (
-                      <Link
-                        key={f.id}
-                        href={`/log/${f.id}/edit`}
-                        className="flex items-center gap-3 p-3 pl-10 hover:bg-bg active:bg-bg"
-                      >
+                      <div key={f.id} className="flex items-center gap-3 p-3 pl-10 flex-wrap">
                         <span className="font-mono text-sm tabular-nums w-12">{f.trip_time}</span>
                         <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary-dark">
                           {f.company}
                         </span>
-                        <div className="flex-1 flex items-center gap-1 flex-wrap">
-                          {f.photo_status !== 'none' && (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-bg border border-border inline-flex items-center gap-1">
-                              <Camera className="w-3 h-3" /> {f.photo_status}
-                            </span>
-                          )}
-                          {f.is_no_show && (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-warning/15 text-warning inline-flex items-center gap-1">
-                              <AlertCircle className="w-3 h-3" /> No-Show
-                            </span>
-                          )}
-                          {f.is_double_airtime && (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-accent/15 text-accent inline-flex items-center gap-1">
-                              <Wind className="w-3 h-3" /> Thermal
-                            </span>
-                          )}
-                        </div>
+                        <PhotoStatusSwitch
+                          flightId={f.id}
+                          current={f.photo_status}
+                          disabled={f.is_no_show}
+                        />
+                        {f.is_no_show && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-warning/15 text-warning inline-flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" /> No-Show
+                          </span>
+                        )}
+                        {f.is_double_airtime && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-accent/15 text-accent inline-flex items-center gap-1">
+                            <Wind className="w-3 h-3" /> Thermal
+                          </span>
+                        )}
+                        <div className="flex-1" />
                         {Number(f.tip_chf) > 0 && (
                           <span className="font-mono text-xs text-text-muted">{formatChf(Number(f.tip_chf))}</span>
                         )}
-                        <span className="text-xs text-primary">bearbeiten</span>
-                      </Link>
+                        <Link href={`/log/${f.id}/edit`} className="text-xs text-primary hover:underline">
+                          bearbeiten
+                        </Link>
+                      </div>
                     ))}
                     <Link
                       href={`/log?date=${date}`}
@@ -176,6 +174,62 @@ function Stat({ n, label }: { n: number; label: string }) {
     <div>
       <div className="text-2xl font-mono font-semibold">{n}</div>
       <div className="text-xs text-text-muted">{label}</div>
+    </div>
+  );
+}
+
+function PhotoStatusSwitch({
+  flightId, current, disabled,
+}: { flightId: string; current: PhotoStatus; disabled: boolean }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [optimistic, setOptimistic] = useState<PhotoStatus | null>(null);
+  const value = optimistic ?? current;
+
+  function pick(status: PhotoStatus) {
+    if (disabled || status === value) return;
+    setOptimistic(status);
+    startTransition(async () => {
+      const r = await setFlightPhotoStatus(flightId, status);
+      if (!r.ok) {
+        setOptimistic(null);
+        alert(r.error ?? 'Fehler beim Speichern');
+        return;
+      }
+      router.refresh();
+      setOptimistic(null);
+    });
+  }
+
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Foto-Status"
+      className={cn(
+        'inline-flex rounded-full border border-border overflow-hidden text-xs',
+        disabled && 'opacity-40',
+        pending && 'opacity-70',
+      )}
+    >
+      {PHOTO_STATUSES.map(s => {
+        const active = s === value;
+        return (
+          <button
+            key={s}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            disabled={disabled || pending}
+            onClick={(e) => { e.preventDefault(); pick(s); }}
+            className={cn(
+              'px-2 py-0.5 min-w-[28px] transition-colors',
+              active ? 'bg-primary text-white font-semibold' : 'bg-bg-card text-text-muted hover:bg-bg-subtle',
+            )}
+          >
+            {s === 'none' ? '—' : s}
+          </button>
+        );
+      })}
     </div>
   );
 }
