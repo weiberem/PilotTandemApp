@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { SettingsForm } from './SettingsForm';
 import { GoogleDriveConnect } from '@/components/GoogleDriveConnect';
 import { BackupButton } from '@/components/BackupButton';
+import { SetupStatusCard } from '@/components/SetupStatusCard';
+import { probeMissingMigrations } from '@/lib/setupProbe';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +24,7 @@ export default async function SettingsPage({
 
   const { data: pilot } = await supabase.from('pilots').select('*').eq('id', user.id).maybeSingle();
   const gdriveMsg = searchParams.gdrive ? GDRIVE_MESSAGES[searchParams.gdrive] : null;
+  const missingMigrations = await probeMissingMigrations(user.id);
 
   return (
     <div className="p-4 space-y-4 max-w-xl mx-auto">
@@ -44,6 +47,7 @@ export default async function SettingsPage({
       )}
 
       <h1 className="text-2xl font-display font-bold">Einstellungen</h1>
+      <SetupStatusCard missing={missingMigrations} />
       <SettingsForm pilot={pilot} email={user.email ?? ''} />
 
       <fieldset className="card p-4 space-y-3">

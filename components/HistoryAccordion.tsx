@@ -3,6 +3,7 @@ import { Check, Circle, Plus, ChevronDown } from 'lucide-react';
 import { formatChf, formatDateDe } from '@/lib/utils';
 import { computeDayTotals, type FlightRow, type PilotRates } from '@/lib/flights';
 import { FlightLine } from './FlightLine';
+import { DayVerifyButton } from './DayVerifyButton';
 
 export type DayData = {
   date: string;
@@ -71,6 +72,10 @@ export function DayDetails({ day, rates }: { day: DayData; rates: PilotRates }) 
         <div className="font-mono text-sm">{formatChf(totals.totalChf)}</div>
       </summary>
       <div className="divide-y divide-border bg-bg-subtle/30">
+        <div className="flex items-center justify-between gap-2 px-3 py-2 pl-10">
+          <span className="text-xs text-text-muted">Mit Desk-Blatt abgleichen, dann verifizieren.</span>
+          <DayVerifyButton date={day.date} verified={day.verified} flightCount={day.flights.length} />
+        </div>
         {day.flights.map(f => <FlightLine key={f.id} flight={f} />)}
         <Link
           href={`/log?date=${day.date}`}
