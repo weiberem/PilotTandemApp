@@ -22,7 +22,7 @@ export default function Index() {
           Flight reporting for tandem pilots
         </h1>
         <p className="text-white/70 text-sm mt-3 max-w-sm mx-auto">
-          Log flights, plan availability, send invoices — straight from the cockpit.
+          Log flights, plan availability, send invoices.
         </p>
       </section>
 
