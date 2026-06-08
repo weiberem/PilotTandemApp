@@ -33,6 +33,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'office_email missing — set it in Settings' }, { status: 400 });
   }
 
+  // Demo-Pilot? Simulate a successful send without contacting Resend or Drive.
+  const { data: demoRow } = await sb.from('pilots').select('is_demo').eq('id', user.id).maybeSingle();
+  const isDemo = !!(demoRow as { is_demo?: boolean } | null)?.is_demo;
+  if (isDemo) {
+    const fakeNumber = `DEMO-${String(Math.floor(Math.random() * 900) + 100).padStart(3, '0')}`;
+    const svc = createServiceClient();
+    await svc.from('invoices').upsert({
+      pilot_id: assembled.pilotId,
+      month: monthFirst,
+      company,
+      invoice_number: fakeNumber,
+      status: 'sent',
+      total_chf: assembled.totals.amount,
+      flights_count: assembled.totals.flights,
+      pp_count: assembled.totals.pp,
+      thermal_count: assembled.totals.thermal,
+      no_show_count: assembled.totals.noShow,
+      sent_at: new Date().toISOString(),
+    }, { onConflict: 'pilot_id,month,company' });
+    return NextResponse.json({
+      ok: true,
+      invoice_number: fakeNumber,
+      drive_uploaded: false,
+      demo: true,
+    });
+  }
+
   // Reserve invoice number atomically.
   const year = Number(monthFirst.slice(0, 4));
   const invoiceNumber = await reserveNextInvoiceNumber(assembled.pilotId, year);

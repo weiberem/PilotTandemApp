@@ -32,9 +32,17 @@ export default function Index() {
           <Link href="/register" className="btn-ghost w-full border border-border">
             Einladung einlösen
           </Link>
-          <p className="text-xs text-text-muted text-center pt-2">
-            Konto auf Einladung des Admins.
-          </p>
+          <div className="border-t border-border pt-3">
+            <Link
+              href="/demo"
+              className="block text-center text-sm text-primary font-medium hover:underline"
+            >
+              Demo ausprobieren →
+            </Link>
+            <p className="text-[11px] text-text-muted text-center mt-1">
+              Mit Beispiel-Daten, ohne Anmeldung. Räumt sich nach 24h auf.
+            </p>
+          </div>
         </div>
       </section>
     </main>

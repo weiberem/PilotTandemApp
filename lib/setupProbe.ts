@@ -38,6 +38,18 @@ const PROBES: ReadonlyArray<MigrationProbe & {
     sql: `alter table pilots add column if not exists vkpi_reported_years jsonb not null default '[]'::jsonb;`,
     test: (sb, userId) => sb.from('pilots').select('vkpi_reported_years').eq('id', userId).limit(1),
   },
+  {
+    id: '010',
+    label: 'Demo-Sandbox (pilots.is_demo, demo_expires_at)',
+    file: 'supabase/migrations/010_demo_account.sql',
+    sql:
+      `alter table pilots\n` +
+      `  add column if not exists is_demo boolean not null default false,\n` +
+      `  add column if not exists demo_expires_at timestamptz;\n` +
+      `create index if not exists pilots_demo_expires_idx\n` +
+      `  on pilots (demo_expires_at) where is_demo = true;`,
+    test: (sb, userId) => sb.from('pilots').select('is_demo').eq('id', userId).limit(1),
+  },
 ];
 
 export async function probeMissingMigrations(userId: string): Promise<MigrationProbe[]> {
