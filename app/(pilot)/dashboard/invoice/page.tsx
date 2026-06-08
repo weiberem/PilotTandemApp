@@ -28,7 +28,7 @@ export default async function InvoiceDashboardPage({
     .select('primary_company_name, full_name, iban')
     .eq('id', user.id)
     .maybeSingle();
-  if (!pilot?.iban) redirect('/settings?welcome=1');
+  if (!pilot?.iban) redirect('/onboarding');
 
   const monthFirst = /^\d{4}-\d{2}-01$/.test(searchParams.month ?? '')
     ? (searchParams.month as string)

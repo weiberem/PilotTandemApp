@@ -22,7 +22,7 @@ export default async function LogPage({
     .select('full_name, iban, primary_company_name, season_override, einsatzplan_schedule')
     .eq('id', user.id)
     .maybeSingle();
-  if (!pilot || !pilot.full_name || !pilot.iban) redirect('/settings?welcome=1');
+  if (!pilot || !pilot.full_name || !pilot.iban) redirect('/onboarding');
 
   const flightDate = searchParams.date && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.date)
     ? searchParams.date

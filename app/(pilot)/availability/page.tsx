@@ -18,7 +18,7 @@ export default async function AvailabilityPage() {
     .select('full_name, office_email, season_override, einsatzplan_schedule')
     .eq('id', user.id)
     .maybeSingle();
-  if (!pilot) redirect('/settings?welcome=1');
+  if (!pilot) redirect('/onboarding');
 
   // Optional columns (migrations 004 + 005). Pulled separately so the page
   // still works if either migration hasn't been applied yet.
