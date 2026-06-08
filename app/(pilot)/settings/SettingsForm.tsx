@@ -74,82 +74,82 @@ export function SettingsForm({ pilot, email }: { pilot: Pilot; email: string }) 
         setMsg({ kind: 'err', text: error.message });
         return;
       }
-      setMsg({ kind: 'ok', text: 'Gespeichert.' });
+      setMsg({ kind: 'ok', text: 'Saved.' });
       router.refresh();
     });
   }
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
-      <Section title="Persönlich">
-        <Input label="Voller Name *" value={form.full_name ?? ''} onChange={v => set('full_name', v)} required />
-        <Input label="Adresse" value={form.address_line1 ?? ''} onChange={v => set('address_line1', v)} />
-        <Input label="Adresszusatz" value={form.address_line2 ?? ''} onChange={v => set('address_line2', v)} />
+      <Section title="Personal">
+        <Input label="Full name *" value={form.full_name ?? ''} onChange={v => set('full_name', v)} required />
+        <Input label="Address" value={form.address_line1 ?? ''} onChange={v => set('address_line1', v)} />
+        <Input label="Address line 2" value={form.address_line2 ?? ''} onChange={v => set('address_line2', v)} />
         <div className="grid grid-cols-3 gap-2">
-          <Input label="PLZ" value={form.postal_code ?? ''} onChange={v => set('postal_code', v)} className="col-span-1" />
-          <Input label="Ort" value={form.city ?? ''} onChange={v => set('city', v)} className="col-span-2" />
+          <Input label="Postal code" value={form.postal_code ?? ''} onChange={v => set('postal_code', v)} className="col-span-1" />
+          <Input label="City" value={form.city ?? ''} onChange={v => set('city', v)} className="col-span-2" />
         </div>
         <Input label="IBAN *" value={form.iban ?? ''} onChange={v => set('iban', v)} required />
-        <Input label="MwSt.-Nummer" value={form.vat_number ?? ''} onChange={v => set('vat_number', v)} placeholder="CHE-…" />
+        <Input label="VAT number" value={form.vat_number ?? ''} onChange={v => set('vat_number', v)} placeholder="CHE-…" />
       </Section>
 
-      <Section title="Primärfirma">
-        <Input label="Firmenname" value={form.primary_company_name ?? ''} onChange={v => set('primary_company_name', v)} />
-        <Input label="Firmenadresse" value={form.primary_company_address ?? ''} onChange={v => set('primary_company_address', v)} />
+      <Section title="Primary company">
+        <Input label="Company name" value={form.primary_company_name ?? ''} onChange={v => set('primary_company_name', v)} />
+        <Input label="Company address" value={form.primary_company_address ?? ''} onChange={v => set('primary_company_address', v)} />
       </Section>
 
-      <Section title="E-Mails">
-        <Input label="Office E-Mail (Rechnung an)" type="email" value={form.office_email ?? ''} onChange={v => set('office_email', v)} />
-        <Input label="Persönliche E-Mail (Kopie)" type="email" value={form.personal_email ?? ''} onChange={v => set('personal_email', v)} />
-        <Input label="CC-Empfänger Rechnung" type="email" value={form.invoice_cc_email ?? ''} onChange={v => set('invoice_cc_email', v)} placeholder="optional" />
+      <Section title="Emails">
+        <Input label="Office email (invoice to)" type="email" value={form.office_email ?? ''} onChange={v => set('office_email', v)} />
+        <Input label="Personal email (copy)" type="email" value={form.personal_email ?? ''} onChange={v => set('personal_email', v)} />
+        <Input label="Invoice CC recipient" type="email" value={form.invoice_cc_email ?? ''} onChange={v => set('invoice_cc_email', v)} placeholder="optional" />
       </Section>
 
-      <Section title="Tarife (CHF)">
+      <Section title="Rates (CHF)">
         <div className="grid grid-cols-2 gap-2">
-          <NumberInput label="Flug" value={form.flight_rate_chf ?? 0} onChange={v => set('flight_rate_chf', v)} />
-          <NumberInput label="Photo Prepaid" value={form.photo_prepaid_rate_chf ?? 0} onChange={v => set('photo_prepaid_rate_chf', v)} />
+          <NumberInput label="Flight" value={form.flight_rate_chf ?? 0} onChange={v => set('flight_rate_chf', v)} />
+          <NumberInput label="Photo prepaid" value={form.photo_prepaid_rate_chf ?? 0} onChange={v => set('photo_prepaid_rate_chf', v)} />
           <NumberInput label="Thermal" value={form.thermal_rate_chf ?? 0} onChange={v => set('thermal_rate_chf', v)} />
-          <NumberInput label="No-Show" value={form.no_show_rate_chf ?? 0} onChange={v => set('no_show_rate_chf', v)} />
+          <NumberInput label="No-show" value={form.no_show_rate_chf ?? 0} onChange={v => set('no_show_rate_chf', v)} />
         </div>
       </Section>
 
-      <Section title="Saison">
+      <Section title="Season">
         <label className="block">
-          <span className="text-sm font-medium">Saison-Override</span>
+          <span className="text-sm font-medium">Season override</span>
           <select
             value={form.season_override ?? ''}
             onChange={e => set('season_override', (e.target.value || null) as 'summer' | 'winter' | null)}
             className="mt-1 w-full min-h-tap rounded-lg border border-border px-3 py-2 bg-white"
           >
-            <option value="">Automatisch (Sommer Apr–Okt, Winter Nov–Mär)</option>
-            <option value="summer">Sommer erzwingen</option>
-            <option value="winter">Winter erzwingen</option>
+            <option value="">Automatic (Summer Apr–Oct, Winter Nov–Mar)</option>
+            <option value="summer">Force summer</option>
+            <option value="winter">Force winter</option>
           </select>
         </label>
       </Section>
 
       <Section title="Google Drive">
         <Input
-          label="Hauptordner für Rechnungen & Backups"
+          label="Main folder for invoices & backups"
           value={form.google_drive_folder_id ?? ''}
           onChange={v => set('google_drive_folder_id', extractDriveId(v))}
-          placeholder="ID oder Drive-Link …/folders/XXX"
+          placeholder="ID or Drive link …/folders/XXX"
         />
         <Input
-          label="Einsatzplan-Ordner (Skywings legt neue Datei jeden Monat ab)"
+          label="Schedule folder (Skywings drops a new file every month)"
           value={form.einsatzplan_folder_id ?? ''}
           onChange={v => set('einsatzplan_folder_id', extractDriveId(v))}
-          placeholder="ID oder Drive-Link …/folders/XXX"
+          placeholder="ID or Drive link …/folders/XXX"
         />
         <Input
-          label="Einsatzplan einzelne Datei-ID (Fallback, optional)"
+          label="Schedule single file ID (fallback, optional)"
           value={form.einsatzplan_file_id ?? ''}
           onChange={v => set('einsatzplan_file_id', extractDriveId(v))}
-          placeholder="nur falls Ordner nicht funktioniert"
+          placeholder="only if the folder doesn't work"
         />
         <p className="text-xs text-text-muted">
-          Tipp: Du kannst den ganzen Drive-Link einfügen — die ID wird automatisch extrahiert.
-          Mit Ordner-ID zieht die App immer die neueste Excel-Datei aus dem Ordner.
+          Tip: You can paste the whole Drive link — the ID is extracted automatically.
+          With a folder ID, the app always pulls the latest Excel file from the folder.
         </p>
       </Section>
 
@@ -158,7 +158,7 @@ export function SettingsForm({ pilot, email }: { pilot: Pilot; email: string }) 
       )}
 
       <button type="submit" disabled={pending} className="btn-primary w-full">
-        {pending ? 'Speichere…' : 'Speichern'}
+        {pending ? 'Saving…' : 'Save'}
       </button>
     </form>
   );

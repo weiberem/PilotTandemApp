@@ -14,7 +14,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="min-h-dvh flex flex-col bg-bg">
       <header className="bg-bg-dark text-white px-4 py-3 flex items-center justify-between">
         <Link href="/admin" className="font-display font-semibold">TandemLog Admin</Link>
-        <Link href="/home" className="text-xs text-white/70">Zur Pilot-App</Link>
+        <Link href="/home" className="text-xs text-white/70">To pilot app</Link>
       </header>
       <main className="flex-1 p-4 max-w-4xl mx-auto w-full">{children}</main>
     </div>

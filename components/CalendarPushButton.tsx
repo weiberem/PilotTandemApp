@@ -22,16 +22,16 @@ export function CalendarPushButton({ defaultMonth }: { defaultMonth?: string }) 
       const data = await r.json();
       if (!r.ok) {
         const friendly = data.error === 'not_connected'
-          ? 'Google ist nicht verbunden.'
+          ? 'Google is not connected.'
           : data.error === 'no_scheduled_days'
-          ? 'Kein Einsatzplan vorhanden — zuerst importieren.'
-          : data.detail ?? data.error ?? 'Fehler';
+          ? 'No schedule available — import it first.'
+          : data.detail ?? data.error ?? 'Error';
         setMsg({ kind: 'err', text: friendly });
         return;
       }
       setMsg({
         kind: 'ok',
-        text: `${data.total} Einsätze im Google Kalender (${data.created} neu, ${data.updated} aktualisiert).`,
+        text: `${data.total} shifts in Google Calendar (${data.created} new, ${data.updated} updated).`,
       });
     });
   }
@@ -40,9 +40,9 @@ export function CalendarPushButton({ defaultMonth }: { defaultMonth?: string }) 
     <div className="card p-4 space-y-2">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <div className="text-sm font-medium">In Google Kalender übertragen</div>
+          <div className="text-sm font-medium">Push to Google Calendar</div>
           <div className="text-xs text-text-muted">
-            Legt die geplanten Skywings-Einsätze als Termine an. Erneutes Übertragen aktualisiert bestehende Termine.
+            Creates the planned Skywings shifts as events. Re-running updates existing events.
           </div>
         </div>
         <button
@@ -51,7 +51,7 @@ export function CalendarPushButton({ defaultMonth }: { defaultMonth?: string }) 
           className="btn-primary shrink-0"
         >
           <CalendarPlus className="w-4 h-4 mr-2" />
-          {pending ? 'Übertrage…' : 'Übertragen'}
+          {pending ? 'Pushing…' : 'Push'}
         </button>
       </div>
       {msg && (

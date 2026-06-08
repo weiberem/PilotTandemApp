@@ -14,14 +14,14 @@ export function DemoBanner({ expiresAt }: { expiresAt: string }) {
   return (
     <div className="bg-warning/15 border-b border-warning/30 text-warning text-xs px-3 py-1.5 flex items-center justify-center gap-2">
       <Sparkles className="w-3.5 h-3.5" />
-      <span><strong>Demo-Modus</strong> · Daten verschwinden in {label} · Rechnungs-Senden wird simuliert</span>
+      <span><strong>Demo mode</strong> · Data disappears in {label} · Invoice sending is simulated</span>
     </div>
   );
 }
 
 function formatRemaining(iso: string): string {
   const ms = new Date(iso).getTime() - Date.now();
-  if (ms <= 0) return 'wenigen Minuten';
+  if (ms <= 0) return 'a few minutes';
   const hours = Math.floor(ms / 3_600_000);
   const minutes = Math.floor((ms % 3_600_000) / 60_000);
   if (hours >= 1) return `${hours}h ${minutes}m`;

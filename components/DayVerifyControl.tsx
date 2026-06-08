@@ -25,7 +25,7 @@ export function DayVerifyControl({ date, verifiedAt, flightCount }: Props) {
     setError(null);
     startTransition(async () => {
       const r = await verifyDay(date);
-      if (!r.ok) { setError(r.error ?? 'Fehler'); return; }
+      if (!r.ok) { setError(r.error ?? 'Error'); return; }
       setState({ verifiedAt: new Date().toISOString(), mailSent: !!r.mail?.sent });
     });
   }
@@ -33,7 +33,7 @@ export function DayVerifyControl({ date, verifiedAt, flightCount }: Props) {
     setError(null);
     startTransition(async () => {
       const r = await unverifyDay(date);
-      if (!r.ok) { setError(r.error ?? 'Fehler'); return; }
+      if (!r.ok) { setError(r.error ?? 'Error'); return; }
       setState({ verifiedAt: null, mailSent: null });
     });
   }
@@ -44,7 +44,7 @@ export function DayVerifyControl({ date, verifiedAt, flightCount }: Props) {
         <div className="flex items-center gap-2 text-sm">
           <Check className="w-5 h-5 text-success" />
           <span>
-            <span className="font-semibold">Tag verifiziert</span>{' '}
+            <span className="font-semibold">Day verified</span>{' '}
             <span className="text-text-muted">
               · {formatDateDe(state.verifiedAt, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
             </span>
@@ -52,7 +52,7 @@ export function DayVerifyControl({ date, verifiedAt, flightCount }: Props) {
         </div>
         {state.mailSent && (
           <p className="text-xs text-success">
-            Alle Tage des Monats verifiziert — Bestätigungs-E-Mail wurde verschickt.
+            All days of the month verified — confirmation email sent.
           </p>
         )}
         <button
@@ -61,7 +61,7 @@ export function DayVerifyControl({ date, verifiedAt, flightCount }: Props) {
           disabled={pending}
           className="text-xs text-text-muted underline-offset-2 hover:underline"
         >
-          {pending ? '…' : 'Verifikation zurücknehmen'}
+          {pending ? '…' : 'Undo verification'}
         </button>
       </div>
     );
@@ -72,10 +72,10 @@ export function DayVerifyControl({ date, verifiedAt, flightCount }: Props) {
       <div className="flex items-start gap-2 text-sm">
         <AlertCircle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
         <div>
-          <div className="font-semibold">Tag noch nicht verifiziert</div>
+          <div className="font-semibold">Day not yet verified</div>
           <p className="text-text-muted text-xs mt-0.5">
-            Mit dem Desk-Tagesblatt abgleichen (Flüge, PP, Thermal, No-Show). Wenn alles stimmt: bestätigen.
-            Falls etwas nicht passt: zuerst über &quot;Heutige Flüge&quot; korrigieren, dann hier verifizieren.
+            Reconcile with the desk day sheet (flights, PP, Thermal, No-Show). If everything matches: confirm.
+            If something doesn't match: correct via &quot;Today's Flights&quot; first, then verify here.
           </p>
         </div>
       </div>
@@ -86,7 +86,7 @@ export function DayVerifyControl({ date, verifiedAt, flightCount }: Props) {
         className="btn-primary w-full"
       >
         <Check className="w-4 h-4 mr-2" />
-        {pending ? 'Verifiziere…' : 'Tag verifizieren'}
+        {pending ? 'Verifying…' : 'Verify day'}
       </button>
       {error && <p className="text-danger text-xs">{error}</p>}
     </div>

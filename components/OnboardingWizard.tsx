@@ -43,11 +43,11 @@ type State = {
 };
 
 const STEPS = [
-  { key: 'profile', label: 'Profil' },
+  { key: 'profile', label: 'Profile' },
   { key: 'iban', label: 'Bank' },
-  { key: 'email', label: 'Rechnungs-Mail' },
-  { key: 'company', label: 'Firma & Sätze' },
-  { key: 'done', label: 'Fertig' },
+  { key: 'email', label: 'Invoice email' },
+  { key: 'company', label: 'Company & rates' },
+  { key: 'done', label: 'Done' },
 ] as const;
 
 type StepKey = (typeof STEPS)[number]['key'];
@@ -92,7 +92,7 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
     setError(null);
     startTransition(async () => {
       const r = await saveOnboardingStep(patch);
-      if (!r.ok) { setError(r.error ?? 'Speichern fehlgeschlagen'); return; }
+      if (!r.ok) { setError(r.error ?? 'Save failed'); return; }
       setStepIdx(nextIdx);
       if (STEPS[nextIdx].key === 'done') router.refresh();
     });
@@ -100,7 +100,7 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
 
   function next() {
     if (step === 'profile') {
-      if (!state.full_name.trim()) { setError('Name ist Pflicht.'); return; }
+      if (!state.full_name.trim()) { setError('Name is required.'); return; }
       persistAndAdvance({
         full_name: state.full_name,
         address_line1: state.address_line1,
@@ -109,13 +109,13 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
         city: state.city,
       }, stepIdx + 1);
     } else if (step === 'iban') {
-      if (!state.iban.trim()) { setError('IBAN ist Pflicht — sonst können keine Rechnungen gesendet werden.'); return; }
+      if (!state.iban.trim()) { setError('IBAN is required — otherwise invoices cannot be sent.'); return; }
       persistAndAdvance({
         iban: state.iban.replace(/\s+/g, ''),
         vat_number: state.vat_number,
       }, stepIdx + 1);
     } else if (step === 'email') {
-      if (!state.office_email.trim()) { setError('Office-Mail ist Pflicht — dorthin geht die Rechnung.'); return; }
+      if (!state.office_email.trim()) { setError('Office email is required — invoices are sent there.'); return; }
       persistAndAdvance({
         office_email: state.office_email,
         personal_email: state.personal_email,
@@ -158,31 +158,31 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
         })}
       </div>
       <p className="text-center text-xs text-text-muted">
-        Schritt {Math.min(stepIdx + 1, STEPS.length - 1)} von {STEPS.length - 1} · {STEPS[stepIdx].label}
+        Step {Math.min(stepIdx + 1, STEPS.length - 1)} of {STEPS.length - 1} · {STEPS[stepIdx].label}
       </p>
 
       <div className="card p-5 space-y-4">
         {step === 'profile' && (
           <>
-            <h2 className="font-display text-xl font-bold">Profil & Adresse</h2>
+            <h2 className="font-display text-xl font-bold">Profile & address</h2>
             <p className="text-text-muted text-sm">
-              Diese Angaben erscheinen im Header deiner Rechnung.
+              These details appear in the header of your invoice.
             </p>
-            <Input label="Voller Name" value={state.full_name} onChange={v => set('full_name', v)} placeholder="Rémy Weibel" required />
-            <Input label="Strasse + Nr." value={state.address_line1} onChange={v => set('address_line1', v)} placeholder="Musterweg 12" />
-            <Input label="Adresszusatz" value={state.address_line2} onChange={v => set('address_line2', v)} placeholder="(optional)" />
+            <Input label="Full name" value={state.full_name} onChange={v => set('full_name', v)} placeholder="Rémy Weibel" required />
+            <Input label="Street + no." value={state.address_line1} onChange={v => set('address_line1', v)} placeholder="Musterweg 12" />
+            <Input label="Address line 2" value={state.address_line2} onChange={v => set('address_line2', v)} placeholder="(optional)" />
             <div className="grid grid-cols-[100px_1fr] gap-2">
-              <Input label="PLZ" value={state.postal_code} onChange={v => set('postal_code', v)} placeholder="3812" />
-              <Input label="Ort" value={state.city} onChange={v => set('city', v)} placeholder="Wilderswil" />
+              <Input label="Postal code" value={state.postal_code} onChange={v => set('postal_code', v)} placeholder="3812" />
+              <Input label="City" value={state.city} onChange={v => set('city', v)} placeholder="Wilderswil" />
             </div>
           </>
         )}
 
         {step === 'iban' && (
           <>
-            <h2 className="font-display text-xl font-bold">Bankverbindung</h2>
+            <h2 className="font-display text-xl font-bold">Bank details</h2>
             <p className="text-text-muted text-sm">
-              Die IBAN steht auf jeder Rechnung. Pflichtfeld — sonst ist Senden gesperrt.
+              The IBAN is on every invoice. Required — otherwise sending is locked.
             </p>
             <Input
               label="IBAN" value={state.iban}
@@ -191,57 +191,57 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
               required
             />
             <Input
-              label="MwSt-Nr." value={state.vat_number}
+              label="VAT number" value={state.vat_number}
               onChange={v => set('vat_number', v)}
               placeholder="CHE-123.456.789 MWST (optional)"
             />
             <p className="text-xs text-text-muted">
-              Ohne MwSt-Nr. läuft die Rechnung mit dem aktuellen Schweizer Satz inklusive.
+              Without a VAT number, the invoice runs at the current Swiss inclusive rate.
             </p>
           </>
         )}
 
         {step === 'email' && (
           <>
-            <h2 className="font-display text-xl font-bold">Empfänger der Rechnung</h2>
+            <h2 className="font-display text-xl font-bold">Invoice recipients</h2>
             <p className="text-text-muted text-sm">
-              Wohin geht die Monatsabrechnung? Dein eigener Account kommt als CC mit.
+              Where does the monthly statement go? Your own account is added as CC.
             </p>
             <Input
-              label="Office-Mail (Skywings)" value={state.office_email}
+              label="Office email (Skywings)" value={state.office_email}
               onChange={v => set('office_email', v)}
               placeholder="office@skywings.ch"
               type="email" required
             />
             <Input
-              label="Deine persönliche Mail" value={state.personal_email}
+              label="Your personal email" value={state.personal_email}
               onChange={v => set('personal_email', v)}
-              placeholder="deine@gmail.com"
+              placeholder="you@gmail.com"
               type="email"
             />
             <p className="text-xs text-text-muted">
-              Du bekommst eine Kopie jeder gesendeten Rechnung in CC.
+              You'll get a copy of every sent invoice in CC.
             </p>
           </>
         )}
 
         {step === 'company' && (
           <>
-            <h2 className="font-display text-xl font-bold">Firma & Stundensätze</h2>
+            <h2 className="font-display text-xl font-bold">Company & rates</h2>
             <p className="text-text-muted text-sm">
-              Die Defaults entsprechen den Skywings-Sätzen. Andere Firma? Einfach ändern.
+              Defaults match the Skywings rates. Different company? Just change them.
             </p>
             <Input
-              label="Primärfirma" value={state.primary_company_name}
+              label="Primary company" value={state.primary_company_name}
               onChange={v => set('primary_company_name', v)}
             />
             <Input
-              label="Adresse Firma" value={state.primary_company_address}
+              label="Company address" value={state.primary_company_address}
               onChange={v => set('primary_company_address', v)}
             />
             <div className="grid grid-cols-2 gap-2">
-              <NumInput label="Flug" value={state.flight_rate_chf} onChange={v => set('flight_rate_chf', v)} />
-              <NumInput label="Foto PP" value={state.photo_prepaid_rate_chf} onChange={v => set('photo_prepaid_rate_chf', v)} />
+              <NumInput label="Flight" value={state.flight_rate_chf} onChange={v => set('flight_rate_chf', v)} />
+              <NumInput label="Photo PP" value={state.photo_prepaid_rate_chf} onChange={v => set('photo_prepaid_rate_chf', v)} />
               <NumInput label="Thermal" value={state.thermal_rate_chf} onChange={v => set('thermal_rate_chf', v)} />
               <NumInput label="No-Show" value={state.no_show_rate_chf} onChange={v => set('no_show_rate_chf', v)} />
             </div>
@@ -253,13 +253,13 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
             <div className="inline-flex w-14 h-14 rounded-full bg-success/15 items-center justify-center">
               <Check className="w-7 h-7 text-success" />
             </div>
-            <h2 className="font-display text-xl font-bold">Startklar!</h2>
+            <h2 className="font-display text-xl font-bold">Ready to go!</h2>
             <p className="text-text-muted text-sm">
-              Du kannst jetzt deinen ersten Flug erfassen. Adresse, Sätze und Google-Drive lassen sich
-              jederzeit in den Einstellungen anpassen.
+              You can now log your first flight. Address, rates and Google Drive can be
+              adjusted any time in Settings.
             </p>
             <button onClick={() => router.push('/home')} className="btn-primary w-full">
-              <Plane className="w-4 h-4 mr-2 -rotate-45" /> Zur Flugerfassung
+              <Plane className="w-4 h-4 mr-2 -rotate-45" /> Go to flight logging
             </button>
           </div>
         )}
@@ -274,7 +274,7 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
               disabled={stepIdx === 0 || pending}
               className="btn-ghost border border-border"
             >
-              <ArrowLeft className="w-4 h-4 mr-1" /> Zurück
+              <ArrowLeft className="w-4 h-4 mr-1" /> Back
             </button>
             <button
               type="button"
@@ -282,7 +282,7 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
               disabled={pending}
               className="btn-primary flex-1"
             >
-              {pending ? 'Speichere…' : <>Weiter <ArrowRight className="w-4 h-4 ml-1" /></>}
+              {pending ? 'Saving…' : <>Next <ArrowRight className="w-4 h-4 ml-1" /></>}
             </button>
           </div>
         )}

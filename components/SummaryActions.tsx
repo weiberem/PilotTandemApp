@@ -33,7 +33,7 @@ export function SummaryActions(props: Props) {
     setBusy('snap');
     try {
       const blob = await snapshot();
-      if (!blob) throw new Error('Screenshot fehlgeschlagen');
+      if (!blob) throw new Error('Screenshot failed');
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -41,7 +41,7 @@ export function SummaryActions(props: Props) {
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Fehler');
+      setError(e instanceof Error ? e.message : 'Error');
     } finally {
       setBusy(null);
     }
@@ -52,7 +52,7 @@ export function SummaryActions(props: Props) {
     setBusy('share');
     try {
       const blob = await snapshot();
-      if (!blob) throw new Error('Screenshot fehlgeschlagen');
+      if (!blob) throw new Error('Screenshot failed');
       const file = new File([blob], `tandemlog-${props.date}.png`, { type: 'image/png' });
       // Web Share API Level 2 — files support
       const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean; share?: (d: ShareData) => Promise<void> };
@@ -73,7 +73,7 @@ export function SummaryActions(props: Props) {
       }
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return;
-      setError(e instanceof Error ? e.message : 'Fehler');
+      setError(e instanceof Error ? e.message : 'Error');
     } finally {
       setBusy(null);
     }
@@ -87,7 +87,7 @@ export function SummaryActions(props: Props) {
           <Camera className="w-4 h-4 mr-2" /> {busy === 'snap' ? '…' : 'Screenshot'}
         </button>
         <button onClick={onShare} disabled={!!busy} className="btn-primary flex-1">
-          <Share2 className="w-4 h-4 mr-2" /> {busy === 'share' ? '…' : 'Teilen'}
+          <Share2 className="w-4 h-4 mr-2" /> {busy === 'share' ? '…' : 'Share'}
         </button>
       </div>
       {error && <p className="text-danger text-sm text-center">{error}</p>}

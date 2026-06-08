@@ -26,7 +26,7 @@ export function FlightLine({ flight, indent = 'pl-10' }: { flight: FlightRow; in
       <div className="flex-1" />
       {tip > 0 && <span className="font-mono text-xs text-text-muted">{formatChf(tip)}</span>}
       <Link href={`/log/${flight.id}/edit`} className="text-xs text-primary hover:underline">
-        bearbeiten
+        edit
       </Link>
     </div>
   );

@@ -43,9 +43,9 @@ export default async function EditFlightPage({ params }: { params: { id: string 
       <div className="flex items-start justify-between">
         <div>
           <p className="text-text-muted text-sm">{formatDateDe(new Date(row.flight_date))}</p>
-          <h1 className="text-2xl font-display font-bold">Flug bearbeiten</h1>
+          <h1 className="text-2xl font-display font-bold">Edit Flight</h1>
         </div>
-        <Link href="/today" className="text-sm text-text-muted">Abbrechen</Link>
+        <Link href="/today" className="text-sm text-text-muted">Cancel</Link>
       </div>
 
       <FlightForm

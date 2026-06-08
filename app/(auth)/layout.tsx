@@ -13,7 +13,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             Tandem<span className="text-primary">Log</span>
           </span>
         </Link>
-        <p className="text-white/70 text-xs mt-2">Flugrapport für Tandempiloten</p>
+        <p className="text-white/70 text-xs mt-2">Flight reporting for tandem pilots</p>
       </section>
 
       <section className="flex-1 flex items-start justify-center p-4 -mt-6">

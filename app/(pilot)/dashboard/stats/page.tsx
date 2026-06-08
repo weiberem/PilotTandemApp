@@ -137,14 +137,14 @@ export default async function StatsPage({
     <div className="p-4 lg:p-6 max-w-[1200px] mx-auto space-y-4">
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-display font-bold">Rechnung & Stats</h1>
-          <p className="text-text-muted text-sm">{primaryCompany} · Jahr {year}</p>
+          <h1 className="text-2xl lg:text-3xl font-display font-bold">Invoice & Stats</h1>
+          <p className="text-text-muted text-sm">{primaryCompany} · Year {year}</p>
         </div>
         <YearPicker year={year} options={yearOptions} />
       </div>
 
       <section className="space-y-3">
-        <h2 className="font-display font-semibold text-lg">Monatsabrechnung</h2>
+        <h2 className="font-display font-semibold text-lg">Monthly billing</h2>
         {monthBlocks.map(block => (
           <MonthBillingCard
             key={block.month}
@@ -164,18 +164,18 @@ export default async function StatsPage({
       <MonthlyChart data={stats.months} />
 
       <div className="card p-4 overflow-x-auto">
-        <h2 className="font-display font-semibold mb-2">Jahresdetail</h2>
+        <h2 className="font-display font-semibold mb-2">Year detail</h2>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-text-muted text-xs uppercase">
-              <th className="py-1">Monat</th>
-              <th className="text-right">Flüge</th>
+              <th className="py-1">Month</th>
+              <th className="text-right">Flights</th>
               <th className="text-right">PP</th>
               <th className="text-right">CC</th>
-              <th className="text-right">Bar</th>
+              <th className="text-right">Cash</th>
               <th className="text-right">Therm.</th>
               <th className="text-right">No-Show</th>
-              <th className="text-right">Umsatz</th>
+              <th className="text-right">Revenue</th>
             </tr>
           </thead>
           <tbody>
@@ -246,15 +246,15 @@ function MonthBillingCard({
         <div>
           <div className="font-display font-semibold capitalize">{label}</div>
           <div className="text-xs text-text-muted">
-            {totalFlights === 0 ? 'Keine Flüge' : `${totalFlights} Flüge · ${groups.length} Firma${groups.length === 1 ? '' : 'en'}`}
+            {totalFlights === 0 ? 'No flights' : `${totalFlights} flights · ${groups.length} compan${groups.length === 1 ? 'y' : 'ies'}`}
           </div>
         </div>
         <div className="text-right">
           <div className="font-mono font-semibold">{formatChf(totalPersonal)}</div>
           {(totalCash > 0 || totalCc > 0) && (
             <div className="text-[10px] text-text-muted">
-              Rechnung {formatChf(totalInvoiceAmount)}
-              {totalCash > 0 && ` · Bar ${formatChf(totalCash)}`}
+              Invoice {formatChf(totalInvoiceAmount)}
+              {totalCash > 0 && ` · Cash ${formatChf(totalCash)}`}
               {totalCc > 0 && ` · CC ${formatChf(totalCc)}`}
             </div>
           )}
@@ -268,15 +268,15 @@ function MonthBillingCard({
           <div className="px-3 py-2 text-xs border-b border-border flex items-center gap-2">
             {verification.ready ? (
               <span className="inline-flex items-center gap-1 text-success">
-                <Check className="w-3.5 h-3.5" /> Alle {verification.total} Flugtage verifiziert
+                <Check className="w-3.5 h-3.5" /> All {verification.total} flight days verified
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 text-warning">
                 <Circle className="w-3.5 h-3.5" />
-                {verification.verified} von {verification.total} Tagen verifiziert
+                {verification.verified} of {verification.total} days verified
                 {verification.unverifiedDates.length > 0 && (
                   <span className="text-text-muted ml-1">
-                    (offen: {verification.unverifiedDates.slice(0, 3).map(d => d.split('-').reverse().join('.')).join(', ')}{verification.unverifiedDates.length > 3 ? '…' : ''})
+                    (open: {verification.unverifiedDates.slice(0, 3).map(d => d.split('-').reverse().join('.')).join(', ')}{verification.unverifiedDates.length > 3 ? '…' : ''})
                   </span>
                 )}
               </span>
@@ -291,17 +291,17 @@ function MonthBillingCard({
                   <div className="flex-1 min-w-0">
                     <div className="font-medium">{g.company}</div>
                     <div className="text-xs text-text-muted">
-                      {g.flights} Flüge · Rechnung <span className="font-mono">{formatChf(g.amount)}</span>
+                      {g.flights} flights · Invoice <span className="font-mono">{formatChf(g.amount)}</span>
                       {sent && inv?.invoice_number && (
                         <span className="ml-2 inline-flex items-center gap-1 text-success">
-                          <Check className="w-3 h-3" /> {inv.invoice_number} gesendet
+                          <Check className="w-3 h-3" /> {inv.invoice_number} sent
                         </span>
                       )}
                     </div>
                     {(g.cashChf > 0 || g.ccChf > 0) && (
                       <div className="text-[11px] text-text-muted mt-0.5">
-                        + direkt vereinnahmt
-                        {g.cashChf > 0 && <> · Bar <span className="font-mono">{formatChf(g.cashChf)}</span></>}
+                        + collected directly
+                        {g.cashChf > 0 && <> · Cash <span className="font-mono">{formatChf(g.cashChf)}</span></>}
                         {g.ccChf > 0 && <> · CC <span className="font-mono">{formatChf(g.ccChf)}</span></>}
                       </div>
                     )}
@@ -311,7 +311,7 @@ function MonthBillingCard({
                     className={sent ? 'btn-ghost border border-border text-sm' : 'btn-primary text-sm'}
                   >
                     {sent ? <FileText className="w-4 h-4 mr-1.5" /> : <Send className="w-4 h-4 mr-1.5" />}
-                    {sent ? 'Ansehen' : verification.ready ? 'Senden →' : 'Öffnen →'}
+                    {sent ? 'View' : verification.ready ? 'Send →' : 'Open →'}
                   </Link>
                 </li>
               );

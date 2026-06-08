@@ -14,13 +14,13 @@ import { ChevronLeft } from 'lucide-react';
 const TOP_LEVEL = new Set(['/home', '/availability', '/dashboard/stats', '/settings']);
 
 const TITLE_MAP: Array<{ match: RegExp; title: string }> = [
-  { match: /^\/log\/[^/]+\/edit$/, title: 'Flug bearbeiten' },
-  { match: /^\/log$/,               title: 'Flug erfassen' },
-  { match: /^\/today$/,             title: 'Heutige Flüge' },
-  { match: /^\/summary$/,           title: 'Tagesabschluss' },
-  { match: /^\/flights$/,           title: 'Alle Flüge' },
-  { match: /^\/einsatzplan$/,       title: 'Einsatzplan' },
-  { match: /^\/dashboard\/invoice$/, title: 'Rechnung' },
+  { match: /^\/log\/[^/]+\/edit$/, title: 'Edit Flight' },
+  { match: /^\/log$/,               title: 'Log Flight' },
+  { match: /^\/today$/,             title: "Today's Flights" },
+  { match: /^\/summary$/,           title: 'Day Summary' },
+  { match: /^\/flights$/,           title: 'All Flights' },
+  { match: /^\/einsatzplan$/,       title: 'Schedule' },
+  { match: /^\/dashboard\/invoice$/, title: 'Invoice' },
 ];
 
 function titleFor(path: string): string {
@@ -49,13 +49,13 @@ export function PilotHeader({ pilotLabel }: { pilotLabel: string }) {
             type="button"
             onClick={() => router.back()}
             className="inline-flex items-center gap-1 -ml-1 px-2 py-1 rounded-md hover:bg-white/10 active:bg-white/20 min-h-tap"
-            aria-label="Zurück"
+            aria-label="Back"
           >
             <ChevronLeft className="w-5 h-5" />
-            <span className="text-sm">Zurück</span>
+            <span className="text-sm">Back</span>
           </button>
           <span className="font-display font-semibold tracking-tight">{title || 'TandemLog'}</span>
-          <Link href="/home" className="text-xs text-white/70 px-2 py-1 rounded-md hover:bg-white/10 min-h-tap inline-flex items-center" aria-label="Zur Startseite">
+          <Link href="/home" className="text-xs text-white/70 px-2 py-1 rounded-md hover:bg-white/10 min-h-tap inline-flex items-center" aria-label="Home">
             Home
           </Link>
         </>

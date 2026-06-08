@@ -26,10 +26,10 @@ export function currentAndNextMonthKeys(now: Date = new Date()): { current: stri
   return { current: cur, next: monthKey(n) };
 }
 
-/** Long German label for a YYYY-MM key. */
+/** Long English label for a YYYY-MM key. */
 export function monthKeyLabel(key: string): string {
   const [y, m] = key.split('-').map(Number);
-  return new Intl.DateTimeFormat('de-CH', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+  return new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' })
     .format(new Date(Date.UTC(y, m - 1, 1)));
 }
 

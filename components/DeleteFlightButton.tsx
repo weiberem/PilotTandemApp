@@ -23,17 +23,17 @@ export function DeleteFlightButton({ id }: { id: string }) {
   if (!confirm) {
     return (
       <button type="button" onClick={() => setConfirm(true)} className="btn-ghost text-danger border border-danger/30 w-full">
-        <Trash2 className="w-4 h-4 mr-2" /> Flug löschen
+        <Trash2 className="w-4 h-4 mr-2" /> Delete flight
       </button>
     );
   }
   return (
     <div className="space-y-2">
-      <p className="text-sm">Diesen Flug wirklich löschen?</p>
+      <p className="text-sm">Really delete this flight?</p>
       <div className="flex gap-2">
-        <button type="button" onClick={() => setConfirm(false)} className="btn-ghost flex-1 border border-border">Abbrechen</button>
+        <button type="button" onClick={() => setConfirm(false)} className="btn-ghost flex-1 border border-border">Cancel</button>
         <button type="button" onClick={doDelete} disabled={pending} className="flex-1 min-h-tap rounded-lg bg-danger text-white">
-          {pending ? 'Lösche…' : 'Ja, löschen'}
+          {pending ? 'Deleting…' : 'Yes, delete'}
         </button>
       </div>
     </div>

@@ -81,7 +81,7 @@ export function FlightForm({
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {/* Date */}
-      <Field label="Datum">
+      <Field label="Date">
         <input
           type="date" value={form.flight_date}
           onChange={e => patch('flight_date', e.target.value)}
@@ -90,7 +90,7 @@ export function FlightForm({
       </Field>
 
       {/* Trip time */}
-      <Field label="Abflugzeit">
+      <Field label="Departure time">
         {isSkywingsLike ? (
           <select
             value={form.trip_time}
@@ -111,7 +111,7 @@ export function FlightForm({
       </Field>
 
       {/* Photo segmented control */}
-      <Field label="Foto">
+      <Field label="Photo">
         <div className={cn(
           'grid grid-cols-4 gap-1 rounded-lg bg-bg p-1 border border-border',
           form.is_no_show && 'opacity-40 pointer-events-none',
@@ -151,7 +151,7 @@ export function FlightForm({
       </div>
 
       {/* Tip */}
-      <Field label="Trinkgeld (CHF)">
+      <Field label="Tip (CHF)">
         <input
           type="number" inputMode="decimal" step="1" min="0"
           value={form.tip_chf || ''}
@@ -163,19 +163,19 @@ export function FlightForm({
 
       {/* Company switcher */}
       <div className="flex items-center justify-between text-sm">
-        <span className="text-text-muted">Firma: <span className="font-medium text-text">{form.company}</span></span>
+        <span className="text-text-muted">Company: <span className="font-medium text-text">{form.company}</span></span>
         <button
           type="button"
           onClick={() => setCompanyPickerOpen(true)}
           className="text-primary underline-offset-2 hover:underline"
         >
-          Andere Firma
+          Other company
         </button>
       </div>
 
       {/* Notes (optional, collapsed) */}
       <details className="text-sm">
-        <summary className="text-text-muted cursor-pointer min-h-tap inline-flex items-center">Notiz (optional)</summary>
+        <summary className="text-text-muted cursor-pointer min-h-tap inline-flex items-center">Note (optional)</summary>
         <textarea
           value={form.notes ?? ''}
           onChange={e => patch('notes', e.target.value)}
@@ -187,7 +187,7 @@ export function FlightForm({
       {error && <p className="text-danger text-sm" role="alert">{error}</p>}
 
       <button type="submit" disabled={pending} className="btn-primary w-full text-base">
-        {pending ? 'Speichere…' : mode === 'create' ? 'Eintragen' : 'Aktualisieren'}
+        {pending ? 'Saving…' : mode === 'create' ? 'Log' : 'Update'}
       </button>
 
       {companyPickerOpen && (
@@ -261,7 +261,7 @@ function CompanyPicker({
         onClick={e => e.stopPropagation()}
       >
         <div className="h-1 w-10 bg-border rounded-full mx-auto" />
-        <h3 className="font-display font-semibold text-center">Firma wählen</h3>
+        <h3 className="font-display font-semibold text-center">Choose company</h3>
         {COMPANY_PRESETS.map(c => (
           <button
             key={c}
@@ -276,12 +276,12 @@ function CompanyPicker({
           </button>
         ))}
         <div className="pt-2 border-t border-border">
-          <label className="text-sm font-medium">Freitext</label>
+          <label className="text-sm font-medium">Custom</label>
           <div className="flex gap-2 mt-1">
             <input
               value={custom}
               onChange={e => setCustom(e.target.value)}
-              placeholder="z.B. Privat"
+              placeholder="e.g. Private"
               className="flex-1 min-h-tap rounded-lg border border-border px-3 py-2 bg-white"
             />
             <button
@@ -292,7 +292,7 @@ function CompanyPicker({
             >OK</button>
           </div>
         </div>
-        <button type="button" onClick={onClose} className="btn-ghost w-full mt-2">Abbrechen</button>
+        <button type="button" onClick={onClose} className="btn-ghost w-full mt-2">Cancel</button>
       </div>
     </div>
   );

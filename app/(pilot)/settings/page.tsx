@@ -10,10 +10,10 @@ import { probeMissingMigrations } from '@/lib/setupProbe';
 export const dynamic = 'force-dynamic';
 
 const GDRIVE_MESSAGES: Record<string, { kind: 'ok' | 'warn' | 'err'; text: string }> = {
-  connected: { kind: 'ok', text: 'Google Drive verbunden.' },
-  state_mismatch: { kind: 'err', text: 'OAuth State stimmt nicht — bitte erneut versuchen.' },
-  no_refresh: { kind: 'warn', text: 'Kein Refresh-Token erhalten. Widerruf in Google-Konto und nochmals verbinden.' },
-  error: { kind: 'err', text: 'Verbindung fehlgeschlagen.' },
+  connected: { kind: 'ok', text: 'Google Drive connected.' },
+  state_mismatch: { kind: 'err', text: 'OAuth state mismatch — please try again.' },
+  no_refresh: { kind: 'warn', text: 'No refresh token received. Revoke in your Google account and connect again.' },
+  error: { kind: 'err', text: 'Connection failed.' },
 };
 
 export default async function SettingsPage({
@@ -31,9 +31,9 @@ export default async function SettingsPage({
     <div className="p-4 space-y-4 max-w-xl mx-auto">
       {searchParams.welcome && (
         <div className="card p-4 border-l-4 border-l-accent">
-          <h2 className="font-display font-semibold">Willkommen bei TandemLog!</h2>
+          <h2 className="font-display font-semibold">Welcome to TandemLog!</h2>
           <p className="text-sm text-text-muted">
-            Bitte vervollständige zuerst dein Profil. Pflichtfelder: Name und IBAN.
+            Please complete your profile first. Required fields: name and IBAN.
           </p>
         </div>
       )}
@@ -47,13 +47,13 @@ export default async function SettingsPage({
         </div>
       )}
 
-      <h1 className="text-2xl font-display font-bold">Einstellungen</h1>
+      <h1 className="text-2xl font-display font-bold">Settings</h1>
       <SetupStatusCard missing={missingMigrations} />
       <SettingsForm pilot={pilot} email={user.email ?? ''} />
 
       <fieldset className="card p-4 space-y-3">
         <legend className="px-2 -ml-2 text-sm font-display font-semibold text-text-muted uppercase tracking-wide">
-          Google Drive Verbindung
+          Google Drive Connection
         </legend>
         <GoogleDriveConnect
           connected={!!pilot?.google_refresh_token}
@@ -65,7 +65,7 @@ export default async function SettingsPage({
       {pilot?.google_refresh_token && pilot?.google_drive_folder_id && (
         <fieldset className="card p-4 space-y-3">
           <legend className="px-2 -ml-2 text-sm font-display font-semibold text-text-muted uppercase tracking-wide">
-            Monatliches Excel-Backup
+            Monthly Excel backup
           </legend>
           <BackupButton />
         </fieldset>
@@ -73,10 +73,10 @@ export default async function SettingsPage({
 
       <fieldset className="card p-4 space-y-3">
         <legend className="px-2 -ml-2 text-sm font-display font-semibold text-text-muted uppercase tracking-wide">
-          Konto
+          Account
         </legend>
         <p className="text-sm text-text-muted">
-          Angemeldet als <span className="font-mono">{user.email}</span>
+          Signed in as <span className="font-mono">{user.email}</span>
         </p>
         <LogoutButton />
       </fieldset>

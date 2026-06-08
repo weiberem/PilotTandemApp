@@ -24,23 +24,23 @@ export default async function EinsatzplanPage() {
       <div>
         <p className="text-text-muted text-xs">
           {pilot.einsatzplan_synced_at && (
-            <>Letzter Import: {formatDateDe(pilot.einsatzplan_synced_at, {
+            <>Last import: {formatDateDe(pilot.einsatzplan_synced_at, {
               day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
             })}{pilot.einsatzplan_last_file_name && ` · ${pilot.einsatzplan_last_file_name}`}</>
           )}
         </p>
-        <h1 className="text-2xl font-display font-bold">Einsatzplan importieren</h1>
+        <h1 className="text-2xl font-display font-bold">Import Schedule</h1>
         <p className="text-text-muted text-sm mt-1">
-          Drive-Link einfügen, Vorschau prüfen, korrigieren, speichern.
-          Bestehende Daten anderer Monate bleiben erhalten.
+          Paste the Drive link, review the preview, correct, save.
+          Existing data for other months is preserved.
         </p>
       </div>
 
       {!pilot.google_refresh_token ? (
         <div className="card p-4 border-l-4 border-l-warning">
-          <p className="text-sm">Google Drive ist noch nicht verbunden.</p>
+          <p className="text-sm">Google Drive is not yet connected.</p>
           <Link href="/settings" className="btn-primary inline-flex mt-2">
-            Zu den Einstellungen
+            Go to Settings
           </Link>
         </div>
       ) : (

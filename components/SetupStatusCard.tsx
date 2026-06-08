@@ -19,7 +19,7 @@ export function SetupStatusCard({ missing }: { missing: MigrationProbe[] }) {
     return (
       <p className="text-xs text-text-muted px-1 inline-flex items-center gap-1">
         <Check className="w-3.5 h-3.5 text-success" />
-        Setup aktuell — alle Migrationen aktiv.
+        Setup current — all migrations active.
       </p>
     );
   }
@@ -27,17 +27,16 @@ export function SetupStatusCard({ missing }: { missing: MigrationProbe[] }) {
   return (
     <fieldset className="card p-4 space-y-3 border-l-4 border-l-warning">
       <legend className="px-2 -ml-2 text-sm font-display font-semibold text-text-muted uppercase tracking-wide">
-        Setup-Status
+        Setup status
       </legend>
       <div className="flex items-start gap-2 text-sm">
         <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
         <div>
           <div className="font-semibold">
-            {missing.length} Migration{missing.length === 1 ? '' : 'en'} fehlt
-            {missing.length === 1 ? '' : ''}
+            {missing.length} migration{missing.length === 1 ? '' : 's'} missing
           </div>
           <p className="text-text-muted text-xs">
-            Einige Features sind erst nach diesen DB-Updates aktiv. SQL kopieren und im Supabase SQL-Editor ausführen.
+            Some features only become active after these DB updates. Copy the SQL and run it in the Supabase SQL editor.
           </p>
         </div>
       </div>
@@ -56,7 +55,7 @@ export function SetupStatusCard({ missing }: { missing: MigrationProbe[] }) {
                 type="button"
               >
                 {copied === m.id ? <Check className="w-3.5 h-3.5 mr-1" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
-                {copied === m.id ? 'Kopiert' : 'SQL'}
+                {copied === m.id ? 'Copied' : 'SQL'}
               </button>
             </div>
             <pre className="text-xs bg-white border border-border rounded p-2 overflow-x-auto font-mono whitespace-pre-wrap break-all">{m.sql}</pre>

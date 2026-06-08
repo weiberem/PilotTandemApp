@@ -55,15 +55,22 @@ function isoUtc(d: Date): string {
   return `${y}-${m}-${dd}`;
 }
 
+/** English "Month YYYY" — for UI. */
 export function monthLabel(year: number, monthIndex0: number): string {
+  const d = new Date(Date.UTC(year, monthIndex0, 1));
+  return new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(d);
+}
+
+/** German "Monat YYYY" — for the office mailto. */
+function monthLabelDe(year: number, monthIndex0: number): string {
   const d = new Date(Date.UTC(year, monthIndex0, 1));
   return new Intl.DateTimeFormat('de-CH', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(d);
 }
 
-/** German month name only (no year). */
-export function monthNameDe(year: number, monthIndex0: number): string {
+/** English month name only (no year) — for UI. */
+export function monthName(year: number, monthIndex0: number): string {
   const d = new Date(Date.UTC(year, monthIndex0, 1));
-  return new Intl.DateTimeFormat('de-CH', { month: 'long', timeZone: 'UTC' }).format(d);
+  return new Intl.DateTimeFormat('en-GB', { month: 'long', timeZone: 'UTC' }).format(d);
 }
 
 export type DeadlineInfo = {
@@ -95,7 +102,7 @@ export function nextDeadlineInfo(now: Date = new Date()): DeadlineInfo {
 
   return {
     deadlineDay: 15,
-    deadlineMonthLabel: monthNameDe(deadline.year, deadline.monthIndex0),
+    deadlineMonthLabel: monthName(deadline.year, deadline.monthIndex0),
     targetMonthLabel: monthLabel(target.year, target.monthIndex0),
     targetMonth: `${target.year}-${String(target.monthIndex0 + 1).padStart(2, '0')}-01`,
     urgent: daysLeft <= 5,
@@ -128,11 +135,11 @@ export function buildMailto({
   monthIndex0: number;
   days: AvailabilityDay[];
 }): string {
-  const monthName = monthLabel(year, monthIndex0);
-  const subject = `Verfügbarkeit ${monthName} — ${pilotName}`;
+  const monthNameDe = monthLabelDe(year, monthIndex0);
+  const subject = `Verfügbarkeit ${monthNameDe} — ${pilotName}`;
   const sorted = [...days].sort((a, b) => a.date.localeCompare(b.date));
   const body = [
-    `Verfügbarkeit ${monthName} — ${pilotName}`,
+    `Verfügbarkeit ${monthNameDe} — ${pilotName}`,
     '',
     ...sorted.map(dayMailtoLine),
   ].join('\n');

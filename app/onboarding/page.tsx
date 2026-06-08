@@ -47,7 +47,7 @@ export default async function OnboardingPage() {
             Tandem<span className="text-primary">Log</span>
           </span>
         </div>
-        <p className="text-white/70 text-sm mt-2">Willkommen — kurz dein Profil einrichten.</p>
+        <p className="text-white/70 text-sm mt-2">Welcome — let's quickly set up your profile.</p>
       </header>
 
       <OnboardingWizard
@@ -63,7 +63,7 @@ export default async function OnboardingPage() {
 
       <div className="text-center pb-8">
         <Link href="/settings" className="text-xs text-text-muted hover:underline">
-          Lieber später — direkt zu den Einstellungen
+          Later — go straight to Settings
         </Link>
       </div>
     </div>

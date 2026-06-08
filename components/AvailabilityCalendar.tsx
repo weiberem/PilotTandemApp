@@ -14,12 +14,12 @@ import type { FullPlan, FullPlanPilot } from '@/lib/einsatzplanParser';
 
 export type FullPlansByMonth = Record<string, FullPlan>;
 
-const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'] as const;
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
 export type ScheduleMap = Record<string, { period: DayPeriod; times: string[] }>;
 
 const PERIOD_ABBR: Record<DayPeriod, string> = {
-  full: 'GT', half_am: 'VM', half_pm: 'NM',
+  full: 'FD', half_am: 'AM', half_pm: 'PM',
 };
 
 function periodAbbr(p: DayPeriod): string {
@@ -134,19 +134,19 @@ export function AvailabilityCalendar({
     startTransition(async () => {
       const r = await saveAvailability({ month: monthKey, days, mark_submitted: markSubmitted });
       setMsg(r.ok
-        ? { kind: 'ok', text: markSubmitted ? 'Eingereicht.' : 'Gespeichert.' }
+        ? { kind: 'ok', text: markSubmitted ? 'Submitted.' : 'Saved.' }
         : { kind: 'err', text: r.error });
     });
   }
 
   function onPrepareEmail() {
     if (!officeEmail) {
-      setMsg({ kind: 'err', text: 'Bitte zuerst Office-E-Mail in den Einstellungen hinterlegen.' });
+      setMsg({ kind: 'err', text: 'Please set your office email in Settings first.' });
       return;
     }
     const days = Object.values(dayMap);
     if (days.length === 0) {
-      setMsg({ kind: 'err', text: 'Keine Verfügbarkeit eingetragen.' });
+      setMsg({ kind: 'err', text: 'No availability entered.' });
       return;
     }
     void persist(true);
@@ -182,7 +182,7 @@ export function AvailabilityCalendar({
             'min-h-[40px] rounded-md font-medium transition',
             mode === 'own' ? 'bg-white text-text shadow-sm' : 'text-text-muted',
           )}
-        >Meine Verfügbarkeit</button>
+        >My availability</button>
         <button
           onClick={() => anyMonthHasPlan && setMode('plan')}
           disabled={!anyMonthHasPlan}
@@ -191,13 +191,13 @@ export function AvailabilityCalendar({
             mode === 'plan' ? 'bg-white text-text shadow-sm' : 'text-text-muted',
             !anyMonthHasPlan && 'opacity-40',
           )}
-        >Einsatzplan</button>
+        >Schedule</button>
       </div>
 
       {mode === 'plan' && !planHasMonth && (
         <div className="card p-3 border-l-4 border-l-warning text-sm">
-          Für {monthLabel(cursor.year, cursor.monthIndex0)} liegt kein Einsatzplan vor.
-          Importiere den Plan für diesen Monat, um die Pilotenliste zu sehen.
+          No schedule available for {monthLabel(cursor.year, cursor.monthIndex0)}.
+          Import the schedule for this month to see the pilot list.
         </div>
       )}
 
@@ -207,15 +207,15 @@ export function AvailabilityCalendar({
       )}>
         <AlertTriangle className={cn('w-4 h-4 shrink-0 mt-0.5', deadline.urgent ? 'text-warning' : 'text-primary')} />
         <span>
-          Einsatzdaten für <span className="font-semibold capitalize">{deadline.targetMonthLabel}</span>{' '}
-          bis <span className="font-semibold">15. {deadline.deadlineMonthLabel}</span> einreichen.
+          Submit availability for <span className="font-semibold capitalize">{deadline.targetMonthLabel}</span>{' '}
+          by <span className="font-semibold">{deadline.deadlineMonthLabel} 15</span>.
         </span>
       </div>
 
       {submitted && (
         <div className="card p-3 border-l-4 border-l-success text-sm flex items-center gap-2">
           <Check className="w-4 h-4 text-success" />
-          <span>Für diesen Monat bereits an Skywings eingereicht (schraffiert dargestellt).</span>
+          <span>Already submitted to Skywings for this month (shown hatched).</span>
         </div>
       )}
 
@@ -223,14 +223,14 @@ export function AvailabilityCalendar({
       <div className="flex items-center justify-between">
         <button
           onClick={() => setCursor(c => addMonths(c.year, c.monthIndex0, -1))}
-          className="btn-ghost border border-border min-w-tap" aria-label="Vorheriger Monat"
+          className="btn-ghost border border-border min-w-tap" aria-label="Previous month"
         ><ChevronLeft className="w-5 h-5" /></button>
         <div className="font-display font-semibold text-lg capitalize">
           {monthLabel(cursor.year, cursor.monthIndex0)}
         </div>
         <button
           onClick={() => setCursor(c => addMonths(c.year, c.monthIndex0, 1))}
-          className="btn-ghost border border-border min-w-tap" aria-label="Nächster Monat"
+          className="btn-ghost border border-border min-w-tap" aria-label="Next month"
         ><ChevronRight className="w-5 h-5" /></button>
       </div>
 
@@ -360,28 +360,28 @@ export function AvailabilityCalendar({
       {mode === 'own' ? (
         <>
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-text-muted">
-            <Legend swatch="bg-success/85" label="GT Ganztag" />
-            <Legend swatch="bg-warning/85" label="VM / NM Halbtag" />
+            <Legend swatch="bg-success/85" label="FD Full day" />
+            <Legend swatch="bg-warning/85" label="AM / PM Half day" />
             <span className="inline-flex items-center gap-1">
-              <span className="w-3 h-3 rounded ring-2 ring-primary ring-inset bg-primary/15" /> Skywings geplant
+              <span className="w-3 h-3 rounded ring-2 ring-primary ring-inset bg-primary/15" /> Skywings scheduled
             </span>
           </div>
           <p className="text-xs text-text-muted">
-            Tag antippen: frei → Ganztag → ½ Vormittag → ½ Nachmittag.
-            {season === 'summer' && ' Darunter erscheinen 07:10 / 17:00 zum Ab- oder Anwählen.'}
+            Tap a day: free → Full day → ½ Morning → ½ Afternoon.
+            {season === 'summer' && ' Below, 07:10 / 17:00 appear to toggle on or off.'}
           </p>
           {!hasSchedule && (
             <p className="text-xs text-text-muted">
-              Tipp: Einsatzplan importieren, damit die von Skywings geplanten Einsätze hier erscheinen.
+              Tip: Import the schedule so Skywings-planned shifts appear here.
             </p>
           )}
         </>
       ) : (
         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-text-muted">
-          <Legend swatch="bg-danger/30 border border-danger" label={`≤ ${LOW_THRESHOLD} Piloten`} />
+          <Legend swatch="bg-danger/30 border border-danger" label={`≤ ${LOW_THRESHOLD} pilots`} />
           <Legend swatch="bg-warning/30 border border-warning" label={`< ${OK_THRESHOLD}`} />
           <Legend swatch="bg-success/15 border border-success/30" label="ok" />
-          <span className="inline-flex items-center gap-1"><Users className="w-3 h-3" /> Tag antippen für Liste</span>
+          <span className="inline-flex items-center gap-1"><Users className="w-3 h-3" /> Tap a day for the list</span>
         </div>
       )}
 
@@ -389,10 +389,10 @@ export function AvailabilityCalendar({
       {mode === 'own' && (
         <div className="flex gap-2">
           <button onClick={() => void persist(false)} disabled={pending} className="btn-ghost flex-1 border border-border">
-            {pending ? 'Speichern…' : 'Speichern'}
+            {pending ? 'Saving…' : 'Save'}
           </button>
           <button onClick={onPrepareEmail} disabled={pending} className="btn-primary flex-1">
-            <Mail className="w-4 h-4 mr-2" /> E-Mail vorbereiten
+            <Mail className="w-4 h-4 mr-2" /> Prepare email
           </button>
         </div>
       )}
@@ -454,7 +454,7 @@ function EdgeTimeStrip({
 }
 
 const PERIOD_FULL: Record<DayPeriod, string> = {
-  full: 'Ganztag', half_am: '½ Vormittag', half_pm: '½ Nachmittag',
+  full: 'Full day', half_am: '½ Morning', half_pm: '½ Afternoon',
 };
 
 const BUS_SIZE = 7;
@@ -484,17 +484,17 @@ function PilotListSheet({
       >
         <div className="flex items-center justify-between">
           <h3 className="font-display font-semibold">
-            {d}.{m}. · {pilots.length} {pilots.length === 1 ? 'Pilot' : 'Piloten'}
+            {d}.{m}. · {pilots.length} {pilots.length === 1 ? 'pilot' : 'pilots'}
           </h3>
-          <button onClick={onClose} className="p-1 text-text-muted" aria-label="Schließen">
+          <button onClick={onClose} className="p-1 text-text-muted" aria-label="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <RosterSection title="Vormittag" pilots={am} ownName={ownName} />
-        <RosterSection title="Nachmittag" pilots={pm} ownName={ownName} />
+        <RosterSection title="Morning" pilots={am} ownName={ownName} />
+        <RosterSection title="Afternoon" pilots={pm} ownName={ownName} />
 
-        <button type="button" onClick={onClose} className="btn-primary w-full">Fertig</button>
+        <button type="button" onClick={onClose} className="btn-primary w-full">Done</button>
       </div>
     </div>
   );
@@ -531,7 +531,7 @@ function BusGroup({
       <div className="flex items-baseline justify-between bg-bg-subtle/60 px-2.5 py-1">
         <span className="text-xs font-semibold text-text">{label}</span>
         <span className="text-[10px] text-text-muted">
-          {pilots.length} · Nr. {pilots[0].number}–{pilots[pilots.length - 1].number}
+          {pilots.length} · No. {pilots[0].number}–{pilots[pilots.length - 1].number}
         </span>
       </div>
       <ul className="divide-y divide-border text-sm">
@@ -552,7 +552,7 @@ function BusGroup({
                 {p.name}
               </span>
               {p.period !== 'full' && (
-                <span className="text-[10px] text-text-muted">{p.period === 'half_am' ? 'VM' : 'NM'}</span>
+                <span className="text-[10px] text-text-muted">{p.period === 'half_am' ? 'AM' : 'PM'}</span>
               )}
             </li>
           );
@@ -577,7 +577,7 @@ function EdgeButton({
       )}
     >
       <span className="font-mono text-sm font-semibold">{time}</span>
-      <span className="text-[11px] mt-0.5">{active ? 'dabei' : 'kein'}</span>
+      <span className="text-[11px] mt-0.5">{active ? 'in' : 'out'}</span>
     </button>
   );
 }

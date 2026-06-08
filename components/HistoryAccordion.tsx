@@ -19,7 +19,7 @@ export type MonthData = {
 
 function monthLabel(monthKey: string): string {
   const [y, m] = monthKey.split('-').map(Number);
-  return new Intl.DateTimeFormat('de-CH', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+  return new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' })
     .format(new Date(Date.UTC(y, m - 1, 1)));
 }
 
@@ -58,12 +58,12 @@ export function DayDetails({ day, rates }: { day: DayData; rates: PilotRates }) 
           <div className="flex items-center gap-2 font-medium">
             <span>{formatDateDe(day.date, { weekday: 'short', day: '2-digit', month: '2-digit' })}</span>
             {day.verified
-              ? <span className="inline-flex items-center text-success" title="Verifiziert"><Check className="w-3.5 h-3.5" /></span>
-              : <span className="inline-flex items-center text-warning" title="Noch nicht verifiziert"><Circle className="w-3.5 h-3.5" /></span>
+              ? <span className="inline-flex items-center text-success" title="Verified"><Check className="w-3.5 h-3.5" /></span>
+              : <span className="inline-flex items-center text-warning" title="Not yet verified"><Circle className="w-3.5 h-3.5" /></span>
             }
           </div>
           <div className="text-xs text-text-muted">
-            {totals.flightsBilled} Flüge
+            {totals.flightsBilled} flights
             {totals.ppCount > 0 && ` · ${totals.ppCount} PP`}
             {totals.thermalCount > 0 && ` · ${totals.thermalCount} Thermal`}
             {totals.noShowCount > 0 && ` · ${totals.noShowCount} No-Show`}
@@ -73,7 +73,7 @@ export function DayDetails({ day, rates }: { day: DayData; rates: PilotRates }) 
       </summary>
       <div className="divide-y divide-border bg-bg-subtle/30">
         <div className="flex items-center justify-between gap-2 px-3 py-2 pl-10">
-          <span className="text-xs text-text-muted">Mit Desk-Blatt abgleichen, dann verifizieren.</span>
+          <span className="text-xs text-text-muted">Reconcile with the desk sheet, then verify.</span>
           <DayVerifyButton date={day.date} verified={day.verified} flightCount={day.flights.length} />
         </div>
         {day.flights.map(f => <FlightLine key={f.id} flight={f} />)}
@@ -81,7 +81,7 @@ export function DayDetails({ day, rates }: { day: DayData; rates: PilotRates }) 
           href={`/log?date=${day.date}`}
           className="flex items-center gap-2 p-3 pl-10 text-primary text-sm hover:bg-bg-subtle"
         >
-          <Plus className="w-4 h-4" /> Flug an diesem Tag erfassen
+          <Plus className="w-4 h-4" /> Log flight on this day
         </Link>
       </div>
     </details>
@@ -98,7 +98,7 @@ export function MonthDetails({ month, rates }: { month: MonthData; rates: PilotR
         <div className="flex-1 min-w-0">
           <div className="font-display font-semibold capitalize">{month.label}</div>
           <div className="text-xs text-text-muted">
-            {totals.flightsBilled} Flüge · {month.days.length} Tag{month.days.length === 1 ? '' : 'e'}
+            {totals.flightsBilled} flights · {month.days.length} day{month.days.length === 1 ? '' : 's'}
           </div>
         </div>
         <div className="text-right">
@@ -107,7 +107,7 @@ export function MonthDetails({ month, rates }: { month: MonthData; rates: PilotR
             href={`/flights?month=${month.monthKey}`}
             className="text-xs text-primary hover:underline"
           >
-            Übersicht →
+            Overview →
           </Link>
         </div>
       </summary>

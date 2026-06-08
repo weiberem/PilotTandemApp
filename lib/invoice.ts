@@ -100,6 +100,12 @@ export function monthLabelDe(monthFirst: string): string {
     .format(new Date(Date.UTC(y, m - 1, 1)));
 }
 
+export function monthLabelEn(monthFirst: string): string {
+  const [y, m] = monthFirst.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' })
+    .format(new Date(Date.UTC(y, m - 1, 1)));
+}
+
 export function formatInvoiceNumber(year: number, n: number): string {
   return `${year}-${String(n).padStart(3, '0')}`;
 }

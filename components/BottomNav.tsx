@@ -13,10 +13,10 @@ type Item = {
 };
 
 const items: readonly Item[] = [
-  { href: '/availability', label: 'Einsatztage', icon: Calendar },
-  { href: '/home', label: 'Erfassen', icon: Plane, primary: true },
-  { href: '/dashboard/stats', label: 'Rechnung', icon: BarChart3 },
-  { href: '/settings', label: 'Einstellungen', icon: Settings },
+  { href: '/availability', label: 'Working days', icon: Calendar },
+  { href: '/home', label: 'Log', icon: Plane, primary: true },
+  { href: '/dashboard/stats', label: 'Invoice', icon: BarChart3 },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 function isActive(path: string, href: string): boolean {

@@ -21,14 +21,14 @@ export const DaySummaryCard = forwardRef<HTMLDivElement, Props>(function DaySumm
       </div>
 
       <div className="space-y-1 font-mono text-sm">
-        <Row label="Flüge" count={totals.flightsBilled} rate={rates.flight_rate_chf} amount={totals.flightsChf} />
-        <Row label="Foto PP" count={totals.ppCount} rate={rates.photo_prepaid_rate_chf} amount={totals.ppChf} />
-        <Row label="Foto CC" count={totals.ccCount} amount={0} dash />
-        <Row label="Foto Cash" count={totals.cCount} amount={0} dash />
+        <Row label="Flights" count={totals.flightsBilled} rate={rates.flight_rate_chf} amount={totals.flightsChf} />
+        <Row label="Photo PP" count={totals.ppCount} rate={rates.photo_prepaid_rate_chf} amount={totals.ppChf} />
+        <Row label="Photo CC" count={totals.ccCount} amount={0} dash />
+        <Row label="Photo Cash" count={totals.cCount} amount={0} dash />
         <Row label="Thermal" count={totals.thermalCount} rate={rates.thermal_rate_chf} amount={totals.thermalChf} />
-        <Row label="No Show" count={totals.noShowCount} rate={rates.no_show_rate_chf} amount={totals.noShowChf} />
+        <Row label="No-Show" count={totals.noShowCount} rate={rates.no_show_rate_chf} amount={totals.noShowChf} />
         {totals.tipChf > 0 && (
-          <Row label="Trinkgeld" count={null} amount={totals.tipChf} />
+          <Row label="Tips" count={null} amount={totals.tipChf} />
         )}
       </div>
 
@@ -39,13 +39,13 @@ export const DaySummaryCard = forwardRef<HTMLDivElement, Props>(function DaySumm
         </div>
         {totals.tipChf > 0 && (
           <div className="text-[10px] text-text-muted text-right mt-1">
-            inkl. Trinkgeld {formatChf(totals.tipChf)} (nicht fakturiert)
+            incl. tips {formatChf(totals.tipChf)} (not invoiced)
           </div>
         )}
       </div>
 
       <p className="text-[10px] text-text-muted text-center mt-4 italic">
-        Bitte mit Desk-Abrechnung abgleichen
+        Please reconcile with the desk statement
       </p>
     </div>
   );

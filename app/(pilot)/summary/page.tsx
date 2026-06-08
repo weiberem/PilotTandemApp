@@ -41,13 +41,13 @@ export default async function SummaryPage({
   return (
     <div className="p-4 space-y-4 max-w-xl mx-auto">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-display font-bold">Tagesabschluss</h1>
-        <Link href={`/today?date=${date}`} className="text-sm text-text-muted">Bearbeiten</Link>
+        <h1 className="text-2xl font-display font-bold">Day Summary</h1>
+        <Link href={`/today?date=${date}`} className="text-sm text-text-muted">Edit</Link>
       </div>
 
       {flights.length === 0 ? (
         <div className="card p-6 text-center text-text-muted">
-          Keine Flüge an diesem Tag.
+          No flights on this day.
         </div>
       ) : (
         <>

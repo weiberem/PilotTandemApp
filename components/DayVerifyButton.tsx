@@ -24,7 +24,7 @@ export function DayVerifyButton({ date, verified, flightCount, size = 'sm' }: Pr
     setError(null);
     startTransition(async () => {
       const r = verified ? await unverifyDay(date) : await verifyDay(date);
-      if (!r.ok) { setError(r.error ?? 'Fehler'); return; }
+      if (!r.ok) { setError(r.error ?? 'Error'); return; }
       router.refresh();
     });
   }
@@ -40,10 +40,10 @@ export function DayVerifyButton({ date, verified, flightCount, size = 'sm' }: Pr
         onClick={toggle}
         disabled={pending}
         className={cn(base, 'inline-flex items-center gap-1 border border-success/30 bg-success/10 text-success hover:bg-success/20')}
-        title="Verifikation zurücknehmen"
+        title="Undo verification"
       >
         <Check className="w-3.5 h-3.5" />
-        Verifiziert
+        Verified
       </button>
     );
   }
@@ -57,7 +57,7 @@ export function DayVerifyButton({ date, verified, flightCount, size = 'sm' }: Pr
         className={cn(base, 'inline-flex items-center gap-1 border border-warning/30 bg-warning/10 text-warning hover:bg-warning/20')}
       >
         <AlertCircle className="w-3.5 h-3.5" />
-        {pending ? 'Verifiziere…' : 'Verifizieren'}
+        {pending ? 'Verifying…' : 'Verify'}
       </button>
       {error && <p className="text-xs text-danger">{error}</p>}
     </div>

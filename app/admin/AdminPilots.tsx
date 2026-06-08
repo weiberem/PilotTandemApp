@@ -20,7 +20,7 @@ export function AdminPilots() {
   async function load() {
     const r = await fetch('/api/admin/pilots');
     const data = await r.json();
-    if (!r.ok) { setMsg({ kind: 'err', text: data.error ?? 'Fehler' }); return; }
+    if (!r.ok) { setMsg({ kind: 'err', text: data.error ?? 'Error' }); return; }
     setPilots(data.pilots);
   }
   useEffect(() => { load(); }, []);
@@ -37,14 +37,14 @@ export function AdminPilots() {
         body: JSON.stringify({ email, full_name }),
       });
       const data = await r.json();
-      if (!r.ok) { setMsg({ kind: 'err', text: data.error ?? 'Fehler' }); return; }
-      setMsg({ kind: 'ok', text: `Einladung an ${email} gesendet.` });
+      if (!r.ok) { setMsg({ kind: 'err', text: data.error ?? 'Error' }); return; }
+      setMsg({ kind: 'ok', text: `Invitation sent to ${email}.` });
       load();
     });
   }
 
   function toggle(p: Pilot) {
-    if (!confirm(`Pilot ${p.full_name ?? p.email} ${p.is_active ? 'deaktivieren' : 'reaktivieren'}?`)) return;
+    if (!confirm(`${p.is_active ? 'Deactivate' : 'Reactivate'} pilot ${p.full_name ?? p.email}?`)) return;
     startTransition(async () => {
       const r = await fetch('/api/admin/pilots', {
         method: 'PATCH',
@@ -52,7 +52,7 @@ export function AdminPilots() {
         body: JSON.stringify({ id: p.id, is_active: !p.is_active }),
       });
       const data = await r.json();
-      if (!r.ok) { setMsg({ kind: 'err', text: data.error ?? 'Fehler' }); return; }
+      if (!r.ok) { setMsg({ kind: 'err', text: data.error ?? 'Error' }); return; }
       load();
     });
   }
@@ -64,15 +64,15 @@ export function AdminPilots() {
         className="card p-4 grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2 items-end"
       >
         <label className="block">
-          <span className="text-sm font-medium">Voller Name</span>
+          <span className="text-sm font-medium">Full name</span>
           <input name="full_name" required className="mt-1 w-full min-h-tap rounded-lg border border-border px-3 py-2 bg-white" />
         </label>
         <label className="block">
-          <span className="text-sm font-medium">E-Mail</span>
+          <span className="text-sm font-medium">Email</span>
           <input name="email" type="email" required className="mt-1 w-full min-h-tap rounded-lg border border-border px-3 py-2 bg-white" />
         </label>
         <button type="submit" disabled={pending} className="btn-primary">
-          <UserPlus className="w-4 h-4 mr-2" /> Einladen
+          <UserPlus className="w-4 h-4 mr-2" /> Invite
         </button>
       </form>
 
@@ -83,33 +83,33 @@ export function AdminPilots() {
           <thead>
             <tr className="text-left text-text-muted text-xs uppercase">
               <th className="py-1">Name</th>
-              <th>E-Mail</th>
+              <th>Email</th>
               <th>Status</th>
-              <th>Zuletzt aktiv</th>
+              <th>Last active</th>
               <th />
             </tr>
           </thead>
           <tbody>
             {pilots === null ? (
-              <tr><td colSpan={5} className="py-4 text-center text-text-muted">Lädt…</td></tr>
+              <tr><td colSpan={5} className="py-4 text-center text-text-muted">Loading…</td></tr>
             ) : pilots.length === 0 ? (
-              <tr><td colSpan={5} className="py-4 text-center text-text-muted">Noch keine Piloten.</td></tr>
+              <tr><td colSpan={5} className="py-4 text-center text-text-muted">No pilots yet.</td></tr>
             ) : pilots.map(p => (
               <tr key={p.id} className="border-t border-border">
                 <td className="py-2">{p.full_name ?? '—'}</td>
                 <td className="font-mono text-xs">{p.email ?? '—'}</td>
                 <td>
                   <span className={p.is_active ? 'text-success' : 'text-danger'}>
-                    {p.is_active ? 'aktiv' : 'deaktiviert'}
+                    {p.is_active ? 'active' : 'deactivated'}
                   </span>
                 </td>
                 <td className="text-xs text-text-muted">
-                  {p.last_sign_in_at ? new Date(p.last_sign_in_at).toLocaleString('de-CH') : 'nie'}
+                  {p.last_sign_in_at ? new Date(p.last_sign_in_at).toLocaleString('en-GB') : 'never'}
                 </td>
                 <td className="text-right">
                   <button onClick={() => toggle(p)} className="btn-ghost border border-border inline-flex text-xs">
                     <Power className="w-3 h-3 mr-1" />
-                    {p.is_active ? 'Deaktivieren' : 'Reaktivieren'}
+                    {p.is_active ? 'Deactivate' : 'Reactivate'}
                   </button>
                 </td>
               </tr>

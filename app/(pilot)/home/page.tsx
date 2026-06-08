@@ -94,7 +94,7 @@ export default async function HomePage() {
     <div className="p-4 space-y-4 max-w-2xl mx-auto">
       <section>
         <p className="text-text-muted text-sm">{formatDateDe(new Date())}</p>
-        <h1 className="text-2xl font-display font-bold">Heute</h1>
+        <h1 className="text-2xl font-display font-bold">Today</h1>
       </section>
 
       <QuickAddFlightRow
@@ -117,14 +117,14 @@ export default async function HomePage() {
         <PeriodSummary
           totals={todayTotals}
           totalLabel={todayTotals.tipChf > 0
-            ? `Umsatz inkl. Trinkgeld (${formatChf(todayTotals.tipChf)})`
-            : 'Umsatz heute'}
+            ? `Revenue incl. tips (${formatChf(todayTotals.tipChf)})`
+            : 'Revenue today'}
           totalAmount={todayTotals.totalWithTipsChf}
         />
         <div className="flex gap-2">
-          <Link href="/summary" className="btn-primary flex-1">Tagesabschluss</Link>
+          <Link href="/summary" className="btn-primary flex-1">Day Summary</Link>
           <Link href="/flights" className="btn-ghost flex-1 border border-border">
-            <CalendarRange className="w-4 h-4 mr-2" /> Monatsübersicht
+            <CalendarRange className="w-4 h-4 mr-2" /> Month overview
           </Link>
         </div>
       </section>
@@ -135,8 +135,8 @@ export default async function HomePage() {
             <summary className="flex items-center gap-3 p-3 cursor-pointer list-none hover:bg-bg-subtle">
               <ChevronDown className="w-4 h-4 text-text-muted transition-transform group-open:rotate-180" />
               <div className="flex-1">
-                <div className="font-display font-semibold">Vorherige Tage diesen Monat</div>
-                <div className="text-xs text-text-muted">{previousDaysThisMonth.length} Tag{previousDaysThisMonth.length === 1 ? '' : 'e'}</div>
+                <div className="font-display font-semibold">Previous days this month</div>
+                <div className="text-xs text-text-muted">{previousDaysThisMonth.length} day{previousDaysThisMonth.length === 1 ? '' : 's'}</div>
               </div>
             </summary>
             <div className="border-t border-border">
@@ -148,7 +148,7 @@ export default async function HomePage() {
 
       {previousMonths.length > 0 && (
         <section className="space-y-2">
-          <h2 className="text-sm font-medium text-text-muted px-1">Vorherige Monate</h2>
+          <h2 className="text-sm font-medium text-text-muted px-1">Previous months</h2>
           {previousMonths.map(m => <MonthDetails key={m.monthKey} month={m} rates={rates} />)}
         </section>
       )}
@@ -156,15 +156,15 @@ export default async function HomePage() {
       <section className="card p-4">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <div className="text-sm font-medium">Einsatzplan</div>
+            <div className="text-sm font-medium">Schedule</div>
             <div className="text-xs text-text-muted truncate">
               {pilot.einsatzplan_synced_at
-                ? `Zuletzt importiert: ${formatDateDe(pilot.einsatzplan_synced_at, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
-                : pilot.google_refresh_token ? 'Bereit für Import' : 'Noch nicht verbunden'}
+                ? `Last imported: ${formatDateDe(pilot.einsatzplan_synced_at, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
+                : pilot.google_refresh_token ? 'Ready to import' : 'Not yet connected'}
             </div>
           </div>
           <Link href="/einsatzplan" className="btn-ghost border border-border text-sm">
-            {pilot.einsatzplan_synced_at ? 'Neuer Monat' : pilot.google_refresh_token ? 'Importieren' : 'Verbinden'}
+            {pilot.einsatzplan_synced_at ? 'New month' : pilot.google_refresh_token ? 'Import' : 'Connect'}
           </Link>
         </div>
       </section>

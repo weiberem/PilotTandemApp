@@ -58,7 +58,7 @@ export function FlightListItem({ flight }: { flight: FlightRow }) {
     <li className="relative overflow-hidden card">
       {/* swipe-revealed delete background */}
       <div className="absolute inset-y-0 right-0 flex items-center bg-danger text-white px-4 gap-2">
-        <Trash2 className="w-4 h-4" /> Löschen
+        <Trash2 className="w-4 h-4" /> Delete
       </div>
       <div
         style={{ transform: `translateX(${offset}px)` }}
@@ -110,17 +110,17 @@ export function FlightListItem({ flight }: { flight: FlightRow }) {
 
       {confirming && (
         <div className="absolute inset-0 bg-bg-card/95 backdrop-blur-sm flex items-center justify-between gap-2 px-3" role="dialog">
-          <span className="text-sm">Löschen?</span>
+          <span className="text-sm">Delete?</span>
           <div className="flex gap-2">
             <button
               onClick={() => { setConfirming(false); setOffset(0); }}
               className="btn-ghost border border-border px-3 min-h-[40px]"
-            >Nein</button>
+            >No</button>
             <button
               onClick={doDelete}
               disabled={pending}
               className="min-h-[40px] rounded-lg bg-danger text-white px-3"
-            >{pending ? '…' : 'Ja'}</button>
+            >{pending ? '…' : 'Yes'}</button>
           </div>
         </div>
       )}

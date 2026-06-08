@@ -55,11 +55,11 @@ export function InvoiceComparisonView(p: Props) {
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
-        setMsg({ kind: 'err', text: data.error ?? 'Senden fehlgeschlagen' });
+        setMsg({ kind: 'err', text: data.error ?? 'Send failed' });
         return;
       }
-      const driveNote = data.drive_uploaded ? ' Drive ✓' : ' (Drive übersprungen)';
-      setMsg({ kind: 'ok', text: `Rechnung ${data.invoice_number} gesendet.${driveNote}` });
+      const driveNote = data.drive_uploaded ? ' Drive ✓' : ' (Drive skipped)';
+      setMsg({ kind: 'ok', text: `Invoice ${data.invoice_number} sent.${driveNote}` });
       router.refresh();
     });
   }
@@ -67,16 +67,16 @@ export function InvoiceComparisonView(p: Props) {
   return (
     <div className="space-y-4">
       <div className="card p-3 border-l-4 border-l-warning text-sm">
-        Bitte kontrollieren Sie Ihre Abrechnung bevor Sie senden.
+        Please review your statement before sending.
       </div>
 
       {!verifyReady && p.verification.total > 0 && (
         <div className="card p-3 border-l-4 border-l-danger text-sm space-y-1">
           <div className="font-semibold">
-            {verifyMissing} von {p.verification.total} Flugtag{p.verification.total === 1 ? '' : 'en'} noch nicht verifiziert
+            {verifyMissing} of {p.verification.total} flight day{p.verification.total === 1 ? '' : 's'} not yet verified
           </div>
           <p className="text-text-muted text-xs">
-            Senden ist gesperrt, bis jeder Flugtag mit dem Skywings-Desk-Tagesblatt abgeglichen und verifiziert ist.
+            Sending is locked until every flight day is reconciled with the Skywings desk day sheet and verified.
           </p>
           <ul className="text-xs text-text-muted mt-1 space-y-0.5">
             {p.verification.unverifiedDates.slice(0, 6).map(d => (
@@ -87,7 +87,7 @@ export function InvoiceComparisonView(p: Props) {
               </li>
             ))}
             {p.verification.unverifiedDates.length > 6 && (
-              <li className="text-text-muted">… und {p.verification.unverifiedDates.length - 6} weitere</li>
+              <li className="text-text-muted">… and {p.verification.unverifiedDates.length - 6} more</li>
             )}
           </ul>
         </div>
@@ -95,20 +95,20 @@ export function InvoiceComparisonView(p: Props) {
 
       {p.alreadySent.invoiceNumber && (
         <div className="card p-3 border-l-4 border-l-success text-sm">
-          ✓ Bereits gesendet als <span className="font-mono">{p.alreadySent.invoiceNumber}</span>
-          {p.alreadySent.sentAt && ` am ${formatDateDe(p.alreadySent.sentAt, { day: '2-digit', month: '2-digit', year: 'numeric' })}`}.
-          Erneutes Senden vergibt eine neue Rechnungsnummer.
+          ✓ Already sent as <span className="font-mono">{p.alreadySent.invoiceNumber}</span>
+          {p.alreadySent.sentAt && ` on ${formatDateDe(p.alreadySent.sentAt, { day: '2-digit', month: '2-digit', year: 'numeric' })}`}.
+          Sending again issues a new invoice number.
         </div>
       )}
 
       <div className="grid lg:grid-cols-2 gap-4">
         {/* Left: invoice preview */}
         <div>
-          <h2 className="font-display font-semibold mb-2">Rechnung — Vorschau</h2>
+          <h2 className="font-display font-semibold mb-2">Invoice — Preview</h2>
           <InvoicePreview
             pilot={p.pilot} company={p.company} rates={p.rates}
             monthFirst={p.monthFirst}
-            invoiceNumber={p.alreadySent.invoiceNumber ?? 'wird beim Senden vergeben'}
+            invoiceNumber={p.alreadySent.invoiceNumber ?? 'assigned on send'}
             invoiceDate={new Date().toISOString().slice(0, 10)}
             rows={p.rows} totals={p.totals}
           />
@@ -116,10 +116,10 @@ export function InvoiceComparisonView(p: Props) {
 
         {/* Right: TandemLog comparison data */}
         <div>
-          <h2 className="font-display font-semibold mb-2">TandemLog — Tag für Tag</h2>
+          <h2 className="font-display font-semibold mb-2">TandemLog — Day by day</h2>
           <div className="card p-4 space-y-3 max-h-[80vh] overflow-y-auto">
             {daysWithFlights.length === 0 ? (
-              <p className="text-text-muted text-sm">Keine Flüge in diesem Monat erfasst.</p>
+              <p className="text-text-muted text-sm">No flights logged in this month.</p>
             ) : daysWithFlights.map(({ date, flights, totals }) => (
               <div key={date} className="border-b border-border pb-2 last:border-b-0">
                 <div className="flex justify-between items-baseline">
@@ -133,7 +133,7 @@ export function InvoiceComparisonView(p: Props) {
                       <span>
                         {f.is_no_show ? 'No-Show' :
                           [f.photo_status !== 'none' && f.photo_status, f.is_double_airtime && 'Thermal']
-                            .filter(Boolean).join(' · ') || 'Flug'}
+                            .filter(Boolean).join(' · ') || 'Flight'}
                       </span>
                     </li>
                   ))}
@@ -141,7 +141,7 @@ export function InvoiceComparisonView(p: Props) {
               </div>
             ))}
             <div className="border-t-2 border-text pt-2 flex justify-between font-semibold">
-              <span>Monat-Total</span>
+              <span>Month total</span>
               <span className="font-mono">{formatChf(p.totals.amount)}</span>
             </div>
           </div>
@@ -151,18 +151,18 @@ export function InvoiceComparisonView(p: Props) {
       <div className="card p-4 flex flex-wrap gap-2 items-center justify-between">
         <div className="flex gap-2">
           <a href={previewHref('pdf')} target="_blank" rel="noreferrer" className="btn-ghost border border-border inline-flex">
-            <FileText className="w-4 h-4 mr-2" /> PDF Vorschau
+            <FileText className="w-4 h-4 mr-2" /> PDF preview
           </a>
           <a href={previewHref('xlsx')} className="btn-ghost border border-border inline-flex">
-            <FileSpreadsheet className="w-4 h-4 mr-2" /> XLSX Download
+            <FileSpreadsheet className="w-4 h-4 mr-2" /> XLSX download
           </a>
         </div>
         {confirming ? (
           <div className="flex items-center gap-2">
-            <span className="text-sm">An <span className="font-mono">{p.pilot.full_name}</span>: Rechnung senden?</span>
-            <button onClick={() => setConfirming(false)} className="btn-ghost border border-border">Abbrechen</button>
+            <span className="text-sm">From <span className="font-mono">{p.pilot.full_name}</span>: send invoice?</span>
+            <button onClick={() => setConfirming(false)} className="btn-ghost border border-border">Cancel</button>
             <button onClick={doSend} disabled={pending} className="btn-primary">
-              <Send className="w-4 h-4 mr-2" /> {pending ? 'Sende…' : 'Ja, senden'}
+              <Send className="w-4 h-4 mr-2" /> {pending ? 'Sending…' : 'Yes, send'}
             </button>
           </div>
         ) : (
@@ -171,12 +171,12 @@ export function InvoiceComparisonView(p: Props) {
             disabled={p.totals.amount <= 0 || !verifyReady}
             className="btn-primary"
             title={
-              p.totals.amount <= 0 ? 'Nichts zu fakturieren'
-              : !verifyReady ? `${verifyMissing} Tag${verifyMissing === 1 ? '' : 'e'} noch nicht verifiziert`
+              p.totals.amount <= 0 ? 'Nothing to invoice'
+              : !verifyReady ? `${verifyMissing} day${verifyMissing === 1 ? '' : 's'} not yet verified`
               : ''
             }
           >
-            <Send className="w-4 h-4 mr-2" /> Rechnung senden
+            <Send className="w-4 h-4 mr-2" /> Send invoice
           </button>
         )}
       </div>

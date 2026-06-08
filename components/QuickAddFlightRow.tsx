@@ -48,7 +48,7 @@ export function QuickAddFlightRow({ defaults, scheduledTimes, loggedCount, usedT
           type="button"
           onClick={doAdd}
           disabled={pending}
-          aria-label="Flug erfassen"
+          aria-label="Log flight"
           className={cn(
             'shrink-0 inline-flex items-center justify-center rounded-full bg-primary text-white',
             'w-12 h-12 shadow-sm hover:bg-primary-dark active:scale-95 transition',
@@ -73,16 +73,16 @@ export function QuickAddFlightRow({ defaults, scheduledTimes, loggedCount, usedT
             </span>
           </div>
           <div className="text-xs text-text-muted mt-0.5">
-            {loggedCount === 0 ? 'Erster Flug — Zeit & Foto-Status anpassbar' : `Nächster Flug nach ${loggedCount} bereits erfasst`}
+            {loggedCount === 0 ? 'First flight — time & photo status adjustable' : `Next flight after ${loggedCount} already logged`}
           </div>
         </div>
 
         <Link
           href="/log"
           className="shrink-0 inline-flex items-center text-xs text-text-muted hover:text-primary"
-          aria-label="Erweiterte Optionen"
+          aria-label="Advanced options"
         >
-          Optionen <ChevronRight className="w-3 h-3" />
+          Options <ChevronRight className="w-3 h-3" />
         </Link>
       </div>
 
@@ -97,7 +97,7 @@ export function QuickAddFlightRow({ defaults, scheduledTimes, loggedCount, usedT
                 type="button"
                 disabled={used && !active}
                 onClick={() => { setTripTime(t); setTimePickerOpen(false); }}
-                title={used && !active ? 'Bereits erfasst' : undefined}
+                title={used && !active ? 'Already logged' : undefined}
                 className={cn(
                   'font-mono text-xs px-2 py-1 rounded-md border',
                   active
@@ -115,8 +115,8 @@ export function QuickAddFlightRow({ defaults, scheduledTimes, loggedCount, usedT
       )}
 
       <div className="flex items-center gap-2 pt-1">
-        <span className="text-xs text-text-muted">Foto</span>
-        <div role="radiogroup" aria-label="Foto-Status" className="inline-flex rounded-full border border-border overflow-hidden text-xs">
+        <span className="text-xs text-text-muted">Photo</span>
+        <div role="radiogroup" aria-label="Photo status" className="inline-flex rounded-full border border-border overflow-hidden text-xs">
           {PHOTO_STATUSES.map(s => {
             const active = s === photoStatus;
             return (
