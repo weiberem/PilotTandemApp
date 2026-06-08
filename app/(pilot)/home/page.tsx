@@ -29,7 +29,7 @@ export default async function HomePage() {
 
   const { data: pilot } = await supabase.from('pilots').select('*').eq('id', user.id).maybeSingle();
   if (!pilot || !pilot.full_name || !pilot.iban) {
-    redirect('/settings?welcome=1');
+    redirect('/onboarding');
   }
 
   const today = isoDateZurich();

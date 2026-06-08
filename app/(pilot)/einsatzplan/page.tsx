@@ -17,7 +17,7 @@ export default async function EinsatzplanPage() {
     .select('full_name, google_refresh_token, einsatzplan_synced_at, einsatzplan_last_file_name, season_override')
     .eq('id', user.id)
     .maybeSingle();
-  if (!pilot) redirect('/settings?welcome=1');
+  if (!pilot) redirect('/onboarding');
 
   return (
     <div className="p-4 space-y-4 max-w-2xl mx-auto">
