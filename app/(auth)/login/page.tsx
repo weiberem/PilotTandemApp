@@ -53,7 +53,7 @@ export default function LoginPage() {
         </button>
       </form>
       <p className="text-xs text-text-muted text-center mt-4">
-        Account by invitation. <Link href="/register" className="text-primary">Redeem invitation</Link>
+        No account yet? <Link href="/signup" className="text-primary">Create one</Link>
       </p>
     </div>
   );
