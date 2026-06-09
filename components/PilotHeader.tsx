@@ -39,7 +39,7 @@ export function PilotHeader({ pilotLabel }: { pilotLabel: string }) {
       {isTop ? (
         <>
           <Link href="/home" className="font-display font-semibold tracking-tight">
-            Tandem<span className="text-primary">Log</span>
+            Tendem<span className="text-primary">Log</span>
           </Link>
           <span className="text-xs text-white/70">{pilotLabel}</span>
         </>
@@ -54,7 +54,7 @@ export function PilotHeader({ pilotLabel }: { pilotLabel: string }) {
             <ChevronLeft className="w-5 h-5" />
             <span className="text-sm">Back</span>
           </button>
-          <span className="font-display font-semibold tracking-tight">{title || 'TandemLog'}</span>
+          <span className="font-display font-semibold tracking-tight">{title || 'TendemLog'}</span>
           <Link href="/home" className="text-xs text-white/70 px-2 py-1 rounded-md hover:bg-white/10 min-h-tap inline-flex items-center" aria-label="Home">
             Home
           </Link>
