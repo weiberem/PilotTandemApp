@@ -28,7 +28,7 @@ export function MonthCompanyPicker({
   return (
     <div className="flex gap-2 items-end">
       <label className="block text-xs">
-        <span className="text-text-muted block">Monat</span>
+        <span className="text-text-muted block">Month</span>
         <input
           type="month"
           value={monthInputValue}
@@ -37,7 +37,7 @@ export function MonthCompanyPicker({
         />
       </label>
       <label className="block text-xs">
-        <span className="text-text-muted block">Firma</span>
+        <span className="text-text-muted block">Company</span>
         <select
           value={company}
           onChange={e => setParam('company', e.target.value)}

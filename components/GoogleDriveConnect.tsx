@@ -21,25 +21,25 @@ export function GoogleDriveConnect({ connected, lastSyncedAt, hasFileId }: Props
       const r = await fetch('/api/gdrive/sync', { method: 'POST' });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
-        setMsg({ kind: 'err', text: data.error ?? 'Sync fehlgeschlagen' });
+        setMsg({ kind: 'err', text: data.error ?? 'Sync failed' });
         return;
       }
-      setMsg({ kind: 'ok', text: `Synchronisiert: ${data.days} Tage` });
+      setMsg({ kind: 'ok', text: `Synced: ${data.days} days` });
       router.refresh();
     });
   }
 
   async function disconnect() {
-    if (!confirm('Google Drive trennen?')) return;
+    if (!confirm('Disconnect Google Drive?')) return;
     setMsg(null);
     startTransition(async () => {
       const r = await fetch('/api/gdrive/disconnect', { method: 'POST' });
       if (!r.ok) {
         const data = await r.json().catch(() => ({}));
-        setMsg({ kind: 'err', text: data.error ?? 'Fehler' });
+        setMsg({ kind: 'err', text: data.error ?? 'Error' });
         return;
       }
-      setMsg({ kind: 'ok', text: 'Verbindung getrennt.' });
+      setMsg({ kind: 'ok', text: 'Disconnected.' });
       router.refresh();
     });
   }
@@ -49,7 +49,7 @@ export function GoogleDriveConnect({ connected, lastSyncedAt, hasFileId }: Props
       {connected ? (
         <>
           <div className="text-xs text-text-muted">
-            ✓ Verbunden{lastSyncedAt ? ` · zuletzt synchronisiert ${new Date(lastSyncedAt).toLocaleString('de-CH')}` : ''}
+            ✓ Connected{lastSyncedAt ? ` · last synced ${new Date(lastSyncedAt).toLocaleString('en-GB')}` : ''}
           </div>
           <div className="flex gap-2">
             <button
@@ -57,19 +57,19 @@ export function GoogleDriveConnect({ connected, lastSyncedAt, hasFileId }: Props
               disabled={pending || !hasFileId}
               className="btn-primary flex-1"
             >
-              <RefreshCw className="w-4 h-4 mr-2" /> {pending ? 'Synchronisiere…' : 'Einsatzplan synchronisieren'}
+              <RefreshCw className="w-4 h-4 mr-2" /> {pending ? 'Syncing…' : 'Sync schedule'}
             </button>
             <button type="button" onClick={disconnect} disabled={pending} className="btn-ghost border border-border">
               <Unlink className="w-4 h-4" />
             </button>
           </div>
           {!hasFileId && (
-            <p className="text-xs text-warning">Bitte Einsatzplan-Datei-ID oben hinterlegen, um zu synchronisieren.</p>
+            <p className="text-xs text-warning">Please set the schedule file ID above to sync.</p>
           )}
         </>
       ) : (
         <a href="/api/gdrive/auth/start" className="btn-primary w-full inline-flex">
-          <Cloud className="w-4 h-4 mr-2" /> Google Drive verbinden
+          <Cloud className="w-4 h-4 mr-2" /> Connect Google Drive
         </a>
       )}
       {msg && (

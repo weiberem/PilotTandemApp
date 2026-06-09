@@ -16,11 +16,11 @@ export default function DemoLanding() {
           </span>
         </div>
         <h1 className="text-2xl font-display font-bold tracking-tight">
-          Demo-Konto mit Beispiel-Daten
+          Demo account with sample data
         </h1>
         <p className="text-white/70 text-sm mt-3 max-w-md mx-auto">
-          Klick auf den Knopf und du bist sofort drin — keine Registrierung,
-          keine E-Mail-Bestätigung. Räumt sich nach 24 Stunden automatisch wieder auf.
+          Click the button and you're in instantly — no registration,
+          no email confirmation. Cleans itself up automatically after 24 hours.
         </p>
       </section>
 
@@ -29,31 +29,31 @@ export default function DemoLanding() {
           <ul className="space-y-2 text-sm">
             <li className="flex items-start gap-2">
               <Check className="w-4 h-4 text-success shrink-0 mt-0.5" />
-              <span>Vormonat komplett mit gesendeter Rechnung</span>
+              <span>Previous month complete with invoice sent</span>
             </li>
             <li className="flex items-start gap-2">
               <Check className="w-4 h-4 text-success shrink-0 mt-0.5" />
-              <span>Aktueller Monat mit teilweise verifizierten Tagen</span>
+              <span>Current month with some days verified</span>
             </li>
             <li className="flex items-start gap-2">
               <Check className="w-4 h-4 text-success shrink-0 mt-0.5" />
-              <span>Beispiel-Einsatzplan auf dem Kalender</span>
+              <span>Sample schedule on the calendar</span>
             </li>
             <li className="flex items-start gap-2">
               <ShieldOff className="w-4 h-4 text-warning shrink-0 mt-0.5" />
-              <span>Rechnung-Senden wird simuliert — kein echter Mail-Versand</span>
+              <span>Invoice sending is simulated — no real email sent</span>
             </li>
           </ul>
 
           <form action="/api/demo/start" method="POST">
             <button type="submit" className="btn-primary w-full">
-              <Plane className="w-4 h-4 mr-2 -rotate-45" /> Demo starten
+              <Plane className="w-4 h-4 mr-2 -rotate-45" /> Start demo
             </button>
           </form>
 
           <p className="text-xs text-text-muted text-center">
-            Hast du bereits einen Account?{' '}
-            <Link href="/login" className="text-primary hover:underline">Anmelden</Link>
+            Already have an account?{' '}
+            <Link href="/login" className="text-primary hover:underline">Sign In</Link>
           </p>
         </div>
       </section>

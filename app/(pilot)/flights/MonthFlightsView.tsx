@@ -56,7 +56,7 @@ export function MonthFlightsView({
       <div className="flex items-center justify-between">
         <button
           onClick={() => router.push(`/flights?month=${shiftMonth(month, -1)}`)}
-          className="btn-ghost border border-border min-w-tap" aria-label="Vorheriger Monat"
+          className="btn-ghost border border-border min-w-tap" aria-label="Previous month"
         ><ChevronLeft className="w-5 h-5" /></button>
         <button
           onClick={() => {
@@ -67,22 +67,22 @@ export function MonthFlightsView({
         >
           <div className="font-display font-semibold text-lg capitalize">{monthLabel(year, monthIndex0)}</div>
           <div className="text-xs text-primary inline-flex items-center gap-1 justify-center">
-            <RotateCcw className="w-3 h-3" /> Aktueller Monat
+            <RotateCcw className="w-3 h-3" /> Current month
           </div>
         </button>
         <button
           onClick={() => router.push(`/flights?month=${shiftMonth(month, 1)}`)}
-          className="btn-ghost border border-border min-w-tap" aria-label="Nächster Monat"
+          className="btn-ghost border border-border min-w-tap" aria-label="Next month"
         ><ChevronRight className="w-5 h-5" /></button>
       </div>
 
       {/* Month summary */}
-      <PeriodSummary totals={monthTotals} totalLabel="Umsatz (ohne Trinkgeld)" />
+      <PeriodSummary totals={monthTotals} totalLabel="Revenue (excl. tips)" />
 
       {/* Day list */}
       {days.length === 0 ? (
         <div className="card p-6 text-center text-text-muted">
-          Keine Flüge in diesem Monat.
+          No flights in this month.
         </div>
       ) : (
         <ul className="space-y-2">
@@ -99,12 +99,12 @@ export function MonthFlightsView({
                     <div className="flex items-center gap-2 font-medium">
                       <span>{formatDateDe(date, { weekday: 'short', day: '2-digit', month: '2-digit' })}</span>
                       {verified
-                        ? <span className="inline-flex items-center text-success" title="Verifiziert"><Check className="w-3.5 h-3.5" /></span>
-                        : <span className="inline-flex items-center text-warning" title="Noch nicht verifiziert"><Circle className="w-3.5 h-3.5" /></span>
+                        ? <span className="inline-flex items-center text-success" title="Verified"><Check className="w-3.5 h-3.5" /></span>
+                        : <span className="inline-flex items-center text-warning" title="Not yet verified"><Circle className="w-3.5 h-3.5" /></span>
                       }
                     </div>
                     <div className="text-xs text-text-muted">
-                      {totals.flightsBilled} Flüge
+                      {totals.flightsBilled} flights
                       {totals.ppCount > 0 && ` · ${totals.ppCount} PP`}
                       {totals.thermalCount > 0 && ` · ${totals.thermalCount} Thermal`}
                       {totals.noShowCount > 0 && ` · ${totals.noShowCount} No-Show`}
@@ -117,7 +117,7 @@ export function MonthFlightsView({
                   <div className="border-t border-border divide-y divide-border">
                     <div className="flex items-center justify-between gap-2 px-3 py-2 pl-10 bg-bg-subtle/40">
                       <span className="text-xs text-text-muted">
-                        Mit Skywings-Desk-Tagesblatt abgleichen, dann verifizieren.
+                        Reconcile with the Skywings desk day sheet, then verify.
                       </span>
                       <DayVerifyButton date={date} verified={verified} flightCount={flights.length} />
                     </div>
@@ -143,7 +143,7 @@ export function MonthFlightsView({
                           <span className="font-mono text-xs text-text-muted">{formatChf(Number(f.tip_chf))}</span>
                         )}
                         <Link href={`/log/${f.id}/edit`} className="text-xs text-primary hover:underline">
-                          bearbeiten
+                          edit
                         </Link>
                       </div>
                     ))}
@@ -151,7 +151,7 @@ export function MonthFlightsView({
                       href={`/log?date=${date}`}
                       className="flex items-center gap-2 p-3 pl-10 text-primary text-sm hover:bg-bg"
                     >
-                      <Plus className="w-4 h-4" /> Flug an diesem Tag erfassen
+                      <Plus className="w-4 h-4" /> Log flight on this day
                     </Link>
                   </div>
                 )}

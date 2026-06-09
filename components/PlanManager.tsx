@@ -28,9 +28,9 @@ export function PlanManager() {
   useEffect(() => { reload(); }, []);
 
   function friendly(error: string | undefined, detail: string | undefined): string {
-    const text = detail ?? error ?? 'Import fehlgeschlagen.';
+    const text = detail ?? error ?? 'Import failed.';
     if (/einsatzplan_imports.*does not exist/i.test(text)) {
-      return 'Datenbank-Spalte fehlt: bitte Migration 005 in Supabase ausführen ' +
+      return 'Database column missing: please run migration 005 in Supabase ' +
         '(SQL Editor → "alter table pilots add column if not exists einsatzplan_imports jsonb not null default \'\'{}\'\'::jsonb;").';
     }
     return text;
@@ -38,7 +38,7 @@ export function PlanManager() {
 
   function importPlan(month: string, link: string) {
     if (!link.trim()) {
-      setMsg({ kind: 'err', text: 'Bitte Drive-Link einfügen.' });
+      setMsg({ kind: 'err', text: 'Please paste a Drive link.' });
       return;
     }
     setMsg(null);
@@ -55,16 +55,16 @@ export function PlanManager() {
         setMsg({ kind: 'err', text: friendly(data.error, data.detail) });
         return;
       }
-      setMsg({ kind: 'ok', text: `${data.days} Tage importiert${data.file_name ? ` (${data.file_name})` : ''}.` });
+      setMsg({ kind: 'ok', text: `${data.days} days imported${data.file_name ? ` (${data.file_name})` : ''}.` });
       reload();
     });
   }
 
   function resetPlan(month: string) {
     const clearCal = window.confirm(
-      `Plan für ${monthKeyLabel(month)} zurücksetzen.\n\n` +
-      `Sollen auch die Skywings-Einträge dieses Monats im Google Kalender gelöscht werden?\n\n` +
-      `OK = ja, beides löschen\nAbbrechen = nur App-Daten löschen`,
+      `Reset schedule for ${monthKeyLabel(month)}.\n\n` +
+      `Should the Skywings entries for this month also be deleted from Google Calendar?\n\n` +
+      `OK = yes, delete both\nCancel = only delete app data`,
     );
     setMsg(null);
     setBusyKey(`reset:${month}`);
@@ -82,10 +82,10 @@ export function PlanManager() {
       }
       const calNote = clearCal
         ? data.warning
-          ? ` (Kalender-Aufräumen: ${data.warning})`
-          : ` · ${data.calendar_deleted} Kalender-Einträge gelöscht`
+          ? ` (calendar cleanup: ${data.warning})`
+          : ` · ${data.calendar_deleted} calendar entries deleted`
         : '';
-      setMsg({ kind: 'ok', text: `Plan für ${monthKeyLabel(month)} zurückgesetzt.${calNote}` });
+      setMsg({ kind: 'ok', text: `Schedule for ${monthKeyLabel(month)} reset.${calNote}` });
       reload();
     });
   }
@@ -94,7 +94,7 @@ export function PlanManager() {
     return (
       <div className="card p-4 text-sm text-text-muted">
         <CalendarRange className="w-4 h-4 inline mr-2" />
-        Lade Einsatzplan-Status…
+        Loading schedule status…
       </div>
     );
   }
@@ -103,14 +103,14 @@ export function PlanManager() {
     <div className="card p-4 space-y-3">
       <div className="flex items-center gap-2">
         <CalendarRange className="w-4 h-4 text-primary" />
-        <h2 className="font-display font-semibold">Einsatzplan-Importe</h2>
+        <h2 className="font-display font-semibold">Schedule imports</h2>
       </div>
       <p className="text-xs text-text-muted">
-        Pro Monat den Drive-Link einfügen. Daten landen im Kalender, in den Stats und im Google-Kalender-Push.
+        Paste the Drive link for each month. Data appears in the calendar, in stats, and in the Google Calendar push.
       </p>
 
       <PlanSlot
-        title={`Aktueller Monat — ${monthKeyLabel(status.current_month)}`}
+        title={`Current month — ${monthKeyLabel(status.current_month)}`}
         month={status.current_month}
         slot={status.current}
         busyImport={busyKey === `import:${status.current_month}` && pending}
@@ -119,7 +119,7 @@ export function PlanManager() {
         onReset={() => resetPlan(status.current_month)}
       />
       <PlanSlot
-        title={`Kommender Monat — ${monthKeyLabel(status.next_month)}`}
+        title={`Upcoming month — ${monthKeyLabel(status.next_month)}`}
         month={status.next_month}
         slot={status.next}
         busyImport={busyKey === `import:${status.next_month}` && pending}
@@ -158,14 +158,14 @@ function PlanSlot({
         <div className="text-sm font-medium">{title}</div>
         {slot?.archived && (
           <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-text-muted">
-            <Lock className="w-3 h-3" /> Archiv
+            <Lock className="w-3 h-3" /> Archive
           </span>
         )}
       </div>
 
       {slot && (
         <div className="text-xs text-text-muted">
-          {slot.days} Tage · zuletzt importiert {formatDateDe(slot.last_synced_at, {
+          {slot.days} days · last imported {formatDateDe(slot.last_synced_at, {
             day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
           })}
           {slot.file_name && <> · {slot.file_name}</>}
@@ -176,7 +176,7 @@ function PlanSlot({
         type="text"
         value={link}
         onChange={(e) => setLink(extractDriveId(e.target.value))}
-        placeholder="Drive-Link oder Datei-ID einfügen"
+        placeholder="Paste Drive link or file ID"
         disabled={slot?.archived || busyImport || busyReset}
         className="w-full min-h-tap rounded-lg border border-border px-3 py-2 bg-white font-mono text-xs disabled:opacity-50"
       />
@@ -189,7 +189,7 @@ function PlanSlot({
           className="btn-primary flex-1"
         >
           <RefreshCw className={`w-4 h-4 mr-2 ${busyImport ? 'animate-spin' : ''}`} />
-          {busyImport ? 'Importiere…' : slot ? 'Erneut importieren' : `Plan für ${month} importieren`}
+          {busyImport ? 'Importing…' : slot ? 'Import again' : `Import schedule for ${month}`}
         </button>
         {slot && !slot.archived && (
           <button
@@ -197,8 +197,8 @@ function PlanSlot({
             onClick={onReset}
             disabled={busyImport || busyReset}
             className="btn-ghost border border-danger/30 text-danger min-w-tap"
-            aria-label="Plan zurücksetzen"
-            title="Plan zurücksetzen"
+            aria-label="Reset schedule"
+            title="Reset schedule"
           >
             <Trash2 className={`w-4 h-4 ${busyReset ? 'animate-pulse' : ''}`} />
           </button>

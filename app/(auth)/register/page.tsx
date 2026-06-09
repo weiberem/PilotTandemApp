@@ -47,28 +47,28 @@ export default function RegisterPage() {
   if (!hasSession) {
     return (
       <div className="card p-6">
-        <h1 className="text-xl font-display font-semibold mb-2">Einladung erforderlich</h1>
+        <h1 className="text-xl font-display font-semibold mb-2">Invitation required</h1>
         <p className="text-sm text-text-muted mb-4">
-          Konten werden nur per Einladung erstellt. Bitte folge dem Link aus deiner Einladungs-E-Mail.
+          Accounts are created by invitation only. Please follow the link from your invitation email.
         </p>
-        <Link href="/login" className="btn-ghost w-full">Zurück zur Anmeldung</Link>
+        <Link href="/login" className="btn-ghost w-full">Back to Sign In</Link>
       </div>
     );
   }
 
   return (
     <div className="card p-6">
-      <h1 className="text-xl font-display font-semibold mb-4">Konto einrichten</h1>
+      <h1 className="text-xl font-display font-semibold mb-4">Set up account</h1>
       <form onSubmit={onSubmit} className="space-y-4">
         <label className="block">
-          <span className="text-sm font-medium">Voller Name</span>
+          <span className="text-sm font-medium">Full name</span>
           <input
             type="text" required value={fullName} onChange={e => setFullName(e.target.value)}
             className="mt-1 w-full min-h-tap rounded-lg border border-border px-3 py-2 bg-white"
           />
         </label>
         <label className="block">
-          <span className="text-sm font-medium">Neues Passwort</span>
+          <span className="text-sm font-medium">New password</span>
           <input
             type="password" required minLength={8} value={password} onChange={e => setPassword(e.target.value)}
             className="mt-1 w-full min-h-tap rounded-lg border border-border px-3 py-2 bg-white"
@@ -77,7 +77,7 @@ export default function RegisterPage() {
         </label>
         {error && <p className="text-danger text-sm">{error}</p>}
         <button type="submit" disabled={pending} className="btn-primary w-full">
-          {pending ? 'Speichern…' : 'Konto aktivieren'}
+          {pending ? 'Saving…' : 'Activate account'}
         </button>
       </form>
     </div>

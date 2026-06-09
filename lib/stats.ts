@@ -16,7 +16,7 @@ export type MonthlyStat = {
   cashChf: number;       // Cash earnings
 };
 
-const SHORT_MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function emptyStat(monthIndex0: number, label: string): MonthlyStat {
   return {

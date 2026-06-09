@@ -12,35 +12,35 @@ const PROBES: ReadonlyArray<MigrationProbe & {
 }> = [
   {
     id: '004',
-    label: 'Voller Einsatzplan-Cache (pilots.einsatzplan_full_plan)',
+    label: 'Full schedule cache (pilots.einsatzplan_full_plan)',
     file: 'supabase/migrations/004_full_plan.sql',
     sql: `alter table pilots add column if not exists einsatzplan_full_plan jsonb;`,
     test: (sb, userId) => sb.from('pilots').select('einsatzplan_full_plan').eq('id', userId).limit(1),
   },
   {
     id: '005',
-    label: 'Einsatzplan Monats-Slots (pilots.einsatzplan_imports)',
+    label: 'Schedule monthly slots (pilots.einsatzplan_imports)',
     file: 'supabase/migrations/005_einsatzplan_imports.sql',
     sql: `alter table pilots add column if not exists einsatzplan_imports jsonb not null default '{}'::jsonb;`,
     test: (sb, userId) => sb.from('pilots').select('einsatzplan_imports').eq('id', userId).limit(1),
   },
   {
     id: '006',
-    label: 'Tag-Verifizierung (Tabelle day_verifications)',
+    label: 'Day verification (day_verifications table)',
     file: 'supabase/migrations/006_day_verifications.sql',
-    sql: `-- siehe supabase/migrations/006_day_verifications.sql\n-- (Tabellen day_verifications + monthly_ready_emails inkl. RLS)`,
+    sql: `-- see supabase/migrations/006_day_verifications.sql\n-- (tables day_verifications + monthly_ready_emails incl. RLS)`,
     test: (sb) => sb.from('day_verifications').select('flight_date').limit(1),
   },
   {
     id: '007',
-    label: 'VKPI-Meldungs-Toggle (pilots.vkpi_reported_years)',
+    label: 'VKPI report toggle (pilots.vkpi_reported_years)',
     file: 'supabase/migrations/007_vkpi_reported_years.sql',
     sql: `alter table pilots add column if not exists vkpi_reported_years jsonb not null default '[]'::jsonb;`,
     test: (sb, userId) => sb.from('pilots').select('vkpi_reported_years').eq('id', userId).limit(1),
   },
   {
     id: '010',
-    label: 'Demo-Sandbox (pilots.is_demo, demo_expires_at)',
+    label: 'Demo sandbox (pilots.is_demo, demo_expires_at)',
     file: 'supabase/migrations/010_demo_account.sql',
     sql:
       `alter table pilots\n` +

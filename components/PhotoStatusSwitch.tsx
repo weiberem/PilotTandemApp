@@ -21,7 +21,7 @@ export function PhotoStatusSwitch({
       const r = await setFlightPhotoStatus(flightId, status);
       if (!r.ok) {
         setOptimistic(null);
-        alert(r.error ?? 'Fehler beim Speichern');
+        alert(r.error ?? 'Save failed');
         return;
       }
       router.refresh();
@@ -32,7 +32,7 @@ export function PhotoStatusSwitch({
   return (
     <div
       role="radiogroup"
-      aria-label="Foto-Status"
+      aria-label="Photo status"
       className={cn(
         'inline-flex rounded-full border border-border overflow-hidden text-xs',
         disabled && 'opacity-40',

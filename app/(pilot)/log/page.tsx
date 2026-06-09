@@ -85,17 +85,17 @@ export default async function LogPage({
       <div className="flex items-start justify-between">
         <div>
           <p className="text-text-muted text-sm">{formatDateDe(new Date(flightDate))}</p>
-          <h1 className="text-2xl font-display font-bold">Flug erfassen</h1>
+          <h1 className="text-2xl font-display font-bold">Log Flight</h1>
         </div>
         <div className="text-right text-xs">
-          <div className="text-text-muted">Bisher heute</div>
+          <div className="text-text-muted">So far today</div>
           <div className="font-mono text-lg">{loggedCount}</div>
         </div>
       </div>
 
       {justAdded && (
         <div className="card p-3 border-l-4 border-l-success text-sm">
-          ✓ Flug gespeichert. Nächste Abflugzeit ist vorausgefüllt.
+          ✓ Flight saved. Next departure time pre-filled.
         </div>
       )}
 
@@ -108,8 +108,8 @@ export default async function LogPage({
       />
 
       <div className="flex gap-2 pt-2">
-        <Link href="/today" className="btn-ghost flex-1 border border-border">Heutige Flüge ({loggedCount})</Link>
-        <Link href="/home" className="btn-ghost flex-1 border border-border">Fertig</Link>
+        <Link href="/today" className="btn-ghost flex-1 border border-border">Today's Flights ({loggedCount})</Link>
+        <Link href="/home" className="btn-ghost flex-1 border border-border">Done</Link>
       </div>
     </div>
   );

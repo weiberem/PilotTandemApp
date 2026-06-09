@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     .filter(d => !monthFilter || d.startsWith(monthFilter))
     .sort();
   if (dates.length === 0) {
-    return NextResponse.json({ error: 'no_scheduled_days', detail: 'Kein Einsatzplan für diesen Zeitraum.' }, { status: 400 });
+    return NextResponse.json({ error: 'no_scheduled_days', detail: 'No schedule for this period.' }, { status: 400 });
   }
 
   try {

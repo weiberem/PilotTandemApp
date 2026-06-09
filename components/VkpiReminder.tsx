@@ -23,20 +23,20 @@ export function VkpiReminder({
     setError(null);
     startTransition(async () => {
       const r = await setVkpiReported(year, next);
-      if (!r.ok) setError(r.error ?? 'Fehler');
+      if (!r.ok) setError(r.error ?? 'Error');
     });
   }
 
   if (reported) {
     return (
       <p className="text-xs text-text-muted px-1">
-        VKPI {year}: <span className="font-mono">{count}</span> Flüge · als gemeldet markiert
+        VKPI {year}: <span className="font-mono">{count}</span> flights · marked as reported
         <button
           onClick={() => toggle(false)}
           disabled={pending}
           className="text-primary underline-offset-2 hover:underline ml-2"
         >
-          rückgängig
+          undo
         </button>
       </p>
     );
@@ -45,22 +45,22 @@ export function VkpiReminder({
   return (
     <div className="card p-3 border-l-4 border-l-warning text-sm flex flex-wrap items-center gap-3">
       <div className="flex-1 min-w-0">
-        <div className="font-medium">VKPI-Meldung {year}</div>
+        <div className="font-medium">VKPI report {year}</div>
         <div className="text-text-muted text-xs">
-          <span className="font-mono font-semibold text-text">{count}</span> abrechenbare Flüge
+          <span className="font-mono font-semibold text-text">{count}</span> billable flights
         </div>
       </div>
       <button onClick={copy} className="btn-ghost border border-border text-xs">
         {copied ? <Check className="w-3.5 h-3.5 mr-1" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
-        {copied ? 'Kopiert' : 'Zahl kopieren'}
+        {copied ? 'Copied' : 'Copy number'}
       </button>
       <button
         onClick={() => toggle(true)}
         disabled={pending}
         className="btn-ghost border border-border text-xs"
-        title="VKPI-Meldung erledigt — diese Erinnerung ausblenden"
+        title="VKPI report done — hide this reminder"
       >
-        <Check className="w-3.5 h-3.5 mr-1" /> {pending ? '…' : 'Als gemeldet markieren'}
+        <Check className="w-3.5 h-3.5 mr-1" /> {pending ? '…' : 'Mark as reported'}
       </button>
       {error && <p className="basis-full text-xs text-danger">{error}</p>}
     </div>

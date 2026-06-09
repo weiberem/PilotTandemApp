@@ -19,28 +19,28 @@ export default function Index() {
           </span>
         </div>
         <h1 className="text-2xl font-display font-bold tracking-tight">
-          Flugrapport für Tandempiloten
+          Flight reporting for tandem pilots
         </h1>
         <p className="text-white/70 text-sm mt-3 max-w-sm mx-auto">
-          Flüge erfassen, Verfügbarkeit planen, Rechnungen senden — direkt aus dem Cockpit.
+          Log flights, plan availability, send invoices.
         </p>
       </section>
 
       <section className="flex-1 flex items-start justify-center p-4 -mt-6">
         <div className="card p-6 space-y-3 w-full max-w-sm">
-          <Link href="/login" className="btn-primary w-full">Anmelden</Link>
+          <Link href="/login" className="btn-primary w-full">Sign In</Link>
           <Link href="/register" className="btn-ghost w-full border border-border">
-            Einladung einlösen
+            Redeem invitation
           </Link>
           <div className="border-t border-border pt-3">
             <Link
               href="/demo"
               className="block text-center text-sm text-primary font-medium hover:underline"
             >
-              Demo ausprobieren →
+              Try the demo →
             </Link>
             <p className="text-[11px] text-text-muted text-center mt-1">
-              Mit Beispiel-Daten, ohne Anmeldung. Räumt sich nach 24h auf.
+              With sample data, no sign-up. Cleans up after 24h.
             </p>
           </div>
         </div>

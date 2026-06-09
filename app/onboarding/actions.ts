@@ -27,7 +27,7 @@ export async function saveOnboardingStep(
 ): Promise<{ ok: boolean; error?: string }> {
   const sb = createClient();
   const { data: { user } } = await sb.auth.getUser();
-  if (!user) return { ok: false, error: 'Not authenticated' };
+  if (!user) return { ok: false, error: 'Not signed in' };
 
   const cleaned: Record<string, string | number> = {};
   for (const [key, value] of Object.entries(patch)) {

@@ -11,7 +11,7 @@ export type FlightActionResult =
 
 function mapInsertError(message: string, tripTime: string): string {
   if (/flights_pilot_date_time_unique|duplicate key/i.test(message)) {
-    return `Für ${tripTime} ist bereits ein Flug an diesem Tag erfasst. Pro Trip-Zeit ist nur ein Flug pro Pilot möglich.`;
+    return `A flight at ${tripTime} is already logged for this day. Only one flight per trip time per pilot is allowed.`;
   }
   return message;
 }
@@ -117,9 +117,9 @@ export async function setFlightPhotoStatus(
   const { data: row, error: readErr } = await supabase
     .from('flights').select('is_no_show').eq('id', id).eq('pilot_id', user.id).maybeSingle();
   if (readErr) return { ok: false, error: readErr.message };
-  if (!row) return { ok: false, error: 'Flug nicht gefunden' };
+  if (!row) return { ok: false, error: 'Flight not found' };
   if (row.is_no_show && status !== 'none') {
-    return { ok: false, error: 'No-Show kann kein Foto haben' };
+    return { ok: false, error: 'No-show cannot have a photo' };
   }
 
   const { error } = await supabase

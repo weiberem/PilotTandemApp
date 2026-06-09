@@ -1,5 +1,5 @@
 import { createClient, createServiceClient } from './supabase/server';
-import { monthLabelDe } from './invoice';
+import { monthLabelEn } from './invoice';
 import { getResend, getFromAddress } from './email';
 
 export type DayVerificationStatus = {
@@ -76,17 +76,17 @@ export async function maybeSendMonthReadyMail(
   const to = pilot?.personal_email ?? pilot?.office_email;
   if (!to) return { sent: false, reason: 'no_recipient' };
 
-  const label = monthLabelDe(monthFirst);
+  const label = monthLabelEn(monthFirst);
   try {
     await getResend().emails.send({
       from: getFromAddress(),
       to,
-      subject: `${label}: Abrechnung bereit zur Kontrolle`,
+      subject: `${label}: invoice ready for review`,
       text: [
-        `Hallo ${pilot?.full_name ?? ''},`,
+        `Hi ${pilot?.full_name ?? ''},`,
         ``,
-        `Du hast für ${label} alle ${status.total} Flugtage verifiziert.`,
-        `Die Monatsrechnung ist jetzt zum Senden bereit.`,
+        `You've verified all ${status.total} flight days for ${label}.`,
+        `The monthly invoice is now ready to send.`,
         ``,
         `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/dashboard/invoice?month=${monthFirst}`,
         ``,

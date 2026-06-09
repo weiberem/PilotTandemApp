@@ -36,13 +36,13 @@ export default async function TodayPage({
     <div className="p-4 space-y-4 max-w-xl mx-auto">
       <div>
         <p className="text-text-muted text-sm">{formatDateDe(new Date(date))}</p>
-        <h1 className="text-2xl font-display font-bold">Heutige Flüge</h1>
+        <h1 className="text-2xl font-display font-bold">Today's Flights</h1>
       </div>
 
       {flights.length === 0 ? (
         <div className="card p-6 text-center text-text-muted">
-          <p>Noch keine Flüge heute.</p>
-          <Link href="/log" className="btn-accent mt-4 inline-flex">Ersten Flug erfassen</Link>
+          <p>No flights yet today.</p>
+          <Link href="/log" className="btn-accent mt-4 inline-flex">Log first flight</Link>
         </div>
       ) : (
         <>
@@ -50,17 +50,17 @@ export default async function TodayPage({
             {flights.map(f => <FlightListItem key={f.id} flight={f} />)}
           </ul>
           <div className="card p-4 grid grid-cols-2 gap-2 text-sm">
-            <span className="text-text-muted">Flüge</span><span className="font-mono text-right">{totals.flightsBilled}</span>
-            <span className="text-text-muted">Foto PP</span><span className="font-mono text-right">{totals.ppCount}</span>
+            <span className="text-text-muted">Flights</span><span className="font-mono text-right">{totals.flightsBilled}</span>
+            <span className="text-text-muted">Photo PP</span><span className="font-mono text-right">{totals.ppCount}</span>
             <span className="text-text-muted">Thermal</span><span className="font-mono text-right">{totals.thermalCount}</span>
             <span className="text-text-muted">No-Show</span><span className="font-mono text-right">{totals.noShowCount}</span>
-            <span className="text-text-muted">Trinkgeld</span><span className="font-mono text-right">{formatChf(totals.tipChf)}</span>
-            <span className="font-semibold border-t border-border pt-2">Total (m. Tip)</span>
+            <span className="text-text-muted">Tips</span><span className="font-mono text-right">{formatChf(totals.tipChf)}</span>
+            <span className="font-semibold border-t border-border pt-2">Total (w. tip)</span>
             <span className="font-mono text-right font-semibold border-t border-border pt-2">{formatChf(totals.totalWithTipsChf)}</span>
           </div>
           <div className="flex gap-2">
-            <Link href="/log" className="btn-ghost flex-1 border border-border">+ Weiterer Flug</Link>
-            <Link href={`/summary?date=${date}`} className="btn-primary flex-1">Tagesabschluss</Link>
+            <Link href="/log" className="btn-ghost flex-1 border border-border">+ Another flight</Link>
+            <Link href={`/summary?date=${date}`} className="btn-primary flex-1">Day Summary</Link>
           </div>
         </>
       )}

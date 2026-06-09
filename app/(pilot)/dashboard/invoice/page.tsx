@@ -49,8 +49,8 @@ export default async function InvoiceDashboardPage({
   if ('error' in assembled) {
     return (
       <div className="p-4 max-w-2xl mx-auto">
-        <h1 className="text-2xl font-display font-bold mb-2">Rechnung</h1>
-        <div className="card p-4 text-danger">Fehler: {assembled.error}</div>
+        <h1 className="text-2xl font-display font-bold mb-2">Invoice</h1>
+        <div className="card p-4 text-danger">Error: {assembled.error}</div>
       </div>
     );
   }
@@ -59,7 +59,7 @@ export default async function InvoiceDashboardPage({
     <div className="p-4 lg:p-6 max-w-[1280px] mx-auto space-y-4">
       <div className="flex flex-wrap justify-between items-end gap-3">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-display font-bold">Rechnung</h1>
+          <h1 className="text-2xl lg:text-3xl font-display font-bold">Invoice</h1>
           <p className="text-text-muted text-sm">{monthLabelDe(monthFirst)} · {companyKey}</p>
         </div>
         <MonthCompanyPicker

@@ -24,7 +24,7 @@ export function PeriodSummary({
     tiles.push({
       key: 'flights',
       counts: String(totals.flightsBilled),
-      label: 'Flüge',
+      label: 'Flights',
       chf: totals.flightsChf,
     });
   }
@@ -37,7 +37,7 @@ export function PeriodSummary({
       key: 'photo',
       counts: parts.map(p => p.n).join(' · '),
       subLabel: parts.map(p => p.lbl).join(' · '),
-      label: 'Foto · Video',
+      label: 'Photo · Video',
       chf: photoChf,
     });
   }

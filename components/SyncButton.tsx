@@ -15,7 +15,7 @@ export function SyncButton({ disabled, label = 'Sync' }: { disabled?: boolean; l
       const r = await fetch('/api/gdrive/sync', { method: 'POST' });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
-        setErr(data.error ?? 'Sync fehlgeschlagen');
+        setErr(data.error ?? 'Sync failed');
         return;
       }
       router.refresh();

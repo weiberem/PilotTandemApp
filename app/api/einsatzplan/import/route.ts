@@ -29,14 +29,14 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({})) as { month?: string; drive_link?: string };
   if (!body.month || !/^\d{4}-\d{2}$/.test(body.month)) {
-    return NextResponse.json({ error: 'invalid_month', detail: 'month muss "YYYY-MM" sein.' }, { status: 400 });
+    return NextResponse.json({ error: 'invalid_month', detail: 'month must be "YYYY-MM".' }, { status: 400 });
   }
   if (!body.drive_link?.trim()) {
-    return NextResponse.json({ error: 'missing_link', detail: 'Drive-Link erforderlich.' }, { status: 400 });
+    return NextResponse.json({ error: 'missing_link', detail: 'Drive link required.' }, { status: 400 });
   }
   const fileId = extractDriveFileId(body.drive_link.trim());
   if (!fileId) {
-    return NextResponse.json({ error: 'invalid_link', detail: 'Konnte keine Drive-Datei-ID aus dem Link lesen.' }, { status: 400 });
+    return NextResponse.json({ error: 'invalid_link', detail: 'Could not extract a Drive file ID from the link.' }, { status: 400 });
   }
 
   const { data: pilot, error: pErr } = await sb
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       if (parsedMonth !== body.month) {
         return NextResponse.json({
           error: 'month_mismatch',
-          detail: `Plan ist für ${parsedMonth}, wurde aber im Slot ${body.month} eingereicht.`,
+          detail: `Schedule is for ${parsedMonth}, but was submitted in slot ${body.month}.`,
         }, { status: 400 });
       }
     }

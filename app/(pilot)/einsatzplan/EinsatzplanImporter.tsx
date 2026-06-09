@@ -11,9 +11,9 @@ type Entry = { period: Period; times: string[] };
 type Schedule = Record<string, Entry>;
 
 const PERIOD_LABEL: Record<Period, string> = {
-  full: 'Ganztag',
-  half_am: '½ Vormittag',
-  half_pm: '½ Nachmittag',
+  full: 'Full day',
+  half_am: '½ Morning',
+  half_pm: '½ Afternoon',
 };
 
 export function EinsatzplanImporter({
@@ -56,9 +56,9 @@ export function EinsatzplanImporter({
       setEdited(data.schedule);
       const dayCount = Object.keys(data.schedule).length;
       if (dayCount === 0) {
-        setMsg({ kind: 'warn', text: 'Datei gelesen, aber 0 Einsätze für dich gefunden. Prüfe den Spaltennamen im Excel.' });
+        setMsg({ kind: 'warn', text: 'File read, but 0 shifts found for you. Check the column name in the Excel.' });
       } else {
-        setMsg({ kind: 'ok', text: `${dayCount} Tage erkannt. Bitte kontrollieren.` });
+        setMsg({ kind: 'ok', text: `${dayCount} days detected. Please review.` });
       }
     });
   }
@@ -113,7 +113,7 @@ export function EinsatzplanImporter({
         setMsg({ kind: 'err', text: data.error });
         return;
       }
-      setMsg({ kind: 'ok', text: `Gespeichert. Total ${data.days} Tage in deinem Plan.` });
+      setMsg({ kind: 'ok', text: `Saved. ${data.days} days total in your schedule.` });
       setPreview(null);
       setEdited({});
       setUrl('');
@@ -125,14 +125,14 @@ export function EinsatzplanImporter({
     <div className="space-y-4">
       <div className="card p-4 space-y-3">
         <label className="block">
-          <span className="text-sm font-medium">Drive-Link oder Datei-ID</span>
+          <span className="text-sm font-medium">Drive link or file ID</span>
           <input
             type="text" value={url} onChange={e => setUrl(e.target.value)}
             placeholder="https://drive.google.com/file/d/…"
             className="mt-1 w-full min-h-tap rounded-lg border border-border px-3 py-2 bg-white font-mono text-sm"
           />
           <span className="text-xs text-text-muted mt-1 block">
-            In Drive auf die Datei → "Link kopieren" → hier einfügen.
+            In Drive, on the file → "Copy link" → paste here.
           </span>
         </label>
         <button
@@ -141,7 +141,7 @@ export function EinsatzplanImporter({
           className="btn-primary w-full"
         >
           <Search className="w-4 h-4 mr-2" />
-          {busy ? 'Lese Datei…' : 'Vorschau erstellen'}
+          {busy ? 'Reading file…' : 'Create preview'}
         </button>
       </div>
 
@@ -161,22 +161,22 @@ export function EinsatzplanImporter({
       {preview && (
         <div className="space-y-4">
           <div className="card p-3 text-xs text-text-muted">
-            Datei: <span className="font-mono text-text">{preview.file_name}</span>
+            File: <span className="font-mono text-text">{preview.file_name}</span>
             {' · '}
             <button onClick={() => { setEdited(preview.schedule); }} className="text-primary">
-              Zurücksetzen auf Vorschau
+              Reset to preview
             </button>
           </div>
 
           <div className="flex gap-4 text-xs text-text-muted">
-            <span>{stats.full} Ganztag</span>
+            <span>{stats.full} full day</span>
             <span>{stats.half_am} ½ AM</span>
             <span>{stats.half_pm} ½ PM</span>
           </div>
 
           <ul className="space-y-2">
             {sortedDates.length === 0 ? (
-              <li className="card p-4 text-text-muted text-sm text-center">Keine Tage gelesen.</li>
+              <li className="card p-4 text-text-muted text-sm text-center">No days read.</li>
             ) : sortedDates.map(date => (
               <DayRow
                 key={date}
@@ -197,19 +197,19 @@ export function EinsatzplanImporter({
 
           <div className="card p-4 flex flex-wrap gap-2 items-center justify-between sticky bottom-20 lg:bottom-4 bg-bg-card/95 backdrop-blur">
             <span className="text-sm text-text-muted">
-              {sortedDates.length} Tag{sortedDates.length === 1 ? '' : 'e'} bereit zum Speichern
+              {sortedDates.length} day{sortedDates.length === 1 ? '' : 's'} ready to save
             </span>
             <div className="flex gap-2">
               <button
                 onClick={() => { setPreview(null); setEdited({}); }}
                 className="btn-ghost border border-border"
-              >Abbrechen</button>
+              >Cancel</button>
               <button
                 onClick={commit}
                 disabled={busy || sortedDates.length === 0}
                 className="btn-accent"
               >
-                {busy ? 'Speichere…' : `Speichern${sortedDates.length > 0 ? ` (${sortedDates.length})` : ''}`}
+                {busy ? 'Saving…' : `Save${sortedDates.length > 0 ? ` (${sortedDates.length})` : ''}`}
               </button>
             </div>
           </div>
@@ -229,7 +229,7 @@ function DayRow({
   onToggleTime: (t: string) => void;
 }) {
   const [, m, d] = date.split('-');
-  const weekday = new Intl.DateTimeFormat('de-CH', { weekday: 'short' }).format(new Date(date));
+  const weekday = new Intl.DateTimeFormat('en-GB', { weekday: 'short' }).format(new Date(date));
   const season = resolveSeason(seasonOverride, new Date(date));
   const all = [...getCurrentTripTimes(season)];
 
@@ -243,7 +243,7 @@ function DayRow({
         <button
           onClick={() => onSetPeriod(null)}
           className="text-text-muted hover:text-danger"
-          aria-label="Tag entfernen"
+          aria-label="Remove day"
         ><Trash2 className="w-4 h-4" /></button>
       </div>
 
@@ -295,10 +295,10 @@ function AddDayRow({
   const [period, setPeriod] = useState<Period>('full');
   return (
     <details className="card p-3">
-      <summary className="text-sm text-text-muted cursor-pointer">+ Tag manuell hinzufügen</summary>
+      <summary className="text-sm text-text-muted cursor-pointer">+ Add day manually</summary>
       <div className="mt-3 flex gap-2 items-end">
         <label className="block text-xs flex-1">
-          <span className="text-text-muted">Datum</span>
+          <span className="text-text-muted">Date</span>
           <input
             type="date" value={date} onChange={e => setDate(e.target.value)}
             className="mt-1 w-full min-h-tap rounded-lg border border-border px-3 py-2 bg-white font-mono"
@@ -310,7 +310,7 @@ function AddDayRow({
             value={period} onChange={e => setPeriod(e.target.value as Period)}
             className="mt-1 min-h-tap rounded-lg border border-border px-3 py-2 bg-white"
           >
-            <option value="full">Ganztag</option>
+            <option value="full">Full day</option>
             <option value="half_am">½ AM</option>
             <option value="half_pm">½ PM</option>
           </select>
@@ -320,10 +320,10 @@ function AddDayRow({
           disabled={!date || existing.has(date)}
           onClick={() => { onAdd(date, period); setDate(''); }}
           className="btn-primary"
-        >Hinzu</button>
+        >Add</button>
       </div>
       {date && existing.has(date) && (
-        <p className="text-xs text-warning mt-1">{date} ist bereits in der Liste.</p>
+        <p className="text-xs text-warning mt-1">{date} is already in the list.</p>
       )}
       {void seasonOverride}
     </details>
@@ -332,9 +332,9 @@ function AddDayRow({
 
 function friendlyError(e: string | undefined): string {
   switch (e) {
-    case 'not_connected': return 'Google Drive ist nicht verbunden. Bitte zuerst in den Einstellungen verbinden.';
-    case 'invalid_url':   return 'Konnte keine Datei-ID aus dem Link lesen. Bitte den "Link kopieren"-Link aus Drive verwenden.';
-    case 'unauthenticated': return 'Sitzung abgelaufen. Bitte neu anmelden.';
-    default: return e ?? 'Unbekannter Fehler';
+    case 'not_connected': return 'Google Drive is not connected. Please connect it in Settings first.';
+    case 'invalid_url':   return 'Could not extract a file ID from the link. Please use the "Copy link" link from Drive.';
+    case 'unauthenticated': return 'Session expired. Please sign in again.';
+    default: return e ?? 'Unknown error';
   }
 }

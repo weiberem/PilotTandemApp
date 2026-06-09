@@ -13,13 +13,13 @@ export function MonthlyChart({ data }: { data: MonthlyStat[] }) {
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="font-display font-semibold">Monatliche Übersicht</h2>
+        <h2 className="font-display font-semibold">Monthly overview</h2>
         <label className="flex items-center gap-2 text-sm text-text-muted">
           <input
             type="checkbox" checked={showRevenue} onChange={e => setShowRevenue(e.target.checked)}
             className="w-4 h-4 accent-primary"
           />
-          Umsatz overlay
+          Revenue overlay
         </label>
       </div>
       <div className="h-80 w-full">
@@ -32,14 +32,14 @@ export function MonthlyChart({ data }: { data: MonthlyStat[] }) {
             <Tooltip
               contentStyle={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 8 }}
               formatter={(v: number, name: string) =>
-                name === 'Umsatz' ? `CHF ${v.toFixed(0)}` : v
+                name === 'Revenue' ? `CHF ${v.toFixed(0)}` : v
               }
             />
             <Legend />
-            <Bar yAxisId="left" dataKey="flights" name="Flüge" fill="#E08A0B" radius={[4, 4, 0, 0]} />
+            <Bar yAxisId="left" dataKey="flights" name="Flights" fill="#E08A0B" radius={[4, 4, 0, 0]} />
             {showRevenue && (
               <Line
-                yAxisId="right" type="monotone" dataKey="revenue" name="Umsatz"
+                yAxisId="right" type="monotone" dataKey="revenue" name="Revenue"
                 stroke="#13293D" strokeWidth={2} dot={{ r: 3 }}
               />
             )}
