@@ -92,16 +92,9 @@ export default async function HomePage() {
 
   return (
     <div className="p-4 space-y-4 max-w-2xl mx-auto">
-      <section className="text-center pt-2 pb-1">
-        <h1 className="font-display font-bold tracking-tight text-3xl">
-          Tendem<span className="text-primary">Log</span>
-        </h1>
-        <p className="text-xs text-text-muted italic mt-0.5">for tendempilots only</p>
-      </section>
-
       <section>
         <p className="text-text-muted text-sm">{formatDateDe(new Date())}</p>
-        <h2 className="text-2xl font-display font-bold">Today</h2>
+        <h1 className="text-2xl font-display font-bold">Today</h1>
       </section>
 
       <QuickAddFlightRow

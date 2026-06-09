@@ -15,10 +15,11 @@ export default function Index() {
             <Plane className="w-6 h-6 -rotate-45" />
           </span>
           <span className="text-4xl font-display font-bold tracking-tight">
-            Tandem<span className="text-primary">Log</span>
+            Tendem<span className="text-primary">Log</span>
           </span>
         </div>
-        <h1 className="text-2xl font-display font-bold tracking-tight">
+        <p className="text-white/70 text-sm italic">for tendempilots only</p>
+        <h1 className="text-2xl font-display font-bold tracking-tight mt-6">
           Flight reporting for tandem pilots
         </h1>
         <p className="text-white/70 text-sm mt-3 max-w-sm mx-auto">
