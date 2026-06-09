@@ -5,6 +5,7 @@ import { GoogleDriveConnect } from '@/components/GoogleDriveConnect';
 import { BackupButton } from '@/components/BackupButton';
 import { SetupStatusCard } from '@/components/SetupStatusCard';
 import { LogoutButton } from '@/components/LogoutButton';
+import { LocalBackupCard } from '@/components/LocalBackupCard';
 import { probeMissingMigrations } from '@/lib/setupProbe';
 
 export const dynamic = 'force-dynamic';
@@ -70,6 +71,13 @@ export default async function SettingsPage({
           <BackupButton />
         </fieldset>
       )}
+
+      <fieldset className="card p-4 space-y-3">
+        <legend className="px-2 -ml-2 text-sm font-display font-semibold text-text-muted uppercase tracking-wide">
+          Local backup
+        </legend>
+        <LocalBackupCard />
+      </fieldset>
 
       <fieldset className="card p-4 space-y-3">
         <legend className="px-2 -ml-2 text-sm font-display font-semibold text-text-muted uppercase tracking-wide">
