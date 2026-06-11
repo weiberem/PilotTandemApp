@@ -1,15 +1,16 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { ChevronLeft, ChevronRight, Mail, Check, AlertTriangle, Users, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Mail, Check, AlertTriangle, Users, X, RotateCcw, CalendarPlus, Repeat } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  addMonths, buildMailto, monthGrid, monthLabel, monthFirst, nextDeadlineInfo,
+  addMonths, buildMailto, buildMailtoInverted, buildAvailabilityIcs,
+  monthGrid, monthLabel, monthFirst, nextDeadlineInfo,
   type AvailabilityDay, type DayPeriod,
 } from '@/lib/availability';
 import { resolveSeason } from '@/lib/tripTimes';
 import { isoDateZurich, nowInZurich } from '@/lib/utils';
-import { saveAvailability } from '@/app/(pilot)/availability/actions';
+import { saveAvailability, resetSubmission } from '@/app/(pilot)/availability/actions';
 import type { FullPlan, FullPlanPilot } from '@/lib/einsatzplanParser';
 
 export type FullPlansByMonth = Record<string, FullPlan>;
@@ -61,6 +62,10 @@ export function AvailabilityCalendar({
   const [mode, setMode] = useState<Mode>('own');
   const [planDate, setPlanDate] = useState<string | null>(null);
   const [cursor, setCursor] = useState(initialMonth);
+  // Inverted entry: pilot marks the days they are NOT available; on apply,
+  // everything else in the month becomes a full-day availability.
+  const [invert, setInvert] = useState(false);
+  const [freeSet, setFreeSet] = useState<Set<string>>(new Set());
   const [daysByMonth, setDaysByMonth] = useState<Record<string, Record<string, AvailabilityDay>>>(() => {
     const out: Record<string, Record<string, AvailabilityDay>> = {};
     for (const [m, arr] of Object.entries(initialDaysByMonth)) {
@@ -93,11 +98,72 @@ export function AvailabilityCalendar({
 
   // Tapping a day cycles its period AND selects it (so the edge-time strip
   // below the grid shows for that day). Clearing to "frei" deselects.
+  // In invert mode a tap toggles the day's membership in the free-set instead.
   function onDayTap(date: string) {
+    if (invert) {
+      setFreeSet(prev => {
+        const next = new Set(prev);
+        if (next.has(date)) next.delete(date); else next.add(date);
+        return next;
+      });
+      return;
+    }
     const current = dayMap[date]?.period;
     const next = cellCycle(current);
     setDayState(date, next);
     setSelectedDate(next ? date : null);
+  }
+
+  /** Apply invert selection: all future in-month days except freeSet → full day. */
+  function applyInvert() {
+    const updates: Record<string, AvailabilityDay> = {};
+    for (const { date, inMonth } of grid) {
+      if (!inMonth || isPastDay(date) || freeSet.has(date)) continue;
+      updates[date] = dayMap[date] ?? { date, period: 'full' };
+    }
+    setDaysByMonth(prev => ({ ...prev, [monthKey]: updates }));
+    setInvert(false);
+    setMsg({ kind: 'ok', text: `${Object.keys(updates).length} days marked available — save or prepare the email.` });
+  }
+
+  /** Wipe all entered days of this month (and the invert scratchpad). */
+  function clearMonth() {
+    setDaysByMonth(prev => ({ ...prev, [monthKey]: {} }));
+    setFreeSet(new Set());
+    setSelectedDate(null);
+    startTransition(async () => {
+      const r = await saveAvailability({ month: monthKey, days: [] });
+      setMsg(r.ok ? { kind: 'ok', text: 'Month cleared.' } : { kind: 'err', text: r.error });
+    });
+  }
+
+  function onResetSubmission() {
+    startTransition(async () => {
+      const r = await resetSubmission(monthKey);
+      setMsg(r.ok
+        ? { kind: 'ok', text: 'Marked as not sent — you can edit and resubmit.' }
+        : { kind: 'err', text: r.error });
+      if (r.ok) window.location.reload();
+    });
+  }
+
+  function onExportIcs() {
+    const days = Object.values(dayMap);
+    if (days.length === 0) {
+      setMsg({ kind: 'err', text: 'No availability entered.' });
+      return;
+    }
+    const ics = buildAvailabilityIcs(days, pilotName);
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tandem-availability-${monthKey.slice(0, 7)}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    setMsg({ kind: 'ok', text: 'Calendar file downloaded — open it to import (Google / iPhone / Android / Outlook).' });
   }
 
   function setDayState(date: string, period: DayPeriod | null) {
@@ -144,6 +210,32 @@ export function AvailabilityCalendar({
       setMsg({ kind: 'err', text: 'Please set your office email in Settings first.' });
       return;
     }
+
+    if (invert) {
+      // Inverted flow: persist all non-free days as full availability and
+      // send the email in "available except…" form.
+      const updates: Record<string, AvailabilityDay> = {};
+      for (const { date, inMonth } of grid) {
+        if (!inMonth || isPastDay(date) || freeSet.has(date)) continue;
+        updates[date] = dayMap[date] ?? { date, period: 'full' };
+      }
+      if (Object.keys(updates).length === 0) {
+        setMsg({ kind: 'err', text: 'Every day is marked free — nothing to submit.' });
+        return;
+      }
+      setDaysByMonth(prev => ({ ...prev, [monthKey]: updates }));
+      startTransition(async () => {
+        await saveAvailability({ month: monthKey, days: Object.values(updates), mark_submitted: true });
+      });
+      window.location.href = buildMailtoInverted({
+        to: officeEmail, pilotName,
+        year: cursor.year, monthIndex0: cursor.monthIndex0,
+        freeDates: [...freeSet],
+      });
+      setInvert(false);
+      return;
+    }
+
     const days = Object.values(dayMap);
     if (days.length === 0) {
       setMsg({ kind: 'err', text: 'No availability entered.' });
@@ -286,6 +378,44 @@ export function AvailabilityCalendar({
             );
           }
 
+          // Invert-entry mode: tap marks a day "free" (not available).
+          if (invert) {
+            const isFree = freeSet.has(date);
+            return (
+              <div
+                key={date}
+                role={inMonth && !past ? 'button' : undefined}
+                tabIndex={inMonth && !past ? 0 : undefined}
+                onClick={() => inMonth && !past && onDayTap(date)}
+                onKeyDown={(e) => {
+                  if (inMonth && !past && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    onDayTap(date);
+                  }
+                }}
+                className={cn(
+                  'aspect-square rounded-lg text-sm font-medium relative select-none transition overflow-hidden',
+                  inMonth && !past && 'cursor-pointer',
+                  !inMonth && 'opacity-30',
+                  past && 'opacity-20 pointer-events-none',
+                  isFree
+                    ? 'bg-danger/80 text-white'
+                    : 'bg-success/15 border border-success/30 text-text',
+                )}
+              >
+                <span className="absolute top-1 left-0 right-0 text-center">{dayNum}</span>
+                <span className="absolute bottom-1 inset-x-0 text-center text-[10px] font-semibold leading-none">
+                  {isFree ? 'free' : ''}
+                </span>
+              </div>
+            );
+          }
+
+          // Once the office schedule for this month is imported, scheduled
+          // days render solid ("confirmed") instead of the hatched submitted
+          // look.
+          const officeConfirmed = !!sched;
+
           return (
             <div
               key={date}
@@ -303,27 +433,16 @@ export function AvailabilityCalendar({
                 inMonth && !past && 'cursor-pointer',
                 !inMonth && 'opacity-30',
                 past && 'opacity-20 pointer-events-none',
-                inMonth && !period && 'bg-bg border border-border text-text',
-                period === 'full' && 'bg-success/85 text-white',
-                period === 'half_am' && 'bg-gradient-to-b from-warning/85 to-warning/40 text-white',
-                period === 'half_pm' && 'bg-gradient-to-t from-warning/85 to-warning/40 text-white',
-                sched && !period && 'ring-2 ring-primary ring-inset',
+                inMonth && !period && !officeConfirmed && 'bg-bg border border-border text-text',
+                officeConfirmed && 'bg-primary text-white',
+                !officeConfirmed && period === 'full' && 'bg-success/85 text-white',
+                !officeConfirmed && period === 'half_am' && 'bg-gradient-to-b from-warning/85 to-warning/40 text-white',
+                !officeConfirmed && period === 'half_pm' && 'bg-gradient-to-t from-warning/85 to-warning/40 text-white',
                 isSelected && 'outline outline-2 outline-offset-1 outline-accent',
               )}
             >
-              {/* Skywings plan half-fill tint (only when no own availability set) */}
-              {sched && !period && (
-                <span
-                  className={cn(
-                    'absolute inset-x-0 pointer-events-none bg-primary/15',
-                    sched.period === 'full' && 'inset-y-0',
-                    sched.period === 'half_am' && 'top-0 h-1/2',
-                    sched.period === 'half_pm' && 'bottom-0 h-1/2',
-                  )}
-                />
-              )}
-              {/* Submitted hatch overlay */}
-              {submitted && period && (
+              {/* Submitted hatch overlay — only while the office plan isn't in yet */}
+              {submitted && period && !officeConfirmed && (
                 <span
                   className="absolute inset-0 pointer-events-none"
                   style={{
@@ -332,13 +451,21 @@ export function AvailabilityCalendar({
                   }}
                 />
               )}
+              {/* Edge-time opt-outs, visible at a glance */}
+              {entry?.exclude_7am && (
+                <span className="absolute top-0.5 left-0.5 text-[8px] font-bold leading-none px-0.5 rounded bg-black/25 text-white">
+                  no 7
+                </span>
+              )}
+              {entry?.exclude_5pm && (
+                <span className="absolute top-0.5 right-0.5 text-[8px] font-bold leading-none px-0.5 rounded bg-black/25 text-white">
+                  no 5
+                </span>
+              )}
               <span className="absolute top-1 left-0 right-0 text-center">{dayNum}</span>
               {(period || sched) && (
-                <span className={cn(
-                  'absolute bottom-1 inset-x-0 text-center text-[10px] font-semibold leading-none',
-                  period ? 'text-white/95' : 'text-primary',
-                )}>
-                  {periodAbbr(period ?? sched!.period)}
+                <span className="absolute bottom-1 inset-x-0 text-center text-[10px] font-semibold leading-none text-white/95">
+                  {periodAbbr(sched?.period ?? period!)}
                 </span>
               )}
             </div>
@@ -385,15 +512,64 @@ export function AvailabilityCalendar({
         </div>
       )}
 
+      {/* Day counter */}
+      {mode === 'own' && (
+        <p className="text-sm text-text-muted text-center">
+          {invert
+            ? `${freeSet.size} free day${freeSet.size === 1 ? '' : 's'} marked — the rest counts as available`
+            : `${Object.keys(dayMap).length} day${Object.keys(dayMap).length === 1 ? '' : 's'} available this month`}
+        </p>
+      )}
+
       {/* Actions — only in own-availability mode */}
       {mode === 'own' && (
-        <div className="flex gap-2">
-          <button onClick={() => void persist(false)} disabled={pending} className="btn-ghost flex-1 border border-border">
-            {pending ? 'Saving…' : 'Save'}
-          </button>
-          <button onClick={onPrepareEmail} disabled={pending} className="btn-primary flex-1">
-            <Mail className="w-4 h-4 mr-2" /> Prepare email
-          </button>
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <button onClick={() => void persist(false)} disabled={pending || invert} className="btn-ghost flex-1 border border-border">
+              {pending ? 'Saving…' : 'Save'}
+            </button>
+            <button onClick={onPrepareEmail} disabled={pending} className="btn-primary flex-1">
+              <Mail className="w-4 h-4 mr-2" /> Prepare email
+            </button>
+          </div>
+          <div className="flex gap-2 text-sm">
+            <button
+              onClick={() => { setInvert(v => !v); setFreeSet(new Set()); setMsg(null); }}
+              className={cn(
+                'btn-ghost flex-1 border text-xs',
+                invert ? 'border-primary text-primary-dark bg-primary/10' : 'border-border',
+              )}
+            >
+              <Repeat className="w-3.5 h-3.5 mr-1" />
+              {invert ? 'Inverted: tap free days' : 'Mark free days instead'}
+            </button>
+            {invert && (
+              <button onClick={applyInvert} className="btn-ghost flex-1 border border-success/40 text-success text-xs">
+                <Check className="w-3.5 h-3.5 mr-1" /> Apply
+              </button>
+            )}
+            <button onClick={onExportIcs} disabled={invert} className="btn-ghost flex-1 border border-border text-xs">
+              <CalendarPlus className="w-3.5 h-3.5 mr-1" /> To my calendar
+            </button>
+          </div>
+          <div className="flex gap-2 text-xs">
+            <button
+              onClick={clearMonth}
+              disabled={pending}
+              className="flex-1 text-text-muted underline-offset-2 hover:underline py-1"
+            >
+              <RotateCcw className="w-3 h-3 inline mr-1" /> Clear month
+            </button>
+            {submitted && (
+              <button
+                onClick={onResetSubmission}
+                disabled={pending}
+                className="flex-1 text-text-muted underline-offset-2 hover:underline py-1"
+              >
+                Mark as not sent
+              </button>
+            )}
+          </div>
         </div>
       )}
 

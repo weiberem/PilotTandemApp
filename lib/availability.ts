@@ -126,6 +126,77 @@ export function dayMailtoLine(day: AvailabilityDay): string {
   return `${d}.${m}. ${PERIOD_LABEL[day.period]}${tail}`;
 }
 
+/**
+ * Inverted form: the pilot lists the days they are NOT available; everything
+ * else counts as available full-day. Mirrors how some pilots prefer to plan.
+ */
+export function buildMailtoInverted({
+  to, pilotName, year, monthIndex0, freeDates,
+}: {
+  to: string;
+  pilotName: string;
+  year: number;
+  monthIndex0: number;
+  freeDates: string[];   // YYYY-MM-DD, sorted or not
+}): string {
+  const monthNameDe = monthLabelDe(year, monthIndex0);
+  const subject = `Verfügbarkeit ${monthNameDe} — ${pilotName}`;
+  const sorted = [...freeDates].sort();
+  const lines = sorted.map(d => {
+    const [, m, dd] = d.split('-');
+    return `${dd}.${m}.`;
+  });
+  const body = [
+    `Verfügbarkeit ${monthNameDe} — ${pilotName}`,
+    ``,
+    `Ich bin den ganzen Monat verfügbar, AUSSER an folgenden Tagen:`,
+    ...lines,
+  ].join('\n');
+  const q = new URLSearchParams({ subject, body });
+  const qs = q.toString().replace(/\+/g, '%20');
+  return `mailto:${encodeURIComponent(to)}?${qs}`;
+}
+
+/**
+ * Build an ICS file (RFC 5545) with one all-day event per availability day,
+ * importable into Google Calendar, Apple Calendar, Android and Outlook.
+ */
+export function buildAvailabilityIcs(days: AvailabilityDay[], pilotName: string): string {
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
+  const events = [...days]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(d => {
+      const dateCompact = d.date.replace(/-/g, '');
+      const next = new Date(d.date + 'T00:00:00Z');
+      next.setUTCDate(next.getUTCDate() + 1);
+      const endCompact = next.toISOString().slice(0, 10).replace(/-/g, '');
+      const label = PERIOD_LABEL[d.period];
+      const notes: string[] = [];
+      if (d.exclude_7am) notes.push('kein 07:10');
+      if (d.exclude_5pm) notes.push('kein 17:00');
+      const summary = `Tandem ${label}${notes.length ? ` (${notes.join(', ')})` : ''}`;
+      return [
+        'BEGIN:VEVENT',
+        `UID:tandemlog-${d.date}-${d.period}@tandemlog`,
+        `DTSTAMP:${stamp}`,
+        `DTSTART;VALUE=DATE:${dateCompact}`,
+        `DTEND;VALUE=DATE:${endCompact}`,
+        `SUMMARY:${summary}`,
+        'TRANSP:TRANSPARENT',
+        'END:VEVENT',
+      ].join('\r\n');
+    });
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    `PRODID:-//TandemLog//Availability//${pilotName}//EN`,
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    ...events,
+    'END:VCALENDAR',
+  ].join('\r\n');
+}
+
 export function buildMailto({
   to, pilotName, year, monthIndex0, days,
 }: {

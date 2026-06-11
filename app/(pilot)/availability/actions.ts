@@ -40,3 +40,23 @@ export async function saveAvailability(input: z.input<typeof submissionSchema>) 
   revalidatePath('/availability');
   return { ok: true as const };
 }
+
+/**
+ * Undo the "submitted" state for a month (e.g. the pilot prepared the email
+ * but never actually sent it). Keeps the entered days.
+ */
+export async function resetSubmission(month: string) {
+  if (!/^\d{4}-\d{2}-01$/.test(month)) return { ok: false as const, error: 'Invalid month' };
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: 'Not authenticated' };
+
+  const { error } = await supabase
+    .from('availability_submissions')
+    .update({ submitted_at: null, email_sent: false })
+    .eq('pilot_id', user.id)
+    .eq('month', month);
+  if (error) return { ok: false as const, error: error.message };
+  revalidatePath('/availability');
+  return { ok: true as const };
+}
