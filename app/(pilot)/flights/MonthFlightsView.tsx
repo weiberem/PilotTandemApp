@@ -77,6 +77,9 @@ export function MonthFlightsView({
       </div>
 
       {/* Month summary */}
+      <p className="text-sm text-text-muted text-center -mb-2">
+        {days.length} working day{days.length === 1 ? '' : 's'} this month
+      </p>
       <PeriodSummary totals={monthTotals} totalLabel="Revenue (excl. tips)" />
 
       {/* Day list */}

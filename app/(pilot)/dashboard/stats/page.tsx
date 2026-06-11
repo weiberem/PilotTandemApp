@@ -169,6 +169,7 @@ export default async function StatsPage({
           <thead>
             <tr className="text-left text-text-muted text-xs uppercase">
               <th className="py-1">Month</th>
+              <th className="text-right">Days</th>
               <th className="text-right">Flights</th>
               <th className="text-right">PP</th>
               <th className="text-right">CC</th>
@@ -191,6 +192,7 @@ export default async function StatsPage({
                       {m.label}
                     </Link>
                   </td>
+                  <td className="font-mono text-right">{m.workedDays}</td>
                   <td className="font-mono text-right">{m.flights}</td>
                   <td className="font-mono text-right">{m.pp}</td>
                   <td className="font-mono text-right">{m.cc}</td>
@@ -203,6 +205,7 @@ export default async function StatsPage({
             })}
             <tr className="border-t-2 border-text font-semibold">
               <td className="py-1">Total</td>
+              <td className="font-mono text-right">{stats.totals.workedDays}</td>
               <td className="font-mono text-right">{stats.totals.flights}</td>
               <td className="font-mono text-right">{stats.totals.pp}</td>
               <td className="font-mono text-right">{stats.totals.cc}</td>

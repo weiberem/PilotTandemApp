@@ -5,6 +5,7 @@ export type MonthlyStat = {
   monthIndex0: number;   // 0..11
   label: string;         // "Jan", "Feb", ...
   flights: number;       // billable flights (non-no-show)
+  workedDays: number;    // distinct days with at least one flight
   pp: number;
   cc: number;            // photos paid via credit card (kept by pilot)
   cash: number;          // photos paid in cash (kept by pilot)
@@ -21,7 +22,7 @@ const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'S
 function emptyStat(monthIndex0: number, label: string): MonthlyStat {
   return {
     monthIndex0, label,
-    flights: 0, pp: 0, cc: 0, cash: 0, thermal: 0, noShow: 0,
+    flights: 0, workedDays: 0, pp: 0, cc: 0, cash: 0, thermal: 0, noShow: 0,
     revenue: 0, invoiceRevenue: 0, ccChf: 0, cashChf: 0,
   };
 }
@@ -42,6 +43,7 @@ export function monthlyStats(
   }
   for (const [mi, list] of byMonth.entries()) {
     const t = computeDayTotals(list, rates);
+    buckets[mi].workedDays = new Set(list.map(f => f.flight_date)).size;
     buckets[mi].flights = t.flightsBilled;
     buckets[mi].pp = t.ppCount;
     buckets[mi].cc = t.ccCount;
@@ -60,6 +62,7 @@ export type YearStats = {
   months: MonthlyStat[];
   totals: {
     flights: number;
+    workedDays: number;  // distinct flight days across the year (all companies)
     pp: number;
     cc: number;
     cash: number;
@@ -89,6 +92,7 @@ export function yearStats(
   const t = months.reduce(
     (a, m) => ({
       flights: a.flights + m.flights,
+      workedDays: a.workedDays,
       pp: a.pp + m.pp,
       cc: a.cc + m.cc,
       cash: a.cash + m.cash,
@@ -98,7 +102,12 @@ export function yearStats(
       ccChf: a.ccChf + m.ccChf,
       cashChf: a.cashChf + m.cashChf,
     }),
-    { flights: 0, pp: 0, cc: 0, cash: 0, thermal: 0, noShow: 0, revenue: 0, ccChf: 0, cashChf: 0 },
+    {
+      flights: 0,
+      // Year worked-days: distinct flight days across ALL companies.
+      workedDays: new Set(inYear.map(f => f.flight_date)).size,
+      pp: 0, cc: 0, cash: 0, thermal: 0, noShow: 0, revenue: 0, ccChf: 0, cashChf: 0,
+    },
   );
 
   // VKPI counts ALL non-no-show flights across ALL companies.
