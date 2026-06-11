@@ -27,6 +27,7 @@ type Pilot = {
   thermal_rate_chf: number | null;
   no_show_rate_chf: number | null;
   season_override: 'summer' | 'winter' | null;
+  auto_send_invoice: boolean | null;
 } | null;
 
 type Field = keyof NonNullable<Pilot>;
@@ -56,6 +57,7 @@ export function SettingsForm({ pilot, email }: { pilot: Pilot; email: string }) 
     thermal_rate_chf: pilot?.thermal_rate_chf ?? 50,
     no_show_rate_chf: pilot?.no_show_rate_chf ?? 32,
     season_override: pilot?.season_override ?? null,
+    auto_send_invoice: pilot?.auto_send_invoice ?? false,
   });
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
@@ -111,6 +113,24 @@ export function SettingsForm({ pilot, email }: { pilot: Pilot; email: string }) 
           <NumberInput label="Thermal" value={form.thermal_rate_chf ?? 0} onChange={v => set('thermal_rate_chf', v)} />
           <NumberInput label="No-show" value={form.no_show_rate_chf ?? 0} onChange={v => set('no_show_rate_chf', v)} />
         </div>
+      </Section>
+
+      <Section title="Invoicing">
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={!!form.auto_send_invoice}
+            onChange={e => set('auto_send_invoice', e.target.checked)}
+            className="mt-1 w-5 h-5 rounded border-border accent-primary"
+          />
+          <span>
+            <span className="text-sm font-medium block">Send invoice automatically</span>
+            <span className="text-xs text-text-muted">
+              On the 1st of the month, if every flight day of the previous month is verified,
+              the invoice goes straight to the office — no manual step.
+            </span>
+          </span>
+        </label>
       </Section>
 
       <Section title="Season">
