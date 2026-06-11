@@ -8,6 +8,7 @@ import {
 } from '@/lib/tripTimes';
 import { computeDayTotals, type FlightInput, type FlightRow, type PilotRates } from '@/lib/flights';
 import { QuickAddFlightRow } from '@/components/QuickAddFlightRow';
+import { ScreenshotCapture } from '@/components/ScreenshotCapture';
 import { FlightLine } from '@/components/FlightLine';
 import { buildMonths, DayDetails, MonthDetails } from '@/components/HistoryAccordion';
 import { PeriodSummary } from '@/components/PeriodSummary';
@@ -97,13 +98,17 @@ export default async function HomePage() {
         <h1 className="text-2xl font-display font-bold">Today</h1>
       </section>
 
-      <QuickAddFlightRow
-        key={todayFlights.length}
-        defaults={defaults}
-        scheduledTimes={scheduledTimes}
-        loggedCount={todayFlights.length}
-        usedTripTimes={todayFlights.map(f => f.trip_time)}
-      />
+      {pilot.simple_capture ? (
+        <ScreenshotCapture today={today} company={pilot.primary_company_name ?? 'Skywings'} />
+      ) : (
+        <QuickAddFlightRow
+          key={todayFlights.length}
+          defaults={defaults}
+          scheduledTimes={scheduledTimes}
+          loggedCount={todayFlights.length}
+          usedTripTimes={todayFlights.map(f => f.trip_time)}
+        />
+      )}
 
       {todayFlights.length > 0 && (
         <section className="card overflow-hidden">
