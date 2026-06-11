@@ -1,7 +1,19 @@
 'use client';
 
 import { useRef, useState, useTransition } from 'react';
-import { Download, Upload } from 'lucide-react';
+import { Download, Upload, FileSpreadsheet } from 'lucide-react';
+
+function recentMonths(n: number): Array<{ value: string; label: string }> {
+  const out: Array<{ value: string; label: string }> = [];
+  const now = new Date();
+  for (let i = 0; i < n; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+    const label = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' }).format(d);
+    out.push({ value, label });
+  }
+  return out;
+}
 
 type ImportStats = {
   pilot_updated?: boolean;
@@ -16,6 +28,8 @@ export function LocalBackupCard() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err' | 'info'; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
+  const months = recentMonths(13);
+  const [xlsxMonth, setXlsxMonth] = useState(months[1]?.value ?? months[0].value);
 
   function onDownload() {
     setMsg(null);
@@ -93,6 +107,28 @@ export function LocalBackupCard() {
           className="hidden"
         />
       </div>
+      <div className="border-t border-border pt-3 space-y-2">
+        <p className="text-sm text-text-muted">
+          Month flight log as Excel (same layout as the Drive backup) — pick a month and download.
+        </p>
+        <div className="flex gap-2">
+          <select
+            value={xlsxMonth}
+            onChange={e => setXlsxMonth(e.target.value)}
+            className="flex-1 min-h-tap rounded-lg border border-border px-3 py-2 bg-white text-sm"
+          >
+            {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </select>
+          <a
+            href={`/api/backup/xlsx?month=${xlsxMonth}`}
+            className="btn-ghost border border-border inline-flex items-center justify-center gap-2 px-4"
+            download
+          >
+            <FileSpreadsheet className="w-4 h-4" /> Excel
+          </a>
+        </div>
+      </div>
+
       {msg && (
         <p
           className={
