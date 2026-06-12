@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { AvailabilityCalendar, type ScheduleMap, type FullPlansByMonth } from '@/components/AvailabilityCalendar';
 import { PlanManager } from '@/components/PlanManager';
-import { addMonths, monthFirst, type AvailabilityDay, type ChangeRequestMap } from '@/lib/availability';
+import { addMonths, monthFirst, nextDeadlineInfo, type AvailabilityDay, type ChangeRequestMap } from '@/lib/availability';
 import type { EinsatzplanImports } from '@/lib/einsatzplanImports';
 import type { FullPlan } from '@/lib/einsatzplanParser';
 
@@ -52,7 +52,19 @@ export default async function AvailabilityPage() {
   const now = new Date();
   const cur = { year: now.getFullYear(), monthIndex0: now.getMonth() };
   const next = addMonths(cur.year, cur.monthIndex0, 1);
-  const months = [monthFirst(cur.year, cur.monthIndex0), monthFirst(next.year, next.monthIndex0)];
+  // The month the pilot is actually planning right now (per the submission
+  // deadline). The calendar opens here so it matches the "Submit availability
+  // for …" banner — otherwise it lands on the current month, which is already
+  // fully Skywings-scheduled and can't take new availability.
+  const deadline = nextDeadlineInfo(now);
+  const [ty, tm] = deadline.targetMonth.split('-').map(Number);
+  const planned = { year: ty, monthIndex0: tm - 1 };
+
+  const months = Array.from(new Set([
+    monthFirst(cur.year, cur.monthIndex0),
+    monthFirst(next.year, next.monthIndex0),
+    monthFirst(planned.year, planned.monthIndex0),
+  ]));
 
   const { data: subs } = await supabase
     .from('availability_submissions')
@@ -98,7 +110,7 @@ export default async function AvailabilityPage() {
         pilotName={pilot.full_name ?? ''}
         officeEmail={pilot.office_email ?? null}
         seasonOverride={pilot.season_override ?? null}
-        initialMonth={cur}
+        initialMonth={planned}
         initialDaysByMonth={initialDaysByMonth}
         submittedByMonth={submittedByMonth}
         schedule={schedule}
