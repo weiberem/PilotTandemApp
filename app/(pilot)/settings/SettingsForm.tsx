@@ -30,6 +30,8 @@ type Pilot = {
   auto_send_invoice: boolean | null;
   simple_capture: boolean | null;
   vat_registered: boolean | null;
+  default_exclude_7am: boolean | null;
+  default_exclude_5pm: boolean | null;
 } | null;
 
 type Field = keyof NonNullable<Pilot>;
@@ -64,6 +66,8 @@ export function SettingsForm({ pilot, email }: { pilot: Pilot; email: string }) 
     auto_send_invoice: pilot?.auto_send_invoice ?? false,
     simple_capture: pilot?.simple_capture ?? false,
     vat_registered: pilot?.vat_registered ?? true,
+    default_exclude_7am: pilot?.default_exclude_7am ?? false,
+    default_exclude_5pm: pilot?.default_exclude_5pm ?? false,
   });
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [pending, startTransition] = useTransition();

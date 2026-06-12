@@ -11,6 +11,7 @@ type PilotPatch = Partial<{
   city: string;
   iban: string;
   vat_number: string;
+  vat_registered: boolean;
   primary_company_name: string;
   primary_company_address: string;
   office_email: string;
@@ -20,6 +21,8 @@ type PilotPatch = Partial<{
   photo_prepaid_rate_chf: number;
   thermal_rate_chf: number;
   no_show_rate_chf: number;
+  default_exclude_7am: boolean;
+  default_exclude_5pm: boolean;
 }>;
 
 export async function saveOnboardingStep(
@@ -29,7 +32,7 @@ export async function saveOnboardingStep(
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return { ok: false, error: 'Not signed in' };
 
-  const cleaned: Record<string, string | number> = {};
+  const cleaned: Record<string, string | number | boolean> = {};
   for (const [key, value] of Object.entries(patch)) {
     if (value === undefined || value === null) continue;
     if (typeof value === 'string' && value.trim() === '') continue;
