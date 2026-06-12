@@ -15,6 +15,7 @@ const bodySchema = z.object({
   reason: z.enum(['sick', 'conflict', 'different_time', 'swap', 'other']),
   note: z.string().max(1000).optional(),
   swap_with: z.string().max(120).optional(),   // colleague display name (reason==='swap')
+  notify: z.enum(['email', 'whatsapp']).optional(),  // 'whatsapp' = record only, no email
 });
 
 export async function POST(req: NextRequest) {
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'invalid input' }, { status: 400 });
   }
-  const { date, reason, note, swap_with } = parsed.data;
+  const { date, reason, note, swap_with, notify } = parsed.data;
   const month = `${date.slice(0, 7)}-01`;
 
   const { data: pilot } = await sb
@@ -35,7 +36,8 @@ export async function POST(req: NextRequest) {
     .eq('id', user.id)
     .maybeSingle();
   if (!pilot) return NextResponse.json({ error: 'pilot not found' }, { status: 404 });
-  if (!pilot.office_email) {
+  // WhatsApp is sent from the client (wa.me); only email needs an office address.
+  if (notify !== 'whatsapp' && !pilot.office_email) {
     return NextResponse.json({ error: 'office_email missing — set it in Settings' }, { status: 400 });
   }
 
@@ -86,6 +88,12 @@ export async function POST(req: NextRequest) {
       change_requests: merged,
     }, { onConflict: 'pilot_id,month' });
   if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
+
+  // WhatsApp channel: the message is opened client-side via wa.me — we only
+  // record the pending request here (no email).
+  if (notify === 'whatsapp') {
+    return NextResponse.json({ ok: true, channel: 'whatsapp' });
+  }
 
   // Demo pilots never contact the office — record only.
   if (pilot.is_demo) {
