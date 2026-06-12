@@ -74,6 +74,15 @@ export function PilotCompaniesCard({ initial, primaryRates }: Props) {
   const [draft, setDraft] = useState<Draft>(emptyDraft());
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
+  // Toggle: "Also fly for other companies?" — when off, the picker stays
+  // collapsed and no other-company fields are visible. Pre-enabled if the
+  // pilot already has any registered company.
+  const [enabled, setEnabled] = useState(initial.length > 0);
+  // Selected tab in the picker (a registered company ID, or one of the
+  // suggestion-slug strings 'alpinair' / 'twin' / 'swiss').
+  const [activeKey, setActiveKey] = useState<string | null>(
+    initial.length > 0 ? initial[0].id : null,
+  );
 
   function startNew() {
     setDraft(emptyDraft());
@@ -155,78 +164,156 @@ export function PilotCompaniesCard({ initial, primaryRates }: Props) {
     });
   }
 
+  // Suggestion chips ordered after the user's registered companies.
+  const suggestionList = COMPANY_SUGGESTIONS.filter(s =>
+    !companies.some(c => c.name === s.name)
+  );
+
+  function pickSuggestion(s: { name: string; address: string }) {
+    const existing = companies.find(c => c.name === s.name);
+    if (existing) {
+      startEdit(existing);
+      setActiveKey(existing.id);
+    } else {
+      startNew();
+      setDraft(d => ({ ...d, name: s.name, address: s.address, color_hex: suggestColor(s.name) }));
+      setActiveKey(`new:${s.name}`);
+    }
+  }
+
   return (
     <div className="space-y-3">
-      <p className="text-sm text-text-muted">
-        Add other companies you sometimes fly for (AlpinAir, Twin, …). Flights for these go on
-        a separate invoice, with their own rates if set. Skywings stays as your primary in
-        the section above.
-      </p>
+      <label className="flex items-start gap-3 cursor-pointer py-1">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={e => {
+            const v = e.target.checked;
+            setEnabled(v);
+            if (!v) { setEditingId(null); setActiveKey(null); }
+            else if (companies.length > 0 && !activeKey) setActiveKey(companies[0].id);
+          }}
+          className="mt-1 w-5 h-5 rounded border-border accent-primary"
+        />
+        <span>
+          <span className="text-sm font-medium block">Also fly for other companies</span>
+          <span className="text-xs text-text-muted">
+            Switch on if you sometimes fly for AlpinAir, Twin, Swiss-Paragliding,
+            etc. Each company gets its own rates and a separate invoice.
+            Skywings stays your primary above — Drive, schedule import, daysheets
+            and mail-to-office are Skywings-only.
+          </span>
+        </span>
+      </label>
 
-      {companies.length === 0 && editingId !== 'new' && (
-        <p className="text-xs text-text-muted italic">No extra companies yet.</p>
-      )}
+      {enabled && (
+        <>
+          {/* Tab strip: registered companies first, then suggestion chips. */}
+          <div className="flex gap-1.5 flex-wrap items-center pt-1">
+            {companies.map(c => {
+              const isActive = activeKey === c.id;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => { setActiveKey(c.id); setEditingId(null); }}
+                  className={`inline-flex items-center gap-1.5 rounded-full border text-xs px-3 py-1.5 ${
+                    isActive ? 'border-primary bg-primary/10 text-primary-dark' : 'border-border text-text-muted hover:bg-bg-subtle'
+                  }`}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: c.color_hex }}
+                    aria-hidden
+                  />
+                  {c.name.replace(/ (GmbH|Paragliding)/g, '').trim()}
+                </button>
+              );
+            })}
+            {suggestionList.map(s => (
+              <button
+                key={s.name}
+                type="button"
+                onClick={() => pickSuggestion(s)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border text-xs px-3 py-1.5 text-text-muted hover:bg-bg-subtle"
+              >
+                <Plus className="w-3 h-3" />
+                {s.name.replace(/ (GmbH|Paragliding)/g, '').trim()}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => { startNew(); setActiveKey('new:custom'); }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border text-xs px-3 py-1.5 text-text-muted hover:bg-bg-subtle"
+            >
+              <Plus className="w-3 h-3" /> Other
+            </button>
+          </div>
 
-      <ul className="space-y-2">
-        {companies.map(c => (
-          <li key={c.id} className="rounded-lg border border-border overflow-hidden">
-            {editingId === c.id ? (
+          {/* Active panel: editing existing, creating new, or read-only view. */}
+          {editingId === 'new' ? (
+            <div className="rounded-lg border border-primary/40 bg-primary/5 overflow-hidden">
+              <CompanyForm
+                draft={draft} setDraft={setDraft} primaryRates={primaryRates}
+                onApplySuggestion={applySuggestion}
+                onSave={save} onCancel={cancel}
+                pending={pending} title="New company"
+              />
+            </div>
+          ) : activeKey && editingId === activeKey ? (
+            <div className="rounded-lg border border-primary/40 bg-primary/5 overflow-hidden">
               <CompanyForm
                 draft={draft} setDraft={setDraft} primaryRates={primaryRates}
                 onApplySuggestion={applySuggestion}
                 onSave={save} onCancel={cancel}
                 pending={pending} title="Edit company"
               />
-            ) : (
-              <div className="flex items-center gap-3 p-3">
-                <span
-                  className="w-3 h-3 rounded-full shrink-0"
-                  style={{ backgroundColor: c.color_hex }}
-                  aria-hidden
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{c.name}</div>
-                  <div className="text-xs text-text-muted truncate">
-                    {c.address ?? '—'}
-                    {c.trip_times && c.trip_times.length > 0 && (
-                      <> · {c.trip_times.length} fixed times</>
-                    )}
-                    {c.flight_rate_chf != null && <> · {c.flight_rate_chf} CHF/flight</>}
+            </div>
+          ) : activeKey && companies.find(c => c.id === activeKey) ? (
+            (() => {
+              const c = companies.find(x => x.id === activeKey)!;
+              return (
+                <div className="rounded-lg border border-border p-3 space-y-1">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="w-3 h-3 rounded-full shrink-0"
+                      style={{ backgroundColor: c.color_hex }}
+                      aria-hidden
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{c.name}</div>
+                      <div className="text-xs text-text-muted truncate">
+                        {c.address ?? '—'}
+                        {c.trip_times && c.trip_times.length > 0 && (
+                          <> · {c.trip_times.length} times{c.trip_times_winter ? ' (sum/win)' : ''}</>
+                        )}
+                        {c.flight_rate_chf != null && <> · {c.flight_rate_chf} CHF/flight</>}
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => startEdit(c)} className="p-2 text-text-muted hover:text-text" aria-label="Edit">
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => remove(c)} disabled={pending} className="p-2 text-danger/70 hover:text-danger" aria-label="Remove">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-                <button type="button" onClick={() => startEdit(c)} className="p-2 text-text-muted hover:text-text" aria-label="Edit">
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button type="button" onClick={() => remove(c)} disabled={pending} className="p-2 text-danger/70 hover:text-danger" aria-label="Remove">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
-
-      {editingId === 'new' && (
-        <div className="rounded-lg border border-primary/40 bg-primary/5 overflow-hidden">
-          <CompanyForm
-            draft={draft} setDraft={setDraft} primaryRates={primaryRates}
-            onApplySuggestion={applySuggestion}
-            onSave={save} onCancel={cancel}
-            pending={pending} title="New company"
-          />
-        </div>
+              );
+            })()
+          ) : (
+            companies.length === 0 && editingId !== 'new' && (
+              <p className="text-xs text-text-muted italic">
+                Pick a company above to register it.
+              </p>
+            )
+          )}
+        </>
       )}
 
       {msg && (
         <p className={msg.kind === 'ok' ? 'text-success text-sm' : 'text-danger text-sm'}>
           {msg.text}
         </p>
-      )}
-
-      {editingId === null && (
-        <button type="button" onClick={startNew} className="btn-ghost w-full border border-border inline-flex items-center justify-center gap-2">
-          <Plus className="w-4 h-4" /> Add company
-        </button>
       )}
     </div>
   );
