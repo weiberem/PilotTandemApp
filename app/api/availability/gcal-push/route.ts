@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { refreshAccessToken } from '@/lib/googleDrive';
-import { upsertCalendarEvent, type CalendarEntry } from '@/lib/googleCalendar';
+import { upsertCalendarEvent, deleteMonthCalendarEvents, type CalendarEntry } from '@/lib/googleCalendar';
 import { periodLabel, availabilityDayTimeRange, type AvailabilityDay } from '@/lib/availability';
 import { resolveSeason } from '@/lib/tripTimes';
 
@@ -69,6 +69,43 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, created, updated, total: created + updated });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'unknown';
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE { month: "YYYY-MM-01" }
+ *
+ * Removes every TandemLog availability event the app added for the month from
+ * the pilot's Google Calendar (tag "availability:<date>"). Idempotent.
+ */
+export async function DELETE(req: NextRequest) {
+  const sb = createClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+
+  const body = await req.json().catch(() => ({})) as { month?: string };
+  const month = body.month ?? '';
+  if (!/^\d{4}-\d{2}-01$/.test(month)) {
+    return NextResponse.json({ error: 'invalid_month', detail: 'month must be "YYYY-MM-01".' }, { status: 400 });
+  }
+
+  const { data: pilot, error } = await sb
+    .from('pilots')
+    .select('google_refresh_token')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!pilot?.google_refresh_token) {
+    return NextResponse.json({ error: 'not_connected', detail: 'Connect Google in Settings first.' }, { status: 400 });
+  }
+
+  try {
+    const tokens = await refreshAccessToken(pilot.google_refresh_token);
+    const deleted = await deleteMonthCalendarEvents(month.slice(0, 7), tokens.access_token, 'availability');
+    return NextResponse.json({ ok: true, deleted });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'unknown';
     return NextResponse.json({ error: msg }, { status: 500 });

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { ChevronLeft, ChevronRight, Mail, Check, AlertTriangle, Users, X, RotateCcw, CalendarPlus, Repeat, Send } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Mail, Check, AlertTriangle, Users, X, RotateCcw, CalendarPlus, Repeat, Send, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   addMonths, buildMailto, buildMailtoInverted,
@@ -291,6 +291,24 @@ export function AvailabilityCalendar({
         return;
       }
       setMsg({ kind: 'ok', text: `Added to Google Calendar (${j.total} day${j.total === 1 ? '' : 's'}).` });
+    });
+  }
+
+  /** Remove the TandemLog availability events this month from Google Calendar. */
+  function onClearGoogle() {
+    if (!googleConnected) {
+      setMsg({ kind: 'err', text: 'Connect Google in Settings → Google Drive first.' });
+      return;
+    }
+    startTransition(async () => {
+      const res = await fetch('/api/availability/gcal-push', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ month: monthKey }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) { setMsg({ kind: 'err', text: j.detail ?? j.error ?? 'Could not clear Google Calendar.' }); return; }
+      setMsg({ kind: 'ok', text: `Removed ${j.deleted} TandemLog event${j.deleted === 1 ? '' : 's'} from Google Calendar.` });
     });
   }
 
@@ -786,6 +804,16 @@ export function AvailabilityCalendar({
               <GoogleIcon className="w-3.5 h-3.5 mr-1" /> Google
             </button>
           </div>
+          {googleConnected && (
+            <button
+              onClick={onClearGoogle}
+              disabled={pending}
+              className="w-full text-text-muted underline-offset-2 hover:underline text-xs py-1"
+              title="Remove the TandemLog availability events this month from Google Calendar"
+            >
+              <Trash2 className="w-3 h-3 inline mr-1" /> Remove this month from Google Calendar
+            </button>
+          )}
           <div className="flex gap-2 text-xs">
             <button
               onClick={clearMonth}
