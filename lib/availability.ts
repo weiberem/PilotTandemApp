@@ -23,9 +23,16 @@ export type ChangeRequestReason =
 export type ChangeRequest = {
   reason: ChangeRequestReason;
   note?: string;
-  status: 'pending' | 'resolved';
+  status: 'pending' | 'resolved' | 'matched';
   created_at: string;       // ISO
   resolved_at?: string | null;
+  // Swap metadata (reason === 'swap'): the colleague the pilot wants to swap
+  // with. The id is resolved server-side so the reciprocal pilot can see the
+  // request without exposing it to anyone else.
+  swap_with?: string;            // colleague display name
+  swap_with_pilot_id?: string;   // resolved account id, when unambiguous
+  matched_with?: string;         // who completed the swap (display name)
+  matched_at?: string | null;
 };
 
 /** Change requests for one month, keyed by affected date (YYYY-MM-DD). */
@@ -178,6 +185,47 @@ export function buildChangeRequestEmail({
   const trimmed = note?.trim();
   if (trimmed) lines.push(`Notiz: ${trimmed}`);
   return { subject, text: lines.join('\n') };
+}
+
+/**
+ * Email to the office once two pilots have agreed on a swap for a day. The
+ * office still adjusts the roster — this just gives them one clean,
+ * both-parties-confirmed message instead of two WhatsApp threads.
+ */
+export function buildSwapMatchEmail({
+  requester, accepter, date, note,
+}: {
+  requester: string;
+  accepter: string;
+  date: string;            // YYYY-MM-DD
+  note?: string;
+}): { subject: string; text: string } {
+  const dl = formatChangeRequestDate(date);
+  const subject = `Tausch bestätigt ${dl} — ${requester} ↔ ${accepter}`;
+  const lines = [
+    `Tauschbestätigung`,
+    ``,
+    `Tag: ${dl}`,
+    `Pilot 1: ${requester} (Tauschwunsch)`,
+    `Pilot 2: ${accepter} (übernimmt)`,
+    ``,
+    `Beide Piloten sind mit dem Tausch einverstanden.`,
+  ];
+  const trimmed = note?.trim();
+  if (trimmed) lines.push(``, `Notiz: ${trimmed}`);
+  return { subject, text: lines.join('\n') };
+}
+
+/** Count of change requests in a month, with the pending subset — for the
+ * self-awareness stats card. */
+export function summarizeChangeRequests(
+  map: ChangeRequestMap | undefined,
+): { total: number; pending: number } {
+  const entries = Object.values(map ?? {});
+  return {
+    total: entries.length,
+    pending: entries.filter(c => c.status === 'pending').length,
+  };
 }
 
 const PERIOD_LABEL: Record<DayPeriod, string> = {

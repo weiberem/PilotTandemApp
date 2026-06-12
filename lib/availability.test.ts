@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   addMonths, monthFirst, monthGrid, monthLabel, nextDeadlineInfo,
   buildMailto, dayMailtoLine, buildChangeRequestEmail, formatChangeRequestDate,
-  type AvailabilityDay,
+  buildSwapMatchEmail, summarizeChangeRequests,
+  type AvailabilityDay, type ChangeRequestMap,
 } from './availability';
 
 describe('monthFirst', () => {
@@ -136,5 +137,29 @@ describe('buildChangeRequestEmail', () => {
     expect(buildChangeRequestEmail({
       pilotName: 'X', date: '2026-07-18', reason: 'swap', note: '   ',
     }).text).not.toContain('Notiz:');
+  });
+});
+
+describe('buildSwapMatchEmail', () => {
+  it('names both pilots and the day', () => {
+    const { subject, text } = buildSwapMatchEmail({
+      requester: 'Rémy', accepter: 'Flo', date: '2026-07-18',
+    });
+    expect(subject).toBe('Tausch bestätigt 18.07.2026 — Rémy ↔ Flo');
+    expect(text).toContain('Pilot 1: Rémy');
+    expect(text).toContain('Pilot 2: Flo');
+    expect(text).toContain('18.07.2026');
+  });
+});
+
+describe('summarizeChangeRequests', () => {
+  it('counts totals and pending', () => {
+    const map: ChangeRequestMap = {
+      '2026-07-01': { reason: 'sick', status: 'pending', created_at: 'x' },
+      '2026-07-08': { reason: 'swap', status: 'matched', created_at: 'x' },
+      '2026-07-09': { reason: 'other', status: 'resolved', created_at: 'x' },
+    };
+    expect(summarizeChangeRequests(map)).toEqual({ total: 3, pending: 1 });
+    expect(summarizeChangeRequests(undefined)).toEqual({ total: 0, pending: 0 });
   });
 });
