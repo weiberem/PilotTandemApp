@@ -12,10 +12,10 @@ import {
  *   Row "JUNI" weekdays:  | Mo Mo | Di Di | Mi Mi | ...   (each day = 2 cols)
  *   Row "JUNI" day nums:  | 1   1 | 2   2 | 3   3 | ...   (day d in even col 2d)
  *   Col A = pilot names (one row per pilot)
- *   Each pilot row, per day, has TWO shift cells:
- *       1   = available/scheduled, full
- *       0.5 = half
- *       ""  = not working that shift
+ *   Each pilot row, per day, has TWO shift cells holding the pilot's PRIORITY
+ *   RANK for that shift (1 = first to fly), NOT a 0/1 flag. A pilot flies a
+ *   shift only when their rank is within the day's capacity — the "Total" row
+ *   gives the number flying per column, so rank ≤ Total ⇒ flying.
  *   shift1 (left col) ≈ morning, shift2 (right col) ≈ afternoon.
  *
  * The sheet name encodes the month + year (e.g. "June_2026").
@@ -148,6 +148,44 @@ function buildDayColumns(ws: ExcelJS.Worksheet, headerRow: number): Map<number, 
   return map;
 }
 
+/**
+ * The Skywings matrix stores each pilot's PRIORITY RANK per shift (1 = first to
+ * fly), not a 0/1 flag. A pilot actually flies a shift only when their rank is
+ * within that day's capacity — and the "Total" row holds the number of pilots
+ * flying per column, which is exactly that cutoff (rank ≤ Total ⇒ flying).
+ *
+ * Returns a per-column capacity map, or null when there's no "Total" row (older
+ * flag-style sheets — callers then fall back to "any positive value = present").
+ */
+function buildCapacityRow(ws: ExcelJS.Worksheet, dayCols: Map<number, number>): Map<number, number> | null {
+  let totalRow: number | null = null;
+  for (let r = 1; r <= ws.rowCount; r++) {
+    const a = cellValue(ws, r, 1);
+    if (typeof a === 'string' && normalize(a) === 'total') { totalRow = r; break; }
+  }
+  if (!totalRow) return null;
+  const cap = new Map<number, number>();
+  for (const [, col] of dayCols) {
+    const m = asNumber(cellValue(ws, totalRow, col));
+    const a = asNumber(cellValue(ws, totalRow, col + 1));
+    if (m !== null && m > 0) cap.set(col, m);
+    if (a !== null && a > 0) cap.set(col + 1, a);
+  }
+  return cap.size ? cap : null;
+}
+
+/**
+ * Whether the pilot flies the shift in column `col`: a positive rank within the
+ * day's capacity. Falls back to "any positive value" when capacity is unknown
+ * (flag-style sheets without a Total row).
+ */
+function fliesAt(value: unknown, col: number, capacity: Map<number, number> | null): boolean {
+  const n = asNumber(value);
+  if (n === null || n <= 0) return false;
+  const cap = capacity?.get(col);
+  return cap != null ? n <= cap : true;
+}
+
 /** Find the pilot's row by accent-insensitive name match in column A. */
 function findPilotRow(ws: ExcelJS.Worksheet, pilotName: string): number | null {
   const target = normalize(pilotName);
@@ -197,15 +235,10 @@ export async function parseEinsatzplan(
   }
 
   const dayCols = buildDayColumns(ws, headerRow);
+  const capacity = buildCapacityRow(ws, dayCols);
   const season = resolveSeason(opts.seasonOverride ?? null, new Date(Date.UTC(year, month - 1, 1)));
   const seasonTimes = (season === 'summer' ? [...SUMMER_TRIP_TIMES] : [...WINTER_TRIP_TIMES]);
   const half = Math.ceil(seasonTimes.length / 2);
-
-  // A shift cell counts as "scheduled" if it holds a positive number (1 / 0.5).
-  const isPresent = (v: unknown): boolean => {
-    const n = asNumber(v);
-    return n !== null && n > 0;
-  };
 
   // General monthly exceptions: Skywings writes notes like "No 7:10 No 17:00"
   // or "No 7:10, 16:00, 17:00" in a notes cell at the END of the pilot's row.
@@ -221,9 +254,9 @@ export async function parseEinsatzplan(
   for (const [day, col] of dayCols.entries()) {
     const v1 = cellValue(ws, pilotRow, col);
     const v2 = cellValue(ws, pilotRow, col + 1);
-    const has1 = isPresent(v1);
-    const has2 = isPresent(v2);
-    if (!has1 && !has2) continue; // not scheduled
+    const has1 = fliesAt(v1, col, capacity);
+    const has2 = fliesAt(v2, col + 1, capacity);
+    if (!has1 && !has2) continue; // not flying that day
 
     let period: ParsedScheduleEntry['period'];
     let times: string[];
@@ -251,8 +284,9 @@ export async function parseEinsatzplan(
 export type FullPlanPilot = {
   name: string;                        // as written in the sheet, trimmed
   period: 'full' | 'half_am' | 'half_pm';
-  number: number;                      // 1-based row order in the Skywings roster
-                                       // = priority order (1 = first to be booked)
+  number: number;                      // priority rank for that day from the
+                                       // matrix (1 = first to fly); falls back
+                                       // to row order if the cell isn't numeric
 };
 export type FullPlanDay = {
   date: string;                        // YYYY-MM-DD
@@ -317,11 +351,7 @@ export async function parseFullPlan(
     throw new Error('Could not locate the day-number header row.');
   }
   const dayCols = buildDayColumns(ws, headerRow);
-
-  const isPresent = (v: unknown): boolean => {
-    const n = asNumber(v);
-    return n !== null && n > 0;
-  };
+  const capacity = buildCapacityRow(ws, dayCols);
 
   const days: Record<string, FullPlanDay> = {};
   for (const [day] of dayCols.entries()) {
@@ -343,18 +373,21 @@ export async function parseFullPlan(
     if (!looksLikePilotName(name)) continue;
 
     if (!numberOf.has(name)) numberOf.set(name, nextNumber++);
-    const number = numberOf.get(name)!;
+    const rowNumber = numberOf.get(name)!;
 
     for (const [day, col] of dayCols.entries()) {
       const v1 = cellValue(ws, r, col);
       const v2 = cellValue(ws, r, col + 1);
-      const has1 = isPresent(v1);
-      const has2 = isPresent(v2);
+      const has1 = fliesAt(v1, col, capacity);
+      const has2 = fliesAt(v2, col + 1, capacity);
       if (!has1 && !has2) continue;
       const period: FullPlanPilot['period'] =
         has1 && has2 ? 'full' : has1 ? 'half_am' : 'half_pm';
+      // Prefer the actual daily priority rank from the cell (so the roster
+      // shows real booking order / bus split); fall back to row order.
+      const rank = (has1 ? asNumber(v1) : asNumber(v2)) ?? rowNumber;
       const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      days[iso].pilots.push({ name, period, number });
+      days[iso].pilots.push({ name, period, number: rank });
     }
   }
 
