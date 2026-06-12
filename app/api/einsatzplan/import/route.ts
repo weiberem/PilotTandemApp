@@ -133,10 +133,11 @@ export async function GET() {
 
   const { data: pilot } = await sb
     .from('pilots')
-    .select('einsatzplan_imports')
+    .select('einsatzplan_imports, einsatzplan_folder_id')
     .eq('id', user.id)
     .maybeSingle();
   const imports = (pilot?.einsatzplan_imports as EinsatzplanImports | null) ?? {};
+  const folderConfigured = !!pilot?.einsatzplan_folder_id;
   const { current, next } = currentAndNextMonthKeys();
 
   function summarise(key: string) {
@@ -156,5 +157,6 @@ export async function GET() {
     next_month: next,
     current: summarise(current),
     next: summarise(next),
+    folder_configured: folderConfigured,
   });
 }

@@ -3,12 +3,16 @@
 import { useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Camera, Check, Minus, Plus, X } from 'lucide-react';
-import { bulkAddFlights } from '@/app/(pilot)/log/bulkActions';
+import { bulkAddFlights, bulkAddFlightsByCount } from '@/app/(pilot)/log/bulkActions';
 
 type Extract = {
   date: string | null;
   trip_times: string[];
   count: number;
+  flights_count: number | null;
+  photo_count: number | null;
+  double_air_count: number | null;
+  no_show_count: number | null;
   confidence: 'high' | 'medium' | 'low';
 };
 
@@ -26,6 +30,11 @@ export function ScreenshotCapture({ today, company }: Props) {
   const [pp, setPp] = useState(0);
   const [cc, setCc] = useState(0);
   const [cash, setCash] = useState(0);
+  // Counts-summary mode (daysheet has totals, no times): editable per-day totals.
+  const [cFlights, setCFlights] = useState(0);
+  const [cPp, setCPp] = useState(0);
+  const [cDouble, setCDouble] = useState(0);
+  const [cNoShow, setCNoShow] = useState(0);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -51,13 +60,22 @@ export function ScreenshotCapture({ today, company }: Props) {
         setPhase('idle');
         return;
       }
-      if (data.count === 0) {
+      const hasTimes = data.count > 0;
+      const hasCounts = (data.flights_count ?? 0) > 0;
+      if (!hasTimes && !hasCounts) {
         setMsg({ kind: 'err', text: 'No flights found in the screenshot. Try another image or log manually.' });
         setPhase('idle');
         return;
       }
       setExtract(data);
-      setPp(0); setCc(0); setCash(0);
+      if (hasTimes) {
+        setPp(0); setCc(0); setCash(0);
+      } else {
+        setCFlights(data.flights_count ?? 0);
+        setCPp(data.photo_count ?? 0);
+        setCDouble(data.double_air_count ?? 0);
+        setCNoShow(data.no_show_count ?? 0);
+      }
       setPhase('review');
     } catch {
       setMsg({ kind: 'err', text: 'Upload failed — please try again.' });
@@ -65,24 +83,69 @@ export function ScreenshotCapture({ today, company }: Props) {
     }
   }
 
+  const countsMode = !!extract && extract.trip_times.length === 0;
+
   function onConfirm() {
     if (!extract) return;
     setMsg(null);
     startTransition(async () => {
-      const r = await bulkAddFlights({
-        flight_date: extract.date ?? today,
-        trip_times: extract.trip_times,
-        pp_count: pp, cc_count: cc, cash_count: cash,
-        company,
-      });
+      const r = countsMode
+        ? await bulkAddFlightsByCount({
+            flight_date: extract.date ?? today,
+            flights_count: cFlights,
+            photo_pp_count: cPp, double_air_count: cDouble, no_show_count: cNoShow,
+            company,
+          })
+        : await bulkAddFlights({
+            flight_date: extract.date ?? today,
+            trip_times: extract.trip_times,
+            pp_count: pp, cc_count: cc, cash_count: cash,
+            company,
+          });
       if (!r.ok) { setMsg({ kind: 'err', text: r.error }); return; }
+      const skipped = 'skipped' in r ? r.skipped : 0;
       setMsg({
         kind: 'ok',
-        text: `${r.inserted} flights logged${r.skipped ? ` (${r.skipped} already existed)` : ''}.`,
+        text: `${r.inserted} flights logged${skipped ? ` (${skipped} already existed)` : ''}.`,
       });
       setPhase('idle');
       setExtract(null);
     });
+  }
+
+  if (phase === 'review' && extract && countsMode) {
+    const flying = Math.max(0, cFlights - cNoShow);
+    return (
+      <div className="card p-4 space-y-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="font-display font-semibold text-lg">Daysheet totals</div>
+            <div className="text-xs text-text-muted">
+              {(extract.date ?? today).split('-').reverse().join('.')} · no times on this sheet — set placeholders, edit later
+              {extract.confidence !== 'high' && (
+                <span className="text-warning ml-1">· please double-check</span>
+              )}
+            </div>
+          </div>
+          <button onClick={() => { setPhase('idle'); setExtract(null); }} className="p-1 text-text-muted" aria-label="Cancel">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Counter label="Flights" value={cFlights} onChange={setCFlights} max={30} />
+          <Counter label="No show" value={cNoShow} onChange={setCNoShow} max={cFlights} />
+          <Counter label="Photo (PP)" value={cPp} onChange={setCPp} max={flying} />
+          <Counter label="Double air" value={cDouble} onChange={setCDouble} max={flying} />
+        </div>
+
+        <button onClick={onConfirm} disabled={pending || cFlights < 1} className="btn-primary w-full">
+          <Check className="w-4 h-4 mr-2" />
+          {pending ? 'Saving…' : `Confirm ${cFlights} flight${cFlights === 1 ? '' : 's'}`}
+        </button>
+        {msg && <p className={msg.kind === 'ok' ? 'text-success text-sm' : 'text-danger text-sm'}>{msg.text}</p>}
+      </div>
+    );
   }
 
   if (phase === 'review' && extract) {
