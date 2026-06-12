@@ -1,21 +1,25 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 
 export default function SignupPage() {
+  const router = useRouter();
+  const supabase = createClient();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
   const [pending, startTransition] = useTransition();
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
+      // 1) Create the user server-side (pre-confirmed; SIGNUP_CODE-gated).
       const r = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -35,21 +39,18 @@ export default function SignupPage() {
         setError(map[data.error] ?? data.error ?? 'Signup failed');
         return;
       }
-      setDone(true);
+      // 2) Immediately sign the pilot in — no email round-trip.
+      const { error: signErr } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (signErr) {
+        setError(`Account created, but sign-in failed: ${signErr.message}. Try the Sign In page.`);
+        return;
+      }
+      router.replace('/onboarding');
+      router.refresh();
     });
-  }
-
-  if (done) {
-    return (
-      <div className="card p-6">
-        <h1 className="text-xl font-display font-semibold mb-2">Check your inbox</h1>
-        <p className="text-sm text-text-muted mb-4">
-          We sent a confirmation link to <span className="font-mono">{email}</span>. Click it to
-          activate your account, then sign in with the password you just set.
-        </p>
-        <Link href="/login" className="btn-ghost w-full">Back to Sign In</Link>
-      </div>
-    );
   }
 
   return (
@@ -94,7 +95,7 @@ export default function SignupPage() {
 
         {error && <p className="text-danger text-sm">{error}</p>}
         <button type="submit" disabled={pending} className="btn-primary w-full">
-          {pending ? 'Creating…' : 'Create account'}
+          {pending ? 'Creating account…' : 'Create account'}
         </button>
       </form>
       <p className="text-xs text-text-muted text-center mt-4">

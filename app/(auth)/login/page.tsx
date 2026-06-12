@@ -11,19 +11,40 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
+  const [resendInfo, setResendInfo] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setResendInfo(null);
+    setNeedsConfirmation(false);
     startTransition(async () => {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         setError(error.message);
+        // "Email not confirmed" surfaces a resend action.
+        if (/not confirmed/i.test(error.message)) setNeedsConfirmation(true);
         return;
       }
       router.replace('/home');
       router.refresh();
+    });
+  }
+
+  function resendConfirmation() {
+    setResendInfo(null);
+    setError(null);
+    startTransition(async () => {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/onboarding` },
+      });
+      if (error) { setError(error.message); return; }
+      setResendInfo(`A new confirmation email was sent to ${email}. Click the link within 24 hours.`);
+      setNeedsConfirmation(false);
     });
   }
 
@@ -53,6 +74,22 @@ export default function LoginPage() {
           </div>
         </label>
         {error && <p className="text-danger text-sm">{error}</p>}
+        {needsConfirmation && (
+          <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 space-y-2">
+            <p className="text-sm">
+              The confirmation link may have expired. Send a new one?
+            </p>
+            <button
+              type="button"
+              onClick={resendConfirmation}
+              disabled={pending || !email}
+              className="btn-ghost border border-warning/40 text-warning w-full"
+            >
+              {pending ? 'Sending…' : 'Resend confirmation email'}
+            </button>
+          </div>
+        )}
+        {resendInfo && <p className="text-success text-sm">{resendInfo}</p>}
         <button type="submit" disabled={pending} className="btn-primary w-full">
           {pending ? 'Signing in…' : 'Sign In'}
         </button>

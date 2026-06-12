@@ -6,8 +6,16 @@ export const dynamic = 'force-dynamic';
 
 /**
  * Self-signup gated by a shared invite code (env SIGNUP_CODE).
- * Share the code with the team via WhatsApp; rotate by updating the env var
- * in Vercel when it leaks out.
+ *
+ * We create the user pre-confirmed (`email_confirm: true`) so the pilot can
+ * sign in immediately with their chosen password — no round-trip through a
+ * Supabase confirmation email, which would:
+ *   - get pre-scanned by Gmail/Outlook and consume the single-use OTP
+ *   - say "You've been invited" (confusing for a self-signup)
+ *   - expire after 1 hour by default
+ *
+ * The invite-code gate is what keeps non-pilots out; an email-confirmation
+ * round-trip would add no security on top of that, only friction.
  */
 export async function POST(req: NextRequest) {
   const expectedCode = process.env.SIGNUP_CODE;
@@ -32,22 +40,17 @@ export async function POST(req: NextRequest) {
   }
 
   const svc = createServiceClient();
-  const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/onboarding`;
-
-  const { data, error } = await svc.auth.admin.inviteUserByEmail(email, {
-    data: { full_name },
-    redirectTo,
+  const { error } = await svc.auth.admin.createUser({
+    email: email.trim().toLowerCase(),
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: full_name.trim() },
   });
   if (error) {
-    const msg = /already registered|exists/i.test(error.message)
+    const msg = /already (registered|exists)|duplicate/i.test(error.message)
       ? 'email_already_registered'
       : error.message;
     return NextResponse.json({ error: msg }, { status: 400 });
-  }
-
-  // Pre-set the password so after confirmation they can sign in directly.
-  if (data.user) {
-    await svc.auth.admin.updateUserById(data.user.id, { password });
   }
 
   return NextResponse.json({ ok: true });
