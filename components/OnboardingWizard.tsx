@@ -22,6 +22,9 @@ type Pilot = {
   photo_prepaid_rate_chf: number | null;
   thermal_rate_chf: number | null;
   no_show_rate_chf: number | null;
+  vat_registered: boolean | null;
+  default_exclude_7am: boolean | null;
+  default_exclude_5pm: boolean | null;
 };
 
 type State = {
@@ -40,6 +43,9 @@ type State = {
   photo_prepaid_rate_chf: number;
   thermal_rate_chf: number;
   no_show_rate_chf: number;
+  vat_registered: boolean;
+  default_exclude_7am: boolean;
+  default_exclude_5pm: boolean;
 };
 
 const STEPS = [
@@ -69,10 +75,13 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
     primary_company_address: pilot.primary_company_address ?? 'Brandstrasse 38, 3852 Ringgenberg',
     office_email: pilot.office_email ?? '',
     personal_email: pilot.personal_email ?? authEmail,
-    flight_rate_chf: pilot.flight_rate_chf ?? 105,
+    flight_rate_chf: pilot.flight_rate_chf ?? ((pilot.vat_registered ?? true) ? 105 : 100),
     photo_prepaid_rate_chf: pilot.photo_prepaid_rate_chf ?? 40,
     thermal_rate_chf: pilot.thermal_rate_chf ?? 50,
     no_show_rate_chf: pilot.no_show_rate_chf ?? 32,
+    vat_registered: pilot.vat_registered ?? true,
+    default_exclude_7am: pilot.default_exclude_7am ?? false,
+    default_exclude_5pm: pilot.default_exclude_5pm ?? false,
   });
 
   // Skip past steps that are already complete on first render.
@@ -85,7 +94,15 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
   const step: StepKey = STEPS[stepIdx].key;
 
   function set<K extends keyof State>(key: K, value: State[K]) {
-    setState(prev => ({ ...prev, [key]: value }));
+    setState(prev => {
+      const next = { ...prev, [key]: value };
+      if (key === 'vat_registered') {
+        const cur = Number(prev.flight_rate_chf ?? 0);
+        if (value === true && (cur === 100 || cur === 0)) next.flight_rate_chf = 105;
+        if (value === false && (cur === 105 || cur === 0)) next.flight_rate_chf = 100;
+      }
+      return next;
+    });
   }
 
   function persistAndAdvance(patch: Partial<State>, nextIdx: number) {
@@ -128,6 +145,9 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
         photo_prepaid_rate_chf: state.photo_prepaid_rate_chf,
         thermal_rate_chf: state.thermal_rate_chf,
         no_show_rate_chf: state.no_show_rate_chf,
+        vat_registered: state.vat_registered,
+        default_exclude_7am: state.default_exclude_7am,
+        default_exclude_5pm: state.default_exclude_5pm,
       }, stepIdx + 1);
     } else if (step === 'done') {
       router.push('/home');
@@ -231,6 +251,23 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
             <p className="text-text-muted text-sm">
               Defaults match the Skywings rates. Different company? Just change them.
             </p>
+
+            <label className="flex items-start gap-3 cursor-pointer py-1 rounded-lg border border-border bg-bg-subtle/40 p-3">
+              <input
+                type="checkbox"
+                checked={!!state.vat_registered}
+                onChange={e => set('vat_registered', e.target.checked)}
+                className="mt-1 w-5 h-5 rounded border-border accent-primary"
+              />
+              <span>
+                <span className="text-sm font-medium block">VAT registered (MWST-pflichtig)</span>
+                <span className="text-xs text-text-muted">
+                  Flight rate default: {state.vat_registered ? '105' : '100'} CHF
+                  {state.vat_registered ? ' (incl. 8.1% VAT)' : ' (no VAT)'}.
+                </span>
+              </span>
+            </label>
+
             <Input
               label="Primary company" value={state.primary_company_name}
               onChange={v => set('primary_company_name', v)}
@@ -246,6 +283,32 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
               <NumInput label="Photo PP" value={state.photo_prepaid_rate_chf} onChange={v => set('photo_prepaid_rate_chf', v)} />
               <NumInput label="Thermal" value={state.thermal_rate_chf} onChange={v => set('thermal_rate_chf', v)} />
               <NumInput label="No-Show" value={state.no_show_rate_chf} onChange={v => set('no_show_rate_chf', v)} />
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-border">
+              <p className="text-sm font-medium">Edge trips you usually skip</p>
+              <p className="text-xs text-text-muted">
+                If you never fly 07:10 or 17:00, switch on here. Each new availability day
+                you pick will inherit these — still adjustable per day.
+              </p>
+              <label className="flex items-start gap-3 cursor-pointer py-1">
+                <input
+                  type="checkbox"
+                  checked={!!state.default_exclude_7am}
+                  onChange={e => set('default_exclude_7am', e.target.checked)}
+                  className="mt-1 w-5 h-5 rounded border-border accent-danger"
+                />
+                <span className="text-sm">No <span className="font-mono">07:10</span> flights by default</span>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer py-1">
+                <input
+                  type="checkbox"
+                  checked={!!state.default_exclude_5pm}
+                  onChange={e => set('default_exclude_5pm', e.target.checked)}
+                  className="mt-1 w-5 h-5 rounded border-border accent-danger"
+                />
+                <span className="text-sm">No <span className="font-mono">17:00</span> flights by default</span>
+              </label>
             </div>
           </>
         )}

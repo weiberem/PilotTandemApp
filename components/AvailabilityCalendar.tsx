@@ -623,21 +623,29 @@ export function AvailabilityCalendar({
                   }}
                 />
               )}
-              {/* Edge-time opt-outs: vertical red bars on the day's sides.
-                  no 7 = left; no 5 = right. Half-day rules suppress the bars
-                  that wouldn't apply (a half_pm shift never includes 07:10,
-                  a half_am shift never includes 17:00). */}
+              {/* Edge-time opt-outs: bold vertical red bars on the day's
+                  edges. Half-day rules suppress the bars that wouldn't apply
+                  (a half_pm shift never includes 07:10; a half_am shift
+                  never includes 17:00). */}
               {entry?.exclude_7am && (period === undefined || period === 'full' || period === 'half_am') && (
-                <>
-                  <span className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-danger rounded-r-sm pointer-events-none" aria-hidden />
-                  <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[8px] font-bold leading-none rotate-180 [writing-mode:vertical-rl] text-danger pointer-events-none">no7</span>
-                </>
+                <span
+                  className="absolute left-0 top-1 bottom-1 w-3.5 bg-danger flex items-center justify-center rounded-r-md shadow-sm pointer-events-none"
+                  aria-label="no 07:10 flight"
+                >
+                  <span className="text-[8px] font-extrabold leading-none rotate-180 [writing-mode:vertical-rl] text-white tracking-tight whitespace-nowrap">
+                    no 07:10
+                  </span>
+                </span>
               )}
               {entry?.exclude_5pm && (period === undefined || period === 'full' || period === 'half_pm') && (
-                <>
-                  <span className="absolute right-0 top-1/4 bottom-1/4 w-1 bg-danger rounded-l-sm pointer-events-none" aria-hidden />
-                  <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[8px] font-bold leading-none [writing-mode:vertical-rl] text-danger pointer-events-none">no5</span>
-                </>
+                <span
+                  className="absolute right-0 top-1 bottom-1 w-3.5 bg-danger flex items-center justify-center rounded-l-md shadow-sm pointer-events-none"
+                  aria-label="no 17:00 flight"
+                >
+                  <span className="text-[8px] font-extrabold leading-none [writing-mode:vertical-rl] text-white tracking-tight whitespace-nowrap">
+                    no 17:00
+                  </span>
+                </span>
               )}
               <span className="absolute top-1 left-0 right-0 text-center">{dayNum}</span>
               {pendingChange && <ChangeBadge />}
