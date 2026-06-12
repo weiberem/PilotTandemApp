@@ -450,16 +450,21 @@ export function AvailabilityCalendar({
                   }}
                 />
               )}
-              {/* Edge-time opt-outs, visible at a glance */}
-              {entry?.exclude_7am && (
-                <span className="absolute top-0.5 left-0.5 text-[8px] font-bold leading-none px-0.5 rounded bg-black/25 text-white">
-                  no 7
-                </span>
+              {/* Edge-time opt-outs: vertical red bars on the day's sides.
+                  no 7 = left; no 5 = right. Half-day rules suppress the bars
+                  that wouldn't apply (a half_pm shift never includes 07:10,
+                  a half_am shift never includes 17:00). */}
+              {entry?.exclude_7am && (period === undefined || period === 'full' || period === 'half_am') && (
+                <>
+                  <span className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-danger rounded-r-sm pointer-events-none" aria-hidden />
+                  <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[8px] font-bold leading-none rotate-180 [writing-mode:vertical-rl] text-danger pointer-events-none">no7</span>
+                </>
               )}
-              {entry?.exclude_5pm && (
-                <span className="absolute top-0.5 right-0.5 text-[8px] font-bold leading-none px-0.5 rounded bg-black/25 text-white">
-                  no 5
-                </span>
+              {entry?.exclude_5pm && (period === undefined || period === 'full' || period === 'half_pm') && (
+                <>
+                  <span className="absolute right-0 top-1/4 bottom-1/4 w-1 bg-danger rounded-l-sm pointer-events-none" aria-hidden />
+                  <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[8px] font-bold leading-none [writing-mode:vertical-rl] text-danger pointer-events-none">no5</span>
+                </>
               )}
               <span className="absolute top-1 left-0 right-0 text-center">{dayNum}</span>
               {(period || sched) && (
@@ -616,14 +621,22 @@ function EdgeTimeStrip({
   const [, m, d] = date.split('-');
   const fly7 = !entry.exclude_7am;
   const fly17 = !entry.exclude_5pm;
+  // 07:10 is a morning trip — hide the toggle when the pilot only flies PM.
+  // 17:00 is an afternoon trip — hide when the pilot only flies AM.
+  const show7 = entry.period !== 'half_pm';
+  const show17 = entry.period !== 'half_am';
   return (
     <div className="flex items-stretch gap-2">
-      <EdgeButton time="07:10" active={fly7} onClick={onToggle7} />
+      {show7
+        ? <EdgeButton time="07:10" active={fly7} onClick={onToggle7} />
+        : <div className="w-20 shrink-0" aria-hidden />}
       <div className="flex-1 rounded-xl bg-accent text-white flex flex-col items-center justify-center py-2">
         <span className="font-mono text-base leading-none">{d}.{m}.</span>
         <span className="text-xs mt-1 opacity-90">{PERIOD_FULL[entry.period]}</span>
       </div>
-      <EdgeButton time="17:00" active={fly17} onClick={onToggle17} />
+      {show17
+        ? <EdgeButton time="17:00" active={fly17} onClick={onToggle17} />
+        : <div className="w-20 shrink-0" aria-hidden />}
     </div>
   );
 }
