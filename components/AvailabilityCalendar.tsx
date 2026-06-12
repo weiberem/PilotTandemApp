@@ -116,11 +116,27 @@ export function AvailabilityCalendar({
   // In invert mode a tap toggles the day's membership in the free-set instead.
   function onDayTap(date: string) {
     if (invert) {
-      setFreeSet(prev => {
+      // Cycle through every state so half-days and edge times work here too:
+      //   available (default) → free → ½AM → ½PM → full (with edge strip) → …
+      // First tap still marks "free" for fast bulk entry; keep tapping to refine.
+      const isFree = freeSet.has(date);
+      const p = dayMap[date]?.period;
+      const setFree = (add: boolean) => setFreeSet(prev => {
         const next = new Set(prev);
-        if (next.has(date)) next.delete(date); else next.add(date);
+        if (add) next.add(date); else next.delete(date);
         return next;
       });
+      if (!isFree && !p) {                 // available → free
+        setFree(true); setSelectedDate(null);
+      } else if (isFree) {                 // free → ½AM
+        setFree(false); setDayState(date, 'half_am'); setSelectedDate(date);
+      } else if (p === 'half_am') {        // ½AM → ½PM
+        setDayState(date, 'half_pm'); setSelectedDate(date);
+      } else if (p === 'half_pm') {        // ½PM → full (editable: edge strip)
+        setDayState(date, 'full'); setSelectedDate(date);
+      } else {                             // full → back to default available
+        setDayState(date, null); setSelectedDate(null);
+      }
       return;
     }
     // Office-confirmed day → open the day sheet to request a change rather than
@@ -307,15 +323,27 @@ export function AvailabilityCalendar({
         return;
       }
       setDaysByMonth(prev => ({ ...prev, [monthKey]: updates }));
+      const dayList = Object.values(updates);
       startTransition(async () => {
-        await saveAvailability({ month: monthKey, days: Object.values(updates), mark_submitted: true });
+        await saveAvailability({ month: monthKey, days: dayList, mark_submitted: true });
       });
-      window.location.href = buildMailtoInverted({
-        to: officeEmail, pilotName,
-        year: cursor.year, monthIndex0: cursor.monthIndex0,
-        freeDates: [...freeSet],
-      });
+      // The concise "available except…" form only carries full free days. If
+      // any remaining day is a half-day or has an edge-time opt-out, fall back
+      // to the explicit per-day listing so the office sees those constraints.
+      const hasCustom = dayList.some(d => d.period !== 'full' || d.exclude_7am || d.exclude_5pm);
+      window.location.href = hasCustom
+        ? buildMailto({
+            to: officeEmail, pilotName,
+            year: cursor.year, monthIndex0: cursor.monthIndex0,
+            days: dayList,
+          })
+        : buildMailtoInverted({
+            to: officeEmail, pilotName,
+            year: cursor.year, monthIndex0: cursor.monthIndex0,
+            freeDates: [...freeSet],
+          });
       setInvert(false);
+      setSelectedDate(null);
       return;
     }
 
@@ -483,7 +511,8 @@ export function AvailabilityCalendar({
             );
           }
 
-          // Invert-entry mode: tap marks a day "free" (not available).
+          // Invert-entry mode: first tap marks a day "free" (not available);
+          // further taps cycle ½AM → ½PM → full so half-days/edge times work.
           if (invert) {
             const isFree = freeSet.has(date);
             return (
@@ -503,14 +532,23 @@ export function AvailabilityCalendar({
                   inMonth && !past && 'cursor-pointer',
                   !inMonth && 'opacity-30',
                   past && 'opacity-20 pointer-events-none',
-                  isFree
-                    ? 'bg-danger/80 text-white'
-                    : 'bg-success/15 border border-success/30 text-text',
+                  isFree && 'bg-danger/80 text-white',
+                  !isFree && !period && 'bg-success/15 border border-success/30 text-text',
+                  !isFree && period === 'full' && 'bg-success/85 text-white',
+                  !isFree && period === 'half_am' && 'bg-gradient-to-b from-warning/85 to-warning/40 text-white',
+                  !isFree && period === 'half_pm' && 'bg-gradient-to-t from-warning/85 to-warning/40 text-white',
+                  isSelected && 'outline outline-2 outline-offset-1 outline-accent',
                 )}
               >
+                {!isFree && entry?.exclude_7am && (period === 'full' || period === 'half_am') && (
+                  <span className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-danger rounded-r-sm pointer-events-none" aria-hidden />
+                )}
+                {!isFree && entry?.exclude_5pm && (period === 'full' || period === 'half_pm') && (
+                  <span className="absolute right-0 top-1/4 bottom-1/4 w-1 bg-danger rounded-l-sm pointer-events-none" aria-hidden />
+                )}
                 <span className="absolute top-1 left-0 right-0 text-center">{dayNum}</span>
                 <span className="absolute bottom-1 inset-x-0 text-center text-[10px] font-semibold leading-none">
-                  {isFree ? 'free' : ''}
+                  {isFree ? 'free' : period ? periodAbbr(period) : ''}
                 </span>
               </div>
             );
@@ -605,9 +643,11 @@ export function AvailabilityCalendar({
             </span>
           </div>
           <p className="text-xs text-text-muted">
-            Tap a day: free → Full day → ½ Morning → ½ Afternoon.
-            {season === 'summer' && ' Below, 07:10 / 17:00 appear to toggle on or off.'}
-            {' '}Tap a confirmed (orange) day to request a change.
+            {invert
+              ? 'Tap a day: available → free → ½ Morning → ½ Afternoon → Full day. Keep tapping to refine; the 07:10 / 17:00 strip appears for the selected day.'
+              : 'Tap a day: free → Full day → ½ Morning → ½ Afternoon.'}
+            {!invert && season === 'summer' && ' Below, 07:10 / 17:00 appear to toggle on or off.'}
+            {!invert && ' Tap a confirmed (orange) day to request a change.'}
           </p>
           {!hasSchedule && (
             <p className="text-xs text-text-muted">
@@ -658,7 +698,7 @@ export function AvailabilityCalendar({
           </div>
           <div className="flex gap-2 text-sm">
             <button
-              onClick={() => { setInvert(v => !v); setFreeSet(new Set()); setMsg(null); }}
+              onClick={() => { setInvert(v => !v); setFreeSet(new Set()); setSelectedDate(null); setMsg(null); }}
               className={cn(
                 'btn-ghost flex-1 border text-xs',
                 invert ? 'border-primary text-primary-dark bg-primary/10' : 'border-border',
