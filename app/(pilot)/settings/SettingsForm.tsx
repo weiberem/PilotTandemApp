@@ -46,8 +46,10 @@ export function SettingsForm({ pilot, email }: { pilot: Pilot; email: string }) 
     city: pilot?.city ?? '',
     iban: pilot?.iban ?? '',
     vat_number: pilot?.vat_number ?? '',
-    primary_company_name: pilot?.primary_company_name ?? '',
-    primary_company_address: pilot?.primary_company_address ?? '',
+    // Skywings is the primary company for the current tenant. Pre-fill so
+    // pilots don't have to type it; can be overwritten in the form.
+    primary_company_name: pilot?.primary_company_name ?? 'Skywings Adventures GmbH',
+    primary_company_address: pilot?.primary_company_address ?? 'Brandstrasse 38, 3852 Ringgenberg',
     office_email: pilot?.office_email ?? '',
     personal_email: pilot?.personal_email ?? email,
     invoice_cc_email: pilot?.invoice_cc_email ?? '',
