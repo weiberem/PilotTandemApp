@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { FlightForm } from '@/components/FlightForm';
+import { listPilotCompanies } from '@/lib/pilotCompanies';
 import { DeleteFlightButton } from '@/components/DeleteFlightButton';
 import { formatDateDe } from '@/lib/utils';
 import { getCurrentTripTimes, resolveSeason, type Season } from '@/lib/tripTimes';
@@ -55,6 +56,7 @@ export default async function EditFlightPage({ params }: { params: { id: string 
         seasonOverride={pilot?.season_override ?? null}
         primaryCompany={pilot?.primary_company_name ?? 'Skywings'}
         scheduledTimes={scheduledTimes}
+        otherCompanies={await listPilotCompanies(supabase, user.id)}
       />
 
       <div className="pt-4 border-t border-border">

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { FlightForm } from '@/components/FlightForm';
+import { listPilotCompanies } from '@/lib/pilotCompanies';
 import { isoDate, isoDateZurich, nowInZurich, formatDateDe } from '@/lib/utils';
 import {
   getCurrentTripTimes, getNextTripTime, resolveSeason, suggestCurrentTripTime, type Season,
@@ -105,6 +106,7 @@ export default async function LogPage({
         seasonOverride={pilot.season_override}
         primaryCompany={pilot.primary_company_name ?? 'Skywings'}
         scheduledTimes={scheduledTimes}
+        otherCompanies={await listPilotCompanies(supabase, user.id)}
       />
 
       <div className="flex gap-2 pt-2">

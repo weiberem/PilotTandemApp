@@ -9,10 +9,10 @@ import {
 import {
   getCurrentTripTimes, resolveSeason, type Season,
 } from '@/lib/tripTimes';
+import { type PilotCompany } from '@/lib/pilotCompanies';
 import { createFlight, updateFlight } from '@/app/(pilot)/log/actions';
 
 const SKYWINGS = 'Skywings';
-const COMPANY_PRESETS = ['Skywings', 'AlpinAir', 'Twin Paragliding'] as const;
 
 type Props = {
   mode: 'create' | 'edit';
@@ -22,10 +22,12 @@ type Props = {
   primaryCompany: string;
   /** Scheduled trip times for this date (from Einsatzplan); falls back to all season times. */
   scheduledTimes: string[];
+  /** Other companies registered by this pilot (Settings → Other companies). */
+  otherCompanies?: PilotCompany[];
 };
 
 export function FlightForm({
-  mode, flight, defaults, seasonOverride, primaryCompany, scheduledTimes,
+  mode, flight, defaults, seasonOverride, primaryCompany, scheduledTimes, otherCompanies = [],
 }: Props) {
   const router = useRouter();
   const season: Season = resolveSeason(seasonOverride, new Date(defaults.flight_date));
@@ -38,7 +40,18 @@ export function FlightForm({
   const isSkywings = form.company === SKYWINGS || form.company === primaryCompany && primaryCompany.toLowerCase().startsWith('skyw');
   const isSkywingsLike = form.company === SKYWINGS || form.company.toLowerCase().includes('skyw');
 
+  // If the selected company has its own fixed schedule, use that.
+  const matchedOther = useMemo(
+    () => otherCompanies.find(c => c.name === form.company),
+    [otherCompanies, form.company],
+  );
+
   const tripTimeOptions = useMemo(() => {
+    if (matchedOther?.trip_times && matchedOther.trip_times.length > 0) {
+      const list = [...matchedOther.trip_times];
+      if (form.trip_time && !list.includes(form.trip_time)) list.unshift(form.trip_time);
+      return list;
+    }
     if (!isSkywingsLike) return [] as readonly string[];
     const seasonTimes = getCurrentTripTimes(season);
     // Show scheduled times first if available; otherwise full season list.
@@ -48,7 +61,9 @@ export function FlightForm({
       return [form.trip_time, ...list];
     }
     return list;
-  }, [isSkywingsLike, season, scheduledTimes, form.trip_time]);
+  }, [isSkywingsLike, matchedOther, season, scheduledTimes, form.trip_time]);
+
+  const useDropdown = isSkywingsLike || tripTimeOptions.length > 0;
 
   function patch<K extends keyof FlightInput>(key: K, value: FlightInput[K]) {
     setForm(prev => {
@@ -91,7 +106,7 @@ export function FlightForm({
 
       {/* Trip time */}
       <Field label="Departure time">
-        {isSkywingsLike ? (
+        {useDropdown ? (
           <select
             value={form.trip_time}
             onChange={e => patch('trip_time', e.target.value)}
@@ -193,6 +208,8 @@ export function FlightForm({
       {companyPickerOpen && (
         <CompanyPicker
           current={form.company}
+          primaryCompany={primaryCompany}
+          otherCompanies={otherCompanies}
           onPick={(c) => { patch('company', c); setCompanyPickerOpen(false); }}
           onClose={() => setCompanyPickerOpen(false)}
         />
@@ -247,13 +264,25 @@ function Toggle({
 }
 
 function CompanyPicker({
-  current, onPick, onClose,
+  current, primaryCompany, otherCompanies, onPick, onClose,
 }: {
   current: string;
+  primaryCompany: string;
+  otherCompanies: PilotCompany[];
   onPick: (company: string) => void;
   onClose: () => void;
 }) {
-  const [custom, setCustom] = useState('');
+  // Primary first, then the pilot's registered other companies.
+  const choices = useMemo(() => {
+    const list: Array<{ name: string; color: string; subtitle?: string }> = [
+      { name: primaryCompany, color: '#E08A0B', subtitle: 'Primary' },
+    ];
+    for (const c of otherCompanies) {
+      if (c.name !== primaryCompany) list.push({ name: c.name, color: c.color_hex });
+    }
+    return list;
+  }, [primaryCompany, otherCompanies]);
+
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-end justify-center" onClick={onClose}>
       <div
@@ -262,36 +291,28 @@ function CompanyPicker({
       >
         <div className="h-1 w-10 bg-border rounded-full mx-auto" />
         <h3 className="font-display font-semibold text-center">Choose company</h3>
-        {COMPANY_PRESETS.map(c => (
+        {choices.map(c => (
           <button
-            key={c}
+            key={c.name}
             type="button"
-            onClick={() => onPick(c)}
+            onClick={() => onPick(c.name)}
             className={cn(
-              'w-full min-h-tap rounded-lg border px-3 py-2 text-left',
-              current === c ? 'border-primary bg-primary/5' : 'border-border',
+              'w-full min-h-tap rounded-lg border px-3 py-2 text-left inline-flex items-center gap-2.5',
+              current === c.name ? 'border-primary bg-primary/5' : 'border-border',
             )}
           >
-            {c}
+            <span
+              className="w-2.5 h-2.5 rounded-full shrink-0"
+              style={{ backgroundColor: c.color }}
+              aria-hidden
+            />
+            <span className="flex-1">{c.name}</span>
+            {c.subtitle && <span className="text-xs text-text-muted">{c.subtitle}</span>}
           </button>
         ))}
-        <div className="pt-2 border-t border-border">
-          <label className="text-sm font-medium">Custom</label>
-          <div className="flex gap-2 mt-1">
-            <input
-              value={custom}
-              onChange={e => setCustom(e.target.value)}
-              placeholder="e.g. Private"
-              className="flex-1 min-h-tap rounded-lg border border-border px-3 py-2 bg-white"
-            />
-            <button
-              type="button"
-              disabled={!custom.trim()}
-              onClick={() => onPick(custom.trim())}
-              className="btn-primary px-4"
-            >OK</button>
-          </div>
-        </div>
+        <p className="text-xs text-text-muted pt-1">
+          Manage companies in Settings → Other companies.
+        </p>
         <button type="button" onClick={onClose} className="btn-ghost w-full mt-2">Cancel</button>
       </div>
     </div>

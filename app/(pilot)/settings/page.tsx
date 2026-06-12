@@ -6,6 +6,8 @@ import { BackupButton } from '@/components/BackupButton';
 import { SetupStatusCard } from '@/components/SetupStatusCard';
 import { LogoutButton } from '@/components/LogoutButton';
 import { LocalBackupCard } from '@/components/LocalBackupCard';
+import { PilotCompaniesCard } from '@/components/PilotCompaniesCard';
+import { listPilotCompanies } from '@/lib/pilotCompanies';
 import { probeMissingMigrations } from '@/lib/setupProbe';
 
 export const dynamic = 'force-dynamic';
@@ -27,6 +29,7 @@ export default async function SettingsPage({
   const { data: pilot } = await supabase.from('pilots').select('*').eq('id', user.id).maybeSingle();
   const gdriveMsg = searchParams.gdrive ? GDRIVE_MESSAGES[searchParams.gdrive] : null;
   const missingMigrations = await probeMissingMigrations(user.id);
+  const otherCompanies = await listPilotCompanies(supabase, user.id);
 
   return (
     <div className="p-4 space-y-4 max-w-xl mx-auto">
@@ -51,6 +54,21 @@ export default async function SettingsPage({
       <h1 className="text-2xl font-display font-bold">Settings</h1>
       <SetupStatusCard missing={missingMigrations} />
       <SettingsForm pilot={pilot} email={user.email ?? ''} />
+
+      <fieldset className="card p-4 space-y-3">
+        <legend className="px-2 -ml-2 text-sm font-display font-semibold text-text-muted uppercase tracking-wide">
+          Other companies
+        </legend>
+        <PilotCompaniesCard
+          initial={otherCompanies}
+          primaryRates={{
+            flight_rate_chf: Number(pilot?.flight_rate_chf ?? 105),
+            photo_prepaid_rate_chf: Number(pilot?.photo_prepaid_rate_chf ?? 40),
+            thermal_rate_chf: Number(pilot?.thermal_rate_chf ?? 50),
+            no_show_rate_chf: Number(pilot?.no_show_rate_chf ?? 32),
+          }}
+        />
+      </fieldset>
 
       <fieldset className="card p-4 space-y-3">
         <legend className="px-2 -ml-2 text-sm font-display font-semibold text-text-muted uppercase tracking-wide">
