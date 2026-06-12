@@ -15,6 +15,7 @@ import { resolveSeason } from '@/lib/tripTimes';
 import { isoDateZurich, nowInZurich } from '@/lib/utils';
 import { saveAvailability, resetSubmission, resolveChangeRequest } from '@/app/(pilot)/availability/actions';
 import { AvailabilityStatusBanner } from '@/components/AvailabilityStatusBanner';
+import { Toast } from '@/components/Toast';
 import type { FullPlan, FullPlanPilot } from '@/lib/einsatzplanParser';
 
 export type FullPlansByMonth = Record<string, FullPlan>;
@@ -873,11 +874,7 @@ export function AvailabilityCalendar({
         );
       })()}
 
-      {msg && (
-        <p className={cn('text-sm', msg.kind === 'ok' ? 'text-success' : 'text-danger')}>
-          {msg.kind === 'ok' && <Check className="inline w-4 h-4 mr-1" />}{msg.text}
-        </p>
-      )}
+      <Toast msg={msg} onClose={() => setMsg(null)} />
     </div>
   );
 }

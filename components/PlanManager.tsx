@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { CalendarRange, RefreshCw, Lock, Trash2, FolderSync } from 'lucide-react';
+import { CalendarRange, RefreshCw, Lock, Trash2, FolderSync, ChevronDown } from 'lucide-react';
+import { Toast } from '@/components/Toast';
 import { extractDriveId, formatDateDe } from '@/lib/utils';
 import { monthKeyLabel } from '@/lib/einsatzplanImports';
 
@@ -24,6 +25,12 @@ export function PlanManager() {
   const [pending, startTransition] = useTransition();
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  // Collapsed by default once at least one month is imported; open it
+  // automatically for first-time users who still need to import.
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (status && !status.current && !status.next) setOpen(true);
+  }, [status]);
 
   async function reload() {
     const r = await fetch('/api/einsatzplan/import');
@@ -129,12 +136,29 @@ export function PlanManager() {
     );
   }
 
+  const summary = [status.current, status.next]
+    .map((s, i) => {
+      const label = monthKeyLabel(i === 0 ? status.current_month : status.next_month).split(' ')[0];
+      return `${label}: ${s ? `${s.days}d` : '—'}`;
+    })
+    .join(' · ');
+
   return (
     <div className="card p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <CalendarRange className="w-4 h-4 text-primary" />
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-2"
+        aria-expanded={open}
+      >
+        <CalendarRange className="w-4 h-4 text-primary shrink-0" />
         <h2 className="font-display font-semibold">Schedule imports</h2>
-      </div>
+        {!open && <span className="text-xs text-text-muted truncate">· {summary}</span>}
+        <ChevronDown className={`w-4 h-4 text-text-muted ml-auto shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {!open ? null : (
+      <>
       <p className="text-xs text-text-muted">
         {status.folder_configured
           ? 'Load each month straight from your linked Schedule folder — the right file is matched by month. Data appears in the calendar, stats, and the Google Calendar push.'
@@ -165,10 +189,10 @@ export function PlanManager() {
         onImportFromFolder={() => importFromFolder(status.next_month)}
         onReset={() => resetPlan(status.next_month)}
       />
-
-      {msg && (
-        <p className={msg.kind === 'ok' ? 'text-success text-sm' : 'text-danger text-sm'}>{msg.text}</p>
+      </>
       )}
+
+      <Toast msg={msg} onClose={() => setMsg(null)} />
     </div>
   );
 }
