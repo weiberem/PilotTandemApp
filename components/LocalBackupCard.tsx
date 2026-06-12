@@ -254,6 +254,38 @@ export function LocalBackupCard() {
         )}
       </div>
 
+      {/* VAT semester report */}
+      <div className="border-t border-border pt-3 space-y-2">
+        <p className="text-sm text-text-muted">
+          VAT (MWST) semester report — gross / VAT / net per month and company,
+          ready to forward to the accountant or upload to ESTV. Sent automatically
+          on June 30 and December 31.
+        </p>
+        <div className="flex gap-2">
+          <select
+            value={xlsxYear}
+            onChange={e => setXlsxYear(Number(e.target.value))}
+            className="flex-1 min-h-tap rounded-lg border border-border px-3 py-2 bg-white text-sm"
+          >
+            {years.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <a
+            href={`/api/backup/vat-report?year=${xlsxYear}&half=H1`}
+            className="btn-ghost border border-border inline-flex items-center justify-center gap-2 px-3 text-sm"
+            download
+          >
+            <FileSpreadsheet className="w-4 h-4" /> H1
+          </a>
+          <a
+            href={`/api/backup/vat-report?year=${xlsxYear}&half=H2`}
+            className="btn-ghost border border-border inline-flex items-center justify-center gap-2 px-3 text-sm"
+            download
+          >
+            <FileSpreadsheet className="w-4 h-4" /> H2
+          </a>
+        </div>
+      </div>
+
       {msg && (
         <p
           className={
