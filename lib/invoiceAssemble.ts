@@ -58,13 +58,25 @@ export async function assembleInvoice({
   if (ferr) return { error: ferr.message };
 
   const flights = (flightsRows ?? []) as FlightRow[];
+
+  // Per-company override: rates and the office email may differ for
+  // non-primary companies (AlpinAir, Twin, …). Any NULL falls back to the
+  // pilot's primary rates / primary office email.
+  const { data: pcRow } = await sb
+    .from('pilot_companies')
+    .select('flight_rate_chf, photo_prepaid_rate_chf, thermal_rate_chf, no_show_rate_chf, office_email, address')
+    .eq('pilot_id', user.id)
+    .eq('name', company)
+    .maybeSingle();
+
   const rates: PilotRates = {
-    flight_rate_chf: Number(pilot.flight_rate_chf ?? 105),
-    photo_prepaid_rate_chf: Number(pilot.photo_prepaid_rate_chf ?? 40),
-    thermal_rate_chf: Number(pilot.thermal_rate_chf ?? 50),
-    no_show_rate_chf: Number(pilot.no_show_rate_chf ?? 32),
+    flight_rate_chf: Number(pcRow?.flight_rate_chf ?? pilot.flight_rate_chf ?? 105),
+    photo_prepaid_rate_chf: Number(pcRow?.photo_prepaid_rate_chf ?? pilot.photo_prepaid_rate_chf ?? 40),
+    thermal_rate_chf: Number(pcRow?.thermal_rate_chf ?? pilot.thermal_rate_chf ?? 50),
+    no_show_rate_chf: Number(pcRow?.no_show_rate_chf ?? pilot.no_show_rate_chf ?? 32),
   };
   const { rows, totals } = buildInvoiceRows(flights, rates, monthFirst);
+  const isPrimary = company === pilot.primary_company_name || company === 'Skywings';
 
   return {
     pilotId: user.id,
@@ -79,12 +91,12 @@ export async function assembleInvoice({
       vat_rate: Number(pilot.vat_rate ?? VAT_DEFAULT),
     },
     company: {
-      name: company === pilot.primary_company_name || company === 'Skywings'
+      name: isPrimary
         ? (pilot.primary_company_name ?? 'Skywings Adventures GmbH')
         : company,
-      address: company === pilot.primary_company_name || company === 'Skywings'
+      address: isPrimary
         ? (pilot.primary_company_address ?? null)
-        : null,
+        : (pcRow?.address ?? null),
     },
     rates,
     monthFirst,
@@ -92,7 +104,7 @@ export async function assembleInvoice({
     totals,
     flights,
     driveFolderId: pilot.google_drive_folder_id ?? null,
-    officeEmail: pilot.office_email ?? null,
+    officeEmail: (pcRow?.office_email ?? pilot.office_email) ?? null,
     personalEmail: pilot.personal_email ?? null,
     invoiceCcEmail: pilot.invoice_cc_email ?? null,
   };

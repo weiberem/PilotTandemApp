@@ -3,13 +3,19 @@ import { AlertCircle, Wind } from 'lucide-react';
 import { formatChf } from '@/lib/utils';
 import { PhotoStatusSwitch } from './PhotoStatusSwitch';
 import type { FlightRow } from '@/lib/flights';
+import { suggestColor } from '@/lib/pilotCompanies';
 
 export function FlightLine({ flight, indent = 'pl-10' }: { flight: FlightRow; indent?: string }) {
   const tip = Number(flight.tip_chf ?? 0);
+  const color = suggestColor(flight.company);
   return (
     <div className={`flex items-center gap-3 p-3 ${indent} flex-wrap`}>
       <span className="font-mono text-sm tabular-nums w-12">{flight.trip_time}</span>
-      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary-dark">
+      <span
+        className="text-xs px-2 py-0.5 rounded-full inline-flex items-center gap-1.5"
+        style={{ backgroundColor: `${color}1A`, color: color }}
+      >
+        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} aria-hidden />
         {flight.company}
       </span>
       <PhotoStatusSwitch flightId={flight.id} current={flight.photo_status} disabled={flight.is_no_show} />

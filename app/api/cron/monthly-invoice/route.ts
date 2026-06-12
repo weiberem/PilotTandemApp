@@ -5,6 +5,7 @@ import { computeDayTotals, type FlightRow, type PilotRates } from '@/lib/flights
 import { getResend, getFromAddress } from '@/lib/email';
 import { runMonthlyBackup } from '@/lib/runBackup';
 import { archivePreviousMonthImports } from '@/lib/archiveImports';
+import { sendInvoiceForPilot, monthVerificationStatusSvc } from '@/lib/sendInvoiceService';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest) {
 
   const { data: pilots, error: perr } = await svc
     .from('pilots')
-    .select('id, full_name, office_email, personal_email, flight_rate_chf, photo_prepaid_rate_chf, thermal_rate_chf, no_show_rate_chf, primary_company_name, is_active')
+    .select('id, full_name, office_email, personal_email, flight_rate_chf, photo_prepaid_rate_chf, thermal_rate_chf, no_show_rate_chf, primary_company_name, is_active, auto_send_invoice, is_demo')
     .eq('is_active', true);
   if (perr) return NextResponse.json({ error: perr.message }, { status: 500 });
 
@@ -50,6 +51,8 @@ export async function GET(req: NextRequest) {
     pilot_id: string;
     companies: { company: string; status: string; total: number }[];
     emailed: boolean;
+    verification?: { total: number; verified: number; allVerified: boolean } | null;
+    auto_send_scheduled?: string[];
     backup?: { file_name?: string; deleted?: number; error?: string };
   }> = [];
 
@@ -114,30 +117,87 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // Verification status decides both the email wording and auto-send.
+    const verification = await monthVerificationStatusSvc(svc, pilot.id, monthFirst);
+    const autoSendScheduled: string[] = [];
+
+    // Day-1 auto-send is announced, not executed. The actual send fires from
+    // the dedicated auto-send-invoice cron 24h later, giving the pilot a full
+    // day to intervene.
+    if (verification?.allVerified && pilot.auto_send_invoice && !pilot.is_demo) {
+      for (const c of companyResults) {
+        if (c.status !== 'draft_ready') continue;
+        c.status = 'auto_send_scheduled';
+        autoSendScheduled.push(c.company);
+      }
+    }
+
     // Notify the pilot if any drafts were prepared and they have an email.
     const targetEmail = pilot.personal_email ?? pilot.office_email;
     const draftCount = companyResults.filter(c => c.status === 'draft_ready').length;
     let emailed = false;
-    if (draftCount > 0 && targetEmail) {
+    if ((draftCount > 0 || autoSendScheduled.length > 0) && targetEmail) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
+      let subject: string;
+      let bodyLines: string[];
+
+      if (autoSendScheduled.length > 0) {
+        subject = `${monthLabel}: invoice will be sent automatically in 24 hours`;
+        bodyLines = [
+          `Hi ${pilot.full_name ?? ''},`,
+          ``,
+          `All flight days of ${monthLabel} are verified and auto-send is on, so`,
+          `your invoice will be sent to the office tomorrow at 07:00 unless you stop it:`,
+          ``,
+          ...companyResults
+            .filter(c => c.status === 'auto_send_scheduled')
+            .map(c => `  ${c.company}: CHF ${c.total.toFixed(0)}`),
+          ``,
+          `Review or stop: ${appUrl}/dashboard/invoice?month=${monthFirst}`,
+          `To stop: turn off auto-send in Settings, or send manually now.`,
+        ];
+      } else if (verification?.allVerified) {
+        subject = `${monthLabel}: invoice ready — all days verified`;
+        bodyLines = [
+          `Hi ${pilot.full_name ?? ''},`,
+          ``,
+          `All ${verification.total} flight days of ${monthLabel} are verified.`,
+          `Your invoice is ready — review and send it with one tap:`,
+          ``,
+          ...companyResults
+            .filter(c => c.status === 'draft_ready')
+            .map(c => `  ${c.company}: CHF ${c.total.toFixed(0)}`),
+          ``,
+          `${appUrl}/dashboard/invoice?month=${monthFirst}`,
+          ``,
+          `Tip: enable auto-send in Settings and this step disappears.`,
+        ];
+      } else {
+        const open = verification ? verification.total - verification.verified : null;
+        subject = `${monthLabel}: verify your days to send the invoice`;
+        bodyLines = [
+          `Hi ${pilot.full_name ?? ''},`,
+          ``,
+          open != null
+            ? `${open} of ${verification!.total} flight days of ${monthLabel} still need verification.`
+            : `Some flight days of ${monthLabel} still need verification.`,
+          `Once all days are verified you can send the invoice:`,
+          ``,
+          ...companyResults
+            .filter(c => c.status === 'draft_ready')
+            .map(c => `  ${c.company}: CHF ${c.total.toFixed(0)} (draft)`),
+          ``,
+          `Verify days: ${appUrl}/flights`,
+          `Invoice: ${appUrl}/dashboard/invoice?month=${monthFirst}`,
+        ];
+      }
+
       try {
         await getResend().emails.send({
           from: getFromAddress(),
           to: targetEmail,
-          subject: `Ihre Rechnung für ${monthLabel} ist bereit zur Kontrolle.`,
-          text: [
-            `Hallo ${pilot.full_name ?? ''},`,
-            ``,
-            `Ihre Abrechnung für ${monthLabel} wurde automatisch erstellt.`,
-            ``,
-            ...companyResults
-              .filter(c => c.status === 'draft_ready')
-              .map(c => `  ${c.company}: CHF ${c.total.toFixed(0)}`),
-            ``,
-            `Bitte kontrollieren und im Dashboard senden:`,
-            `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/dashboard/invoice?month=${monthFirst}`,
-            ``,
-            `TandemLog`,
-          ].join('\n'),
+          subject,
+          text: [...bodyLines, ``, `TandemLog`].join('\n'),
         });
         emailed = true;
       } catch (e) {
@@ -156,7 +216,7 @@ export async function GET(req: NextRequest) {
       backup = { error: e instanceof Error ? e.message : 'unknown' };
     }
 
-    summary.push({ pilot_id: pilot.id, companies: companyResults, emailed, backup });
+    summary.push({ pilot_id: pilot.id, companies: companyResults, emailed, verification, auto_send_scheduled: autoSendScheduled, backup });
   }
 
   // Archive any per-month Einsatzplan imports whose month has fully ended.

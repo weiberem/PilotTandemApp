@@ -6,8 +6,14 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 
 /**
- * Used by the Supabase invite flow. Magic link lands here with a session,
- * then the user picks a password + full name and is redirected to /settings.
+ * Used by the Supabase admin-invite flow. The magic link from the invitation
+ * email lands here with a fresh session — the user picks a password + name
+ * and is forwarded to /settings.
+ *
+ * SAFETY: if an already-onboarded pilot lands here (e.g. by typing the URL),
+ * we redirect them away instead of letting them overwrite their own
+ * full_name. A previous version did that and one wrong click in /admin
+ * cascade-deleted everything.
  */
 export default function RegisterPage() {
   const router = useRouter();
@@ -16,10 +22,20 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [hasSession, setHasSession] = useState(false);
+  const [state, setState] = useState<'loading' | 'no_session' | 'already_onboarded' | 'ready'>('loading');
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setHasSession(!!data.user));
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setState('no_session'); return; }
+      const { data: pilot } = await supabase
+        .from('pilots')
+        .select('full_name')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (pilot?.full_name) { setState('already_onboarded'); return; }
+      setState('ready');
+    })();
   }, [supabase]);
 
   function onSubmit(e: React.FormEvent) {
@@ -34,7 +50,6 @@ export default function RegisterPage() {
         setError(error.message);
         return;
       }
-      // Sync full_name to pilots row.
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         await supabase.from('pilots').update({ full_name: fullName }).eq('id', user.id);
@@ -44,14 +59,34 @@ export default function RegisterPage() {
     });
   }
 
-  if (!hasSession) {
+  if (state === 'loading') {
+    return <div className="card p-6 text-sm text-text-muted">Loading…</div>;
+  }
+
+  if (state === 'no_session') {
     return (
       <div className="card p-6">
         <h1 className="text-xl font-display font-semibold mb-2">Invitation required</h1>
         <p className="text-sm text-text-muted mb-4">
-          Accounts are created by invitation only. Please follow the link from your invitation email.
+          This page is for redeeming an admin invitation. To open a new account yourself, use
+          sign-up instead.
         </p>
+        <Link href="/signup" className="btn-primary w-full mb-2">Create account</Link>
         <Link href="/login" className="btn-ghost w-full">Back to Sign In</Link>
+      </div>
+    );
+  }
+
+  if (state === 'already_onboarded') {
+    return (
+      <div className="card p-6">
+        <h1 className="text-xl font-display font-semibold mb-2">You're already signed in</h1>
+        <p className="text-sm text-text-muted mb-4">
+          This page is only for new invited users. To invite another pilot, use the admin area.
+          To create a separate account, sign out first.
+        </p>
+        <Link href="/home" className="btn-primary w-full mb-2">Go to Home</Link>
+        <Link href="/admin" className="btn-ghost w-full">Open admin</Link>
       </div>
     );
   }

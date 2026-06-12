@@ -30,8 +30,8 @@ export default function Index() {
       <section className="flex-1 flex items-start justify-center p-4 -mt-6">
         <div className="card p-6 space-y-3 w-full max-w-sm">
           <Link href="/login" className="btn-primary w-full">Sign In</Link>
-          <Link href="/register" className="btn-ghost w-full border border-border">
-            Redeem invitation
+          <Link href="/signup" className="btn-ghost w-full border border-border">
+            Create account
           </Link>
           <div className="border-t border-border pt-3">
             <Link

@@ -6,6 +6,18 @@
       "schedule": "0 6 1 * *"
     },
     {
+      "path": "/api/cron/auto-send-invoice",
+      "schedule": "0 6 2-7 * *"
+    },
+    {
+      "path": "/api/cron/vat-report",
+      "schedule": "0 6 30 6 *"
+    },
+    {
+      "path": "/api/cron/vat-report",
+      "schedule": "0 6 31 12 *"
+    },
+    {
       "path": "/api/cron/demo-cleanup",
       "schedule": "0 3 * * *"
     }
