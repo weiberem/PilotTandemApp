@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Camera, Check, Minus, Plus, X } from 'lucide-react';
-import { bulkAddFlights, bulkAddFlightsByCount } from '@/app/(pilot)/log/bulkActions';
+import { bulkAddFlights, bulkAddFlightsByCount, applySumupCcTimes } from '@/app/(pilot)/log/bulkActions';
 
 type Extract = {
   date: string | null;
@@ -25,7 +25,10 @@ type Props = { today: string; company: string };
  */
 export function ScreenshotCapture({ today, company }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [phase, setPhase] = useState<'idle' | 'scanning' | 'review'>('idle');
+  const sumupRef = useRef<HTMLInputElement>(null);
+  const [phase, setPhase] = useState<'idle' | 'scanning' | 'review' | 'sumup'>('idle');
+  const [sumupDate, setSumupDate] = useState<string | null>(null);
+  const [sumupBusy, setSumupBusy] = useState(false);
   const [extract, setExtract] = useState<Extract | null>(null);
   const [pp, setPp] = useState(0);
   const [cc, setCc] = useState(0);
@@ -85,19 +88,60 @@ export function ScreenshotCapture({ today, company }: Props) {
 
   const countsMode = !!extract && extract.trip_times.length === 0;
 
+  async function onSumupFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setMsg(null);
+    setSumupBusy(true);
+    try {
+      const buf = await file.arrayBuffer();
+      const b64 = btoa(new Uint8Array(buf).reduce((s, b) => s + String.fromCharCode(b), ''));
+      const r = await fetch('/api/ai/extract-sumup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ image_base64: b64, media_type: file.type }),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        setMsg({ kind: 'err', text: data.error === 'ai_not_configured'
+          ? 'AI is not configured yet.' : 'Could not read the SumUp screenshot.' });
+        setSumupBusy(false);
+        return;
+      }
+      const payments: string[] = (data.transactions ?? [])
+        .filter((t: { amount: number }) => Math.round(t.amount) === 40)
+        .map((t: { time: string }) => t.time);
+      if (payments.length === 0) {
+        setMsg({ kind: 'err', text: 'No 40 CHF card photo payments found in the screenshot.' });
+        setSumupBusy(false);
+        return;
+      }
+      const res = await applySumupCcTimes({ flight_date: sumupDate ?? today, payment_times: payments });
+      setSumupBusy(false);
+      if (!res.ok) { setMsg({ kind: 'err', text: res.error }); return; }
+      setMsg({ kind: 'ok', text: `${res.assigned} CC photo flight${res.assigned === 1 ? '' : 's'} timed from ${res.payments} payment${res.payments === 1 ? '' : 's'}.` });
+    } catch {
+      setMsg({ kind: 'err', text: 'Upload failed — please try again.' });
+      setSumupBusy(false);
+    }
+  }
+
   function onConfirm() {
     if (!extract) return;
+    const wasCounts = countsMode;
+    const dateUsed = extract.date ?? today;
     setMsg(null);
     startTransition(async () => {
-      const r = countsMode
+      const r = wasCounts
         ? await bulkAddFlightsByCount({
-            flight_date: extract.date ?? today,
+            flight_date: dateUsed,
             flights_count: cFlights,
             photo_pp_count: cPp, double_air_count: cDouble, no_show_count: cNoShow,
             company,
           })
         : await bulkAddFlights({
-            flight_date: extract.date ?? today,
+            flight_date: dateUsed,
             trip_times: extract.trip_times,
             pp_count: pp, cc_count: cc, cash_count: cash,
             company,
@@ -108,8 +152,11 @@ export function ScreenshotCapture({ today, company }: Props) {
         kind: 'ok',
         text: `${r.inserted} flights logged${skipped ? ` (${skipped} already existed)` : ''}.`,
       });
-      setPhase('idle');
       setExtract(null);
+      // Counts have no times — offer the optional SumUp step to time the CC
+      // photo flights. Time-based captures already have times → done.
+      if (wasCounts) { setSumupDate(dateUsed); setPhase('sumup'); }
+      else { setPhase('idle'); }
     });
   }
 
@@ -135,13 +182,53 @@ export function ScreenshotCapture({ today, company }: Props) {
         <div className="grid grid-cols-2 gap-2">
           <Counter label="Flights" value={cFlights} onChange={setCFlights} max={30} />
           <Counter label="No show" value={cNoShow} onChange={setCNoShow} max={cFlights} />
-          <Counter label="Photo (PP)" value={cPp} onChange={setCPp} max={flying} />
+          <Counter label="Photo prepaid" value={cPp} onChange={setCPp} max={flying} />
           <Counter label="Double air" value={cDouble} onChange={setCDouble} max={flying} />
         </div>
 
+        <p className="text-[11px] text-text-muted">
+          Prepaid = photos paid in advance. Card (CC) photos get their times from the SumUp step next.
+        </p>
         <button onClick={onConfirm} disabled={pending || cFlights < 1} className="btn-primary w-full">
           <Check className="w-4 h-4 mr-2" />
           {pending ? 'Saving…' : `Confirm ${cFlights} flight${cFlights === 1 ? '' : 's'}`}
+        </button>
+        {msg && <p className={msg.kind === 'ok' ? 'text-success text-sm' : 'text-danger text-sm'}>{msg.text}</p>}
+      </div>
+    );
+  }
+
+  if (phase === 'sumup') {
+    return (
+      <div className="card p-4 space-y-3">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="font-display font-semibold text-lg">Card photo times?</div>
+            <div className="text-xs text-text-muted">
+              Optional — upload your SumUp “Sales” screenshot and the 40 CHF card photos get matched
+              to their flights’ times automatically.
+            </div>
+          </div>
+          <button onClick={() => { setPhase('idle'); setSumupDate(null); }} className="p-1 text-text-muted" aria-label="Skip">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={() => sumupRef.current?.click()}
+          disabled={sumupBusy}
+          className="btn-primary w-full"
+        >
+          <Camera className="w-5 h-5 mr-2" />
+          {sumupBusy ? 'Reading SumUp…' : 'Scan SumUp sales'}
+        </button>
+        <input ref={sumupRef} type="file" accept="image/*" onChange={onSumupFile} className="hidden" />
+        <button
+          type="button"
+          onClick={() => { setPhase('idle'); setSumupDate(null); }}
+          className="btn-ghost w-full border border-border text-sm"
+        >
+          Done — skip SumUp
         </button>
         {msg && <p className={msg.kind === 'ok' ? 'text-success text-sm' : 'text-danger text-sm'}>{msg.text}</p>}
       </div>
