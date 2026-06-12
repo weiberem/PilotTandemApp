@@ -423,6 +423,35 @@ export function AvailabilityCalendar({
         />
       )}
 
+      {/* Approach toggle: start from an empty month and add the days you can
+          work, or start fully available and mark the days off. Both then allow
+          per-day ½-day + 07:10/17:00 refinement. */}
+      {mode === 'own' && (
+        <div>
+          <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-bg-subtle text-sm">
+            <button
+              onClick={() => { if (invert) { setInvert(false); setFreeSet(new Set()); setSelectedDate(null); setMsg(null); } }}
+              className={cn(
+                'min-h-[40px] rounded-md font-medium transition',
+                !invert ? 'bg-white text-text shadow-sm' : 'text-text-muted',
+              )}
+            >Add my days</button>
+            <button
+              onClick={() => { if (!invert) { setInvert(true); setFreeSet(new Set()); setSelectedDate(null); setMsg(null); } }}
+              className={cn(
+                'min-h-[40px] rounded-md font-medium transition',
+                invert ? 'bg-white text-text shadow-sm' : 'text-text-muted',
+              )}
+            >Mark days off</button>
+          </div>
+          <p className="text-xs text-text-muted mt-1 text-center">
+            {invert
+              ? 'Available all month — tap the days off; tap again to set ½-day / 07:10 / 17:00.'
+              : 'Empty month — tap the days you can work (Full → ½AM → ½PM), then set edge times.'}
+          </p>
+        </div>
+      )}
+
       {mode === 'plan' && incomingSwaps.length > 0 && (
         <div className="card p-3 border-l-4 border-l-accent text-sm space-y-2">
           <div className="font-medium flex items-center gap-2">
@@ -697,19 +726,9 @@ export function AvailabilityCalendar({
             </button>
           </div>
           <div className="flex gap-2 text-sm">
-            <button
-              onClick={() => { setInvert(v => !v); setFreeSet(new Set()); setSelectedDate(null); setMsg(null); }}
-              className={cn(
-                'btn-ghost flex-1 border text-xs',
-                invert ? 'border-primary text-primary-dark bg-primary/10' : 'border-border',
-              )}
-            >
-              <Repeat className="w-3.5 h-3.5 mr-1" />
-              {invert ? 'Inverted: tap free days' : 'Mark free days instead'}
-            </button>
             {invert && (
               <button onClick={applyInvert} className="btn-ghost flex-1 border border-success/40 text-success text-xs">
-                <Check className="w-3.5 h-3.5 mr-1" /> Apply
+                <Check className="w-3.5 h-3.5 mr-1" /> Apply to calendar
               </button>
             )}
             <button onClick={onExportIcs} disabled={invert} className="btn-ghost flex-1 border border-border text-xs">
