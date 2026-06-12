@@ -3,6 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+import { deriveCcTripTimes } from '@/lib/sumup';
+import { resolveSeason, SUMMER_TRIP_TIMES, WINTER_TRIP_TIMES } from '@/lib/tripTimes';
+import type { ParsedSchedule } from '@/lib/einsatzplanParser';
 
 const schema = z.object({
   flight_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -138,4 +141,68 @@ export async function bulkAddFlightsByCount(input: z.input<typeof countSchema>) 
   revalidatePath('/today');
   revalidatePath('/flights');
   return { ok: true as const, inserted: rows.length };
+}
+
+const sumupSchema = z.object({
+  flight_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  payment_times: z.array(z.string().regex(/^\d{2}:\d{2}$/)).min(1).max(40),
+});
+
+/**
+ * SumUp CC matching: each 40-CHF card payment is a photo paid after a flight.
+ * Derive the flight's trip time (payment ≈ flight + ~1h), then stamp that time
+ * + photo_status 'CC' onto one of the day's timeless flights. Candidate trip
+ * times come from the imported schedule for the day, else the season grid.
+ */
+export async function applySumupCcTimes(input: z.input<typeof sumupSchema>) {
+  const parsed = sumupSchema.safeParse(input);
+  if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
+  const { flight_date, payment_times } = parsed.data;
+
+  const sb = createClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return { ok: false as const, error: 'Not authenticated' };
+
+  const { data: pilot } = await sb
+    .from('pilots')
+    .select('season_override, einsatzplan_schedule')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  const schedule = (pilot?.einsatzplan_schedule as ParsedSchedule | null) ?? {};
+  const season = resolveSeason(pilot?.season_override ?? null, new Date(flight_date));
+  const seasonTimes = season === 'summer' ? [...SUMMER_TRIP_TIMES] : [...WINTER_TRIP_TIMES];
+  const candidates = schedule[flight_date]?.times?.length ? schedule[flight_date].times : seasonTimes;
+
+  // Timeless flights for the day that can take a CC photo (not no-show, no
+  // other photo already). 'none' first so we don't overwrite prepaid photos.
+  const { data: rows } = await sb
+    .from('flights')
+    .select('id, photo_status, trip_time, is_no_show')
+    .eq('pilot_id', user.id)
+    .eq('flight_date', flight_date);
+  const existingTimes = new Set((rows ?? []).map(r => r.trip_time).filter(Boolean) as string[]);
+  const free = (rows ?? [])
+    .filter(r => r.trip_time === null && !r.is_no_show)
+    .sort((a, b) => (a.photo_status === 'none' ? 0 : 1) - (b.photo_status === 'none' ? 0 : 1));
+
+  const matches = deriveCcTripTimes(payment_times, candidates)
+    .map(m => m.trip)
+    .filter((t): t is string => !!t && !existingTimes.has(t));
+  // Distinct, ascending, and only as many as we have free flights.
+  const trips = [...new Set(matches)].sort().slice(0, free.length);
+
+  let assigned = 0;
+  for (let i = 0; i < trips.length; i++) {
+    const flight = free[i];
+    const { error } = await sb.from('flights')
+      .update({ trip_time: trips[i], photo_status: 'CC' })
+      .eq('id', flight.id);
+    if (!error) assigned++;
+  }
+
+  revalidatePath('/home');
+  revalidatePath('/today');
+  revalidatePath('/flights');
+  return { ok: true as const, assigned, payments: payment_times.length };
 }
