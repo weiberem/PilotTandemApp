@@ -48,7 +48,8 @@ export default async function HomePage() {
   const allFlights = (rows ?? []) as FlightRow[];
   const verifiedDates = new Set<string>((vers ?? []).map(v => v.flight_date as string));
   const todayFlights = allFlights.filter(f => f.flight_date === today)
-    .sort((a, b) => a.trip_time.localeCompare(b.trip_time));
+    // Timeless count-capture flights (null trip_time) sort to the end.
+    .sort((a, b) => (a.trip_time ?? '~').localeCompare(b.trip_time ?? '~'));
 
   const rates: PilotRates = {
     flight_rate_chf: Number(pilot.flight_rate_chf ?? 105),
