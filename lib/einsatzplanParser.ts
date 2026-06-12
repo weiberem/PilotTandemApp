@@ -151,14 +151,22 @@ function buildDayColumns(ws: ExcelJS.Worksheet, headerRow: number): Map<number, 
 }
 
 /**
- * Skywings colours each shift cell by ROLE. The "Fliegen" role is the olive
- * green of the Office theme's Accent-3 — stored either as explicit ARGB
- * FF9BBB59 or as a theme-6 reference (same colour). ONLY that green means the
- * pilot flies a tandem; red/yellow/orange/grey are other duties (bus, office,
- * Götti, …) and count as NOT flying. The number in the cell is just the
- * booking priority rank (lower = higher priority), not a flying flag.
+ * Skywings colours each shift cell by ROLE. The "Fliegen" (flying) role is
+ * GREEN — and several green shades are used, but ANY green means the pilot is
+ * on/flying that shift. Red/yellow/orange/blue/grey are other duties (bus,
+ * office, Götti, …) and count as NOT flying. The number in the cell is just the
+ * booking priority rank (lower = higher), not a flying flag.
  */
-const FLY_ARGB = 'FF9BBB59';
+function isGreenHex(argb: string): boolean {
+  const h = argb.length === 8 ? argb.slice(2) : argb;
+  if (!/^[0-9a-fA-F]{6}$/.test(h)) return false;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  // Green-dominant and not near-black: covers olive (9BBB59), dark (38761D),
+  // bright (00FF00) and light tints alike.
+  return g > r && g > b && g >= 80;
+}
 
 function isFlyCell(cell: ExcelJS.Cell): boolean {
   const fill = cell.fill as
@@ -166,9 +174,9 @@ function isFlyCell(cell: ExcelJS.Cell): boolean {
     | undefined;
   if (!fill || fill.type !== 'pattern' || !fill.fgColor) return false;
   const fg = fill.fgColor;
-  if (typeof fg.argb === 'string' && fg.argb.toUpperCase() === FLY_ARGB) return true;
-  // Same green expressed as a theme reference (Accent 3 = theme 6), untinted.
-  if (fg.theme === 6 && (fg.tint == null || Math.abs(fg.tint) < 0.05)) return true;
+  if (typeof fg.argb === 'string') return isGreenHex(fg.argb);
+  // Office theme Accent-3 is green; any tint is just a lighter/darker green.
+  if (typeof fg.theme === 'number') return fg.theme === 6;
   return false;
 }
 
