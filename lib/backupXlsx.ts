@@ -50,14 +50,46 @@ export async function generateMonthlyBackupXlsx({
   monthFirst: string;     // YYYY-MM-01
   pilotName: string;
 }): Promise<Buffer> {
+  return generateRangeBackupXlsx({
+    pilotName,
+    months: [{ monthFirst, flights }],
+  });
+}
+
+/**
+ * Multi-month workbook: one worksheet per month with the same hand-layout.
+ * Sheets are named "Jan 2026" etc. Use this for yearly or multi-month
+ * downloads — keeps each month visually identical to the single-month
+ * backup.
+ */
+export async function generateRangeBackupXlsx({
+  pilotName, months,
+}: {
+  pilotName: string;
+  months: Array<{ monthFirst: string; flights: FlightRow[] }>;
+}): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'TandemLog';
   wb.created = new Date();
 
-  const ws = wb.addWorksheet('Flüge', {
-    views: [{ state: 'frozen', ySplit: 2 }],
-  });
+  for (const { monthFirst, flights } of months) {
+    const sheetName = monthLabelShort(monthFirst);
+    const ws = wb.addWorksheet(sheetName, {
+      views: [{ state: 'frozen', ySplit: 2 }],
+    });
+    populateMonthSheet(ws, flights, monthFirst, pilotName);
+  }
 
+  const out = await wb.xlsx.writeBuffer();
+  return Buffer.from(out as ArrayBuffer);
+}
+
+function populateMonthSheet(
+  ws: ExcelJS.Worksheet,
+  flights: FlightRow[],
+  monthFirst: string,
+  pilotName: string,
+): void {
   ws.getColumn(1).width = 4;
   ws.getColumn(2).width = 13;
   ws.getColumn(3).width = 9;
@@ -147,9 +179,12 @@ export async function generateMonthlyBackupXlsx({
       r.getCell(8).alignment = { wrapText: true };
     }
   });
+}
 
-  const out = await wb.xlsx.writeBuffer();
-  return Buffer.from(out as ArrayBuffer);
+function monthLabelShort(monthFirst: string): string {
+  const [y, m] = monthFirst.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' })
+    .format(new Date(Date.UTC(y, m - 1, 1)));
 }
 
 function monthLabelEn(monthFirst: string): string {
