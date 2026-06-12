@@ -54,6 +54,7 @@ type Props = {
   schedule: ScheduleMap;
   fullPlansByMonth: FullPlansByMonth;
   changeRequestsByMonth: Record<string, ChangeRequestMap>;
+  googleConnected: boolean;
 };
 
 // Pilot-count thresholds for the "Einsatzplan"-mode tile colour.
@@ -63,7 +64,7 @@ const OK_THRESHOLD = 11;
 
 export function AvailabilityCalendar({
   pilotName, officeEmail, seasonOverride, initialMonth, initialDaysByMonth,
-  submittedByMonth, schedule, fullPlansByMonth, changeRequestsByMonth,
+  submittedByMonth, schedule, fullPlansByMonth, changeRequestsByMonth, googleConnected,
 }: Props) {
   const [mode, setMode] = useState<Mode>('own');
   // Day-detail sheet (roster + change request). Opens in plan mode on any
@@ -262,6 +263,34 @@ export function AvailabilityCalendar({
       // "Add Events" sheet; on desktop browsers it downloads the file.
       window.location.href = `/api/availability/ics?month=${monthKey}`;
       setMsg({ kind: 'ok', text: 'Calendar import opening — pick "Add to Calendar" on iPhone or import the file on desktop.' });
+    });
+  }
+
+  /** One-click push of this month's availability into the pilot's Google Calendar. */
+  function onPushGoogle() {
+    if (!googleConnected) {
+      setMsg({ kind: 'err', text: 'Connect Google in Settings → Google Drive first, then try again.' });
+      return;
+    }
+    const days = Object.values(dayMap);
+    if (days.length === 0) { setMsg({ kind: 'err', text: 'No availability entered.' }); return; }
+    startTransition(async () => {
+      // Persist first — the server reads the saved submission.
+      const save = await saveAvailability({ month: monthKey, days });
+      if (!save.ok) { setMsg({ kind: 'err', text: save.error }); return; }
+      const res = await fetch('/api/availability/gcal-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ month: monthKey }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMsg({ kind: 'err', text: j.error === 'not_connected'
+          ? 'Connect Google in Settings → Google Drive first.'
+          : (j.detail ?? j.error ?? 'Could not add to Google Calendar.') });
+        return;
+      }
+      setMsg({ kind: 'ok', text: `Added to Google Calendar (${j.total} day${j.total === 1 ? '' : 's'}).` });
     });
   }
 
@@ -733,14 +762,28 @@ export function AvailabilityCalendar({
               <Mail className="w-4 h-4 mr-2" /> Prepare email
             </button>
           </div>
-          <div className="flex gap-2 text-sm">
-            {invert && (
-              <button onClick={applyInvert} className="btn-ghost flex-1 border border-success/40 text-success text-xs">
-                <Check className="w-3.5 h-3.5 mr-1" /> Apply to calendar
-              </button>
-            )}
-            <button onClick={onExportIcs} disabled={invert} className="btn-ghost flex-1 border border-border text-xs">
-              <CalendarPlus className="w-3.5 h-3.5 mr-1" /> To my calendar
+          {invert && (
+            <button onClick={applyInvert} className="btn-ghost w-full border border-success/40 text-success text-xs">
+              <Check className="w-3.5 h-3.5 mr-1" /> Apply to calendar
+            </button>
+          )}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-text-muted shrink-0">Add to calendar:</span>
+            <button
+              onClick={onExportIcs}
+              disabled={invert || pending}
+              className="btn-ghost flex-1 border border-border text-xs"
+              title="Download / open an .ics file (Apple Calendar, Outlook, …)"
+            >
+              <CalendarPlus className="w-3.5 h-3.5 mr-1" /> .ics file
+            </button>
+            <button
+              onClick={onPushGoogle}
+              disabled={invert || pending}
+              className="btn-ghost flex-1 border border-border text-xs"
+              title="Add this month's availability straight to your Google Calendar"
+            >
+              <GoogleIcon className="w-3.5 h-3.5 mr-1" /> Google
             </button>
           </div>
           <div className="flex gap-2 text-xs">
@@ -1047,6 +1090,18 @@ function ChangeRequestPanel({
           : 'Sends a structured email to the office. They reply as usual.'}
       </p>
     </div>
+  );
+}
+
+/** Google's 4-colour "G" mark, sized via className (width/height). */
+function GoogleIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 48 48" className={className} aria-hidden focusable="false">
+      <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z" />
+      <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z" />
+      <path fill="#FBBC05" d="M11.69 28.18c-.44-1.32-.69-2.73-.69-4.18s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z" />
+      <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z" />
+    </svg>
   );
 }
 
