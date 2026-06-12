@@ -153,6 +153,16 @@ export async function POST(req: NextRequest) {
         { filename: `${baseName}.xlsx`, content: xlsxBuf },
       ],
     });
+    // Resend reports API failures in `error` rather than throwing — without
+    // this check a rejected send (unverified domain, test-mode recipient
+    // restriction, …) would still be recorded as "sent" with no email.
+    const err = (r as { error?: { message?: string; name?: string } | null }).error;
+    if (err) {
+      return NextResponse.json(
+        { error: 'email_send_failed', detail: err.message ?? err.name ?? 'Resend rejected the message' },
+        { status: 502 },
+      );
+    }
     emailId = (r as { data?: { id?: string } }).data?.id ?? null;
   } catch (e) {
     return NextResponse.json({ error: 'email_send_failed', detail: String(e) }, { status: 502 });
