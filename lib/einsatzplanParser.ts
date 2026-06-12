@@ -12,11 +12,13 @@ import {
  *   Row "JUNI" weekdays:  | Mo Mo | Di Di | Mi Mi | ...   (each day = 2 cols)
  *   Row "JUNI" day nums:  | 1   1 | 2   2 | 3   3 | ...   (day d in even col 2d)
  *   Col A = pilot names (one row per pilot)
- *   Each pilot row, per day, has TWO shift cells holding the pilot's PRIORITY
- *   RANK for that shift (1 = first to fly), NOT a 0/1 flag. A pilot flies a
- *   shift only when their rank is within the day's capacity — the "Total" row
- *   gives the number flying per column, so rank ≤ Total ⇒ flying.
- *   shift1 (left col) ≈ morning, shift2 (right col) ≈ afternoon.
+ *   Each pilot row, per day, has TWO shift cells (morning, afternoon) that are
+ *   COLOUR-CODED by role. The "Fliegen" role is the olive-green Accent-3 of the
+ *   Office theme; ONLY green means the pilot flies a tandem that shift. The
+ *   number in the cell is just the booking priority rank (lower = higher), NOT
+ *   a flying flag — red/yellow/orange/grey are other duties (bus, office, …).
+ *   A full day is a merged green pair; an unmerged pair coloured per half gives
+ *   a morning- or afternoon-only half-day.
  *
  * The sheet name encodes the month + year (e.g. "June_2026").
  *
@@ -149,61 +151,71 @@ function buildDayColumns(ws: ExcelJS.Worksheet, headerRow: number): Map<number, 
 }
 
 /**
- * The Skywings matrix stores each pilot's PRIORITY RANK per shift (1 = first to
- * fly), not a 0/1 flag. A pilot actually flies a shift only when their rank is
- * within that day's capacity — and the "Total" row holds the number of pilots
- * flying per column, which is exactly that cutoff (rank ≤ Total ⇒ flying).
- *
- * Returns a per-column capacity map, or null when there's no "Total" row (older
- * flag-style sheets — callers then fall back to "any positive value = present").
+ * Skywings colours each shift cell by ROLE. The "Fliegen" role is the olive
+ * green of the Office theme's Accent-3 — stored either as explicit ARGB
+ * FF9BBB59 or as a theme-6 reference (same colour). ONLY that green means the
+ * pilot flies a tandem; red/yellow/orange/grey are other duties (bus, office,
+ * Götti, …) and count as NOT flying. The number in the cell is just the
+ * booking priority rank (lower = higher priority), not a flying flag.
  */
-function buildCapacityRow(ws: ExcelJS.Worksheet, dayCols: Map<number, number>): Map<number, number> | null {
-  let totalRow: number | null = null;
-  for (let r = 1; r <= ws.rowCount; r++) {
-    const a = cellValue(ws, r, 1);
-    if (typeof a === 'string' && normalize(a) === 'total') { totalRow = r; break; }
-  }
-  if (!totalRow) return null;
-  const cap = new Map<number, number>();
-  for (const [, col] of dayCols) {
-    const m = asNumber(cellValue(ws, totalRow, col));
-    const a = asNumber(cellValue(ws, totalRow, col + 1));
-    if (m !== null && m > 0) cap.set(col, m);
-    if (a !== null && a > 0) cap.set(col + 1, a);
-  }
-  return cap.size ? cap : null;
+const FLY_ARGB = 'FF9BBB59';
+
+function isFlyCell(cell: ExcelJS.Cell): boolean {
+  const fill = cell.fill as
+    | { type?: string; fgColor?: { argb?: string; theme?: number; tint?: number } }
+    | undefined;
+  if (!fill || fill.type !== 'pattern' || !fill.fgColor) return false;
+  const fg = fill.fgColor;
+  if (typeof fg.argb === 'string' && fg.argb.toUpperCase() === FLY_ARGB) return true;
+  // Same green expressed as a theme reference (Accent 3 = theme 6), untinted.
+  if (fg.theme === 6 && (fg.tint == null || Math.abs(fg.tint) < 0.05)) return true;
+  return false;
 }
 
 /**
- * Whether the pilot flies the shift in column `col`: a positive rank within the
- * day's capacity. Falls back to "any positive value" when capacity is unknown
- * (flag-style sheets without a Total row).
+ * Flying period for the day whose left (morning) column is `col`. Each day
+ * spans two columns (morning shift, afternoon shift). A MERGED pair shares one
+ * fill → full day; an UNMERGED pair is coloured per half → morning- or
+ * afternoon-only half-days. Green ("Fliegen") = flying.
  */
-function fliesAt(value: unknown, col: number, capacity: Map<number, number> | null): boolean {
-  const n = asNumber(value);
-  if (n === null || n <= 0) return false;
-  const cap = capacity?.get(col);
-  return cap != null ? n <= cap : true;
+function flyPeriod(
+  ws: ExcelJS.Worksheet, row: number, col: number,
+): 'full' | 'half_am' | 'half_pm' | null {
+  const am = ws.getRow(row).getCell(col);
+  const pm = ws.getRow(row).getCell(col + 1);
+  const amFly = isFlyCell(am);
+  const merged = !!pm.isMerged && !!pm.master && pm.master.address === am.address;
+  const pmFly = merged ? amFly : isFlyCell(pm);
+  if (amFly && pmFly) return 'full';
+  if (amFly) return 'half_am';
+  if (pmFly) return 'half_pm';
+  return null;
 }
 
-/** Find the pilot's row by accent-insensitive name match in column A. */
+/** Find the pilot's row by accent-insensitive name match in column A.
+ * The name can appear twice (a top reserve/filming list with no grid data, then
+ * the real data row), so prefer a matching row that actually has schedule data. */
 function findPilotRow(ws: ExcelJS.Worksheet, pilotName: string): number | null {
   const target = normalize(pilotName);
   const tokens = target.split(/\s+/).filter(t => t.length >= 3);
-  // Exact full-name match first
+  const hasGridData = (r: number): boolean => {
+    for (let c = 2; c <= 40; c++) if (asNumber(cellValue(ws, r, c)) !== null) return true;
+    return false;
+  };
+  const candidates: number[] = [];
+  // Exact full-name matches first, then first/last-name token matches.
   for (let r = 1; r <= ws.rowCount; r++) {
     const a = cellValue(ws, r, 1);
-    if (typeof a === 'string' && normalize(a) === target) return r;
+    if (typeof a === 'string' && normalize(a) === target) candidates.push(r);
   }
-  // Token match (first or last name)
   for (let r = 1; r <= ws.rowCount; r++) {
     const a = cellValue(ws, r, 1);
     if (typeof a === 'string') {
       const na = normalize(a);
-      if (tokens.some(t => na === t || na.split(/\s+/).includes(t))) return r;
+      if (tokens.some(t => na === t || na.split(/\s+/).includes(t))) candidates.push(r);
     }
   }
-  return null;
+  return candidates.find(hasGridData) ?? candidates[0] ?? null;
 }
 
 export async function parseEinsatzplan(
@@ -235,7 +247,6 @@ export async function parseEinsatzplan(
   }
 
   const dayCols = buildDayColumns(ws, headerRow);
-  const capacity = buildCapacityRow(ws, dayCols);
   const season = resolveSeason(opts.seasonOverride ?? null, new Date(Date.UTC(year, month - 1, 1)));
   const seasonTimes = (season === 'summer' ? [...SUMMER_TRIP_TIMES] : [...WINTER_TRIP_TIMES]);
   const half = Math.ceil(seasonTimes.length / 2);
@@ -252,18 +263,12 @@ export async function parseEinsatzplan(
 
   const out: ParsedSchedule = {};
   for (const [day, col] of dayCols.entries()) {
-    const v1 = cellValue(ws, pilotRow, col);
-    const v2 = cellValue(ws, pilotRow, col + 1);
-    const has1 = fliesAt(v1, col, capacity);
-    const has2 = fliesAt(v2, col + 1, capacity);
-    if (!has1 && !has2) continue; // not flying that day
+    const period = flyPeriod(ws, pilotRow, col);
+    if (!period) continue; // not flying (green) that day
 
-    let period: ParsedScheduleEntry['period'];
-    let times: string[];
-    if (has1 && has2) { period = 'full'; times = [...seasonTimes]; }
-    else if (has1) { period = 'half_am'; times = seasonTimes.slice(0, half); }
-    else { period = 'half_pm'; times = seasonTimes.slice(half); }
-
+    let times: string[] = period === 'full' ? [...seasonTimes]
+      : period === 'half_am' ? seasonTimes.slice(0, half)
+      : seasonTimes.slice(half);
     times = applyExclusions(times);
 
     const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -351,7 +356,6 @@ export async function parseFullPlan(
     throw new Error('Could not locate the day-number header row.');
   }
   const dayCols = buildDayColumns(ws, headerRow);
-  const capacity = buildCapacityRow(ws, dayCols);
 
   const days: Record<string, FullPlanDay> = {};
   for (const [day] of dayCols.entries()) {
@@ -376,16 +380,11 @@ export async function parseFullPlan(
     const rowNumber = numberOf.get(name)!;
 
     for (const [day, col] of dayCols.entries()) {
-      const v1 = cellValue(ws, r, col);
-      const v2 = cellValue(ws, r, col + 1);
-      const has1 = fliesAt(v1, col, capacity);
-      const has2 = fliesAt(v2, col + 1, capacity);
-      if (!has1 && !has2) continue;
-      const period: FullPlanPilot['period'] =
-        has1 && has2 ? 'full' : has1 ? 'half_am' : 'half_pm';
-      // Prefer the actual daily priority rank from the cell (so the roster
-      // shows real booking order / bus split); fall back to row order.
-      const rank = (has1 ? asNumber(v1) : asNumber(v2)) ?? rowNumber;
+      const period = flyPeriod(ws, r, col);
+      if (!period) continue; // only green ("Fliegen") cells are flying
+      // Daily priority rank from the cell (real booking order / bus split);
+      // fall back to row order if the cell isn't numeric.
+      const rank = asNumber(cellValue(ws, r, col)) ?? asNumber(cellValue(ws, r, col + 1)) ?? rowNumber;
       const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       days[iso].pilots.push({ name, period, number: rank });
     }
