@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from 'react';
 import { ChevronLeft, ChevronRight, Mail, Check, AlertTriangle, Users, X, RotateCcw, CalendarPlus, Repeat } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  addMonths, buildMailto, buildMailtoInverted, buildAvailabilityIcs,
+  addMonths, buildMailto, buildMailtoInverted,
   monthGrid, monthLabel, monthFirst, nextDeadlineInfo,
   type AvailabilityDay, type DayPeriod,
 } from '@/lib/availability';
@@ -153,17 +153,16 @@ export function AvailabilityCalendar({
       setMsg({ kind: 'err', text: 'No availability entered.' });
       return;
     }
-    const ics = buildAvailabilityIcs(days, pilotName);
-    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `tandem-availability-${monthKey.slice(0, 7)}.ics`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    setMsg({ kind: 'ok', text: 'Calendar file downloaded — open it to import (Google / iPhone / Android / Outlook).' });
+    // Persist current selection first — the server reads from the saved
+    // submission, so unsaved local edits would be missed otherwise.
+    startTransition(async () => {
+      const save = await saveAvailability({ month: monthKey, days });
+      if (!save.ok) { setMsg({ kind: 'err', text: save.error }); return; }
+      // Open the ICS endpoint. On iOS Safari this triggers the Calendar
+      // "Add Events" sheet; on desktop browsers it downloads the file.
+      window.location.href = `/api/availability/ics?month=${monthKey}`;
+      setMsg({ kind: 'ok', text: 'Calendar import opening — pick "Add to Calendar" on iPhone or import the file on desktop.' });
+    });
   }
 
   function setDayState(date: string, period: DayPeriod | null) {
