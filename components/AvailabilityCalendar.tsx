@@ -1,16 +1,19 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { ChevronLeft, ChevronRight, Mail, Check, AlertTriangle, Users, X, RotateCcw, CalendarPlus, Repeat } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Mail, Check, AlertTriangle, Users, X, RotateCcw, CalendarPlus, Repeat, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   addMonths, buildMailto, buildMailtoInverted,
   monthGrid, monthLabel, monthFirst, nextDeadlineInfo,
-  type AvailabilityDay, type DayPeriod,
+  CHANGE_REASON_LABELS_EN, formatChangeRequestDate,
+  type AvailabilityDay, type DayPeriod, type ChangeRequest,
+  type ChangeRequestMap, type ChangeRequestReason,
 } from '@/lib/availability';
 import { resolveSeason } from '@/lib/tripTimes';
 import { isoDateZurich, nowInZurich } from '@/lib/utils';
-import { saveAvailability, resetSubmission } from '@/app/(pilot)/availability/actions';
+import { saveAvailability, resetSubmission, resolveChangeRequest } from '@/app/(pilot)/availability/actions';
+import { AvailabilityStatusBanner } from '@/components/AvailabilityStatusBanner';
 import type { FullPlan, FullPlanPilot } from '@/lib/einsatzplanParser';
 
 export type FullPlansByMonth = Record<string, FullPlan>;
@@ -48,6 +51,7 @@ type Props = {
   submittedByMonth: Record<string, boolean>;
   schedule: ScheduleMap;
   fullPlansByMonth: FullPlansByMonth;
+  changeRequestsByMonth: Record<string, ChangeRequestMap>;
 };
 
 // Pilot-count thresholds for the "Einsatzplan"-mode tile colour.
@@ -57,10 +61,13 @@ const OK_THRESHOLD = 11;
 
 export function AvailabilityCalendar({
   pilotName, officeEmail, seasonOverride, initialMonth, initialDaysByMonth,
-  submittedByMonth, schedule, fullPlansByMonth,
+  submittedByMonth, schedule, fullPlansByMonth, changeRequestsByMonth,
 }: Props) {
   const [mode, setMode] = useState<Mode>('own');
   const [planDate, setPlanDate] = useState<string | null>(null);
+  // Change requests, keyed by month → date. Mirrored in state so submit/resolve
+  // update the calendar (and badges) without a full page reload.
+  const [crByMonth, setCrByMonth] = useState<Record<string, ChangeRequestMap>>(changeRequestsByMonth);
   const [cursor, setCursor] = useState(initialMonth);
   // Inverted entry: pilot marks the days they are NOT available; on apply,
   // everything else in the month becomes a full-day availability.
@@ -84,6 +91,7 @@ export function AvailabilityCalendar({
   const dayMap = daysByMonth[monthKey] ?? {};
   const season = resolveSeason(seasonOverride, new Date(monthKey));
   const submitted = !!submittedByMonth[monthKey];
+  const crMap = crByMonth[monthKey] ?? {};
 
   // Today in Europe/Zurich — past days in the *current* month are hidden
   // (Skywings does the same in their plan).
@@ -134,6 +142,48 @@ export function AvailabilityCalendar({
     startTransition(async () => {
       const r = await saveAvailability({ month: monthKey, days: [] });
       setMsg(r.ok ? { kind: 'ok', text: 'Month cleared.' } : { kind: 'err', text: r.error });
+    });
+  }
+
+  /** POST a change request to the office and optimistically badge the day. */
+  async function submitChangeRequest(date: string, reason: ChangeRequestReason, note: string): Promise<boolean> {
+    const crMonthKey = `${date.slice(0, 7)}-01`;
+    try {
+      const res = await fetch('/api/availability/change-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, reason, note: note.trim() || undefined }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMsg({ kind: 'err', text: j.error ?? 'Could not send change request.' });
+        return false;
+      }
+      const cr: ChangeRequest = {
+        reason, note: note.trim() || undefined,
+        status: 'pending', created_at: new Date().toISOString(), resolved_at: null,
+      };
+      setCrByMonth(prev => ({ ...prev, [crMonthKey]: { ...(prev[crMonthKey] ?? {}), [date]: cr } }));
+      setMsg({ kind: 'ok', text: j.demo ? 'Change request recorded (demo — no email sent).' : 'Change request sent to the office.' });
+      return true;
+    } catch {
+      setMsg({ kind: 'err', text: 'Network error — change request not sent.' });
+      return false;
+    }
+  }
+
+  function onResolveChangeRequest(date: string) {
+    const crMonthKey = `${date.slice(0, 7)}-01`;
+    startTransition(async () => {
+      const r = await resolveChangeRequest(date);
+      if (!r.ok) { setMsg({ kind: 'err', text: r.error }); return; }
+      setCrByMonth(prev => {
+        const month = { ...(prev[crMonthKey] ?? {}) };
+        const cr = month[date];
+        if (cr) month[date] = { ...cr, status: 'resolved', resolved_at: new Date().toISOString() };
+        return { ...prev, [crMonthKey]: month };
+      });
+      setMsg({ kind: 'ok', text: 'Marked resolved.' });
     });
   }
 
@@ -292,22 +342,12 @@ export function AvailabilityCalendar({
         </div>
       )}
 
-      <div className={cn(
-        'card p-3 border-l-4 text-sm flex items-start gap-2',
-        deadline.urgent ? 'border-l-warning' : 'border-l-primary',
-      )}>
-        <AlertTriangle className={cn('w-4 h-4 shrink-0 mt-0.5', deadline.urgent ? 'text-warning' : 'text-primary')} />
-        <span>
-          Submit availability for <span className="font-semibold capitalize">{deadline.targetMonthLabel}</span>{' '}
-          by <span className="font-semibold">{deadline.deadlineMonthLabel} 15</span>.
-        </span>
-      </div>
-
-      {submitted && (
-        <div className="card p-3 border-l-4 border-l-success text-sm flex items-center gap-2">
-          <Check className="w-4 h-4 text-success" />
-          <span>Already submitted to Skywings for this month (shown hatched).</span>
-        </div>
+      {mode === 'own' && (
+        <AvailabilityStatusBanner
+          submitted={submitted}
+          viewedMonthLabel={monthLabel(cursor.year, cursor.monthIndex0)}
+          deadline={deadline}
+        />
       )}
 
       {/* Month nav */}
@@ -337,6 +377,7 @@ export function AvailabilityCalendar({
           const period = entry?.period;
           const dayNum = Number(date.slice(-2));
           const sched = schedule[date];
+          const pendingChange = crMap[date]?.status === 'pending';
           const isSelected = selectedDate === date;
           const planDay = fullPlan?.days?.[date];
           const count = planDay?.pilots.length ?? 0;
@@ -368,6 +409,7 @@ export function AvailabilityCalendar({
                 )}
               >
                 <span className="absolute top-1 left-0 right-0 text-center text-text">{dayNum}</span>
+                {pendingChange && <ChangeBadge />}
                 {planDay && (
                   <span className="absolute bottom-1 inset-x-0 text-center text-base font-mono font-semibold leading-none">
                     {count}
@@ -475,6 +517,7 @@ export function AvailabilityCalendar({
                 </span>
               )}
               <span className="absolute top-1 left-0 right-0 text-center">{dayNum}</span>
+              {pendingChange && <ChangeBadge />}
               {(period || sched) && (
                 <span className="absolute bottom-1 inset-x-0 text-center text-[10px] font-semibold leading-none text-white/95">
                   {periodAbbr(sched?.period ?? period!)}
@@ -520,7 +563,10 @@ export function AvailabilityCalendar({
           <Legend swatch="bg-danger/30 border border-danger" label={`≤ ${LOW_THRESHOLD} pilots`} />
           <Legend swatch="bg-warning/30 border border-warning" label={`< ${OK_THRESHOLD}`} />
           <Legend swatch="bg-success/15 border border-success/30" label="ok" />
-          <span className="inline-flex items-center gap-1"><Users className="w-3 h-3" /> Tap a day for the list</span>
+          <span className="inline-flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-warning ring-2 ring-white" /> Change pending
+          </span>
+          <span className="inline-flex items-center gap-1"><Users className="w-3 h-3" /> Tap a day: roster + request change</span>
         </div>
       )}
 
@@ -585,12 +631,19 @@ export function AvailabilityCalendar({
         </div>
       )}
 
-      {/* Pilot-list sheet in plan mode */}
+      {/* Pilot-list + change-request sheet in plan mode */}
       {planDate && fullPlan?.days?.[planDate] && (
         <PilotListSheet
           date={planDate}
           pilots={fullPlan.days[planDate].pilots}
           ownName={pilotName}
+          ownScheduled={
+            !!schedule[planDate] ||
+            !!fullPlan.days[planDate].pilots.find(p => isOwnPilot(p.name, pilotName))
+          }
+          changeRequest={crMap[planDate] ?? null}
+          onSubmitChange={(reason, note) => submitChangeRequest(planDate, reason, note)}
+          onResolve={() => onResolveChangeRequest(planDate)}
           onClose={() => setPlanDate(null)}
         />
       )}
@@ -663,8 +716,17 @@ function isOwnPilot(rosterName: string, ownName: string): boolean {
 }
 
 function PilotListSheet({
-  date, pilots, ownName, onClose,
-}: { date: string; pilots: FullPlanPilot[]; ownName: string; onClose: () => void }) {
+  date, pilots, ownName, ownScheduled, changeRequest, onSubmitChange, onResolve, onClose,
+}: {
+  date: string;
+  pilots: FullPlanPilot[];
+  ownName: string;
+  ownScheduled: boolean;
+  changeRequest: ChangeRequest | null;
+  onSubmitChange: (reason: ChangeRequestReason, note: string) => Promise<boolean>;
+  onResolve: () => void;
+  onClose: () => void;
+}) {
   const [, m, d] = date.split('-');
   // Older imports stored before the number-field was added: fall back to
   // array position so display still works. Re-import gives proper numbers.
@@ -675,7 +737,7 @@ function PilotListSheet({
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-end justify-center" onClick={onClose}>
       <div
-        className="bg-white w-full max-w-sm rounded-t-2xl p-4 space-y-3 max-h-[80vh] overflow-y-auto pb-[calc(1rem+env(safe-area-inset-bottom))]"
+        className="bg-white w-full max-w-sm rounded-t-2xl p-4 space-y-3 max-h-[85vh] overflow-y-auto pb-[calc(1rem+env(safe-area-inset-bottom))]"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -687,12 +749,144 @@ function PilotListSheet({
           </button>
         </div>
 
+        {ownScheduled && (
+          <ChangeRequestPanel
+            date={date}
+            changeRequest={changeRequest}
+            onSubmitChange={onSubmitChange}
+            onResolve={onResolve}
+          />
+        )}
+
         <RosterSection title="Morning" pilots={am} ownName={ownName} />
         <RosterSection title="Afternoon" pilots={pm} ownName={ownName} />
 
         <button type="button" onClick={onClose} className="btn-primary w-full">Done</button>
       </div>
     </div>
+  );
+}
+
+const CHANGE_REASON_ORDER: ChangeRequestReason[] =
+  ['sick', 'conflict', 'different_time', 'swap', 'other'];
+
+/**
+ * Change-request control inside the day sheet. Shown only when the pilot is on
+ * that day's roster. Pending → status + "Mark resolved"; otherwise → a
+ * collapsible reason/note form that emails the office.
+ */
+function ChangeRequestPanel({
+  date, changeRequest, onSubmitChange, onResolve,
+}: {
+  date: string;
+  changeRequest: ChangeRequest | null;
+  onSubmitChange: (reason: ChangeRequestReason, note: string) => Promise<boolean>;
+  onResolve: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState<ChangeRequestReason>('sick');
+  const [note, setNote] = useState('');
+  const [sending, setSending] = useState(false);
+
+  if (changeRequest?.status === 'pending') {
+    return (
+      <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 space-y-2 text-sm">
+        <div className="flex items-center gap-2 font-medium text-warning">
+          <AlertTriangle className="w-4 h-4 text-warning" />
+          Change requested — pending
+        </div>
+        <p className="text-text-muted">
+          {CHANGE_REASON_LABELS_EN[changeRequest.reason]}
+          {changeRequest.note ? ` — "${changeRequest.note}"` : ''}
+        </p>
+        <p className="text-xs text-text-muted">
+          Sent to the office for {formatChangeRequestDate(date)}. They reply by mail or WhatsApp as usual.
+        </p>
+        <button type="button" onClick={onResolve} className="btn-ghost w-full border border-border text-sm">
+          <Check className="w-4 h-4 mr-1" /> Mark resolved
+        </button>
+      </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <div className="space-y-1">
+        {changeRequest?.status === 'resolved' && (
+          <p className="text-xs text-text-muted">Previous change request resolved.</p>
+        )}
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="btn-ghost w-full border border-border text-sm"
+        >
+          <Send className="w-4 h-4 mr-1" /> Request change
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-border p-3 space-y-3 text-sm">
+      <p className="font-medium">Need to change {formatChangeRequestDate(date)}?</p>
+      <div className="space-y-1.5">
+        {CHANGE_REASON_ORDER.map(r => (
+          <label key={r} className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="cr-reason"
+              checked={reason === r}
+              onChange={() => setReason(r)}
+              className="accent-primary"
+            />
+            <span>{CHANGE_REASON_LABELS_EN[r]}</span>
+          </label>
+        ))}
+      </div>
+      <textarea
+        value={note}
+        onChange={e => setNote(e.target.value)}
+        placeholder="Note (optional) — e.g. happy to swap with Flo"
+        rows={2}
+        maxLength={1000}
+        className="w-full rounded-md border border-border p-2 text-sm resize-none"
+      />
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => { setOpen(false); setNote(''); }}
+          disabled={sending}
+          className="btn-ghost flex-1 border border-border"
+        >Cancel</button>
+        <button
+          type="button"
+          disabled={sending}
+          onClick={async () => {
+            setSending(true);
+            const ok = await onSubmitChange(reason, note);
+            setSending(false);
+            if (ok) { setOpen(false); setNote(''); }
+          }}
+          className="btn-primary flex-1"
+        >
+          <Send className="w-4 h-4 mr-1" /> {sending ? 'Sending…' : 'Send to office'}
+        </button>
+      </div>
+      <p className="text-xs text-text-muted">
+        Sends a structured email to the office. They reply as usual.
+      </p>
+    </div>
+  );
+}
+
+/** Small amber alert dot for days with a pending change request. */
+function ChangeBadge() {
+  return (
+    <span
+      className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-warning ring-2 ring-white pointer-events-none"
+      aria-label="Change requested"
+      title="Change requested"
+    />
   );
 }
 
