@@ -2,7 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { refreshAccessToken } from '@/lib/googleDrive';
 import { upsertCalendarEvent, type CalendarEntry } from '@/lib/googleCalendar';
-import { periodLabel, type AvailabilityDay } from '@/lib/availability';
+import { periodLabel, availabilityDayTimeRange, type AvailabilityDay } from '@/lib/availability';
+import { resolveSeason } from '@/lib/tripTimes';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
 
   const { data: pilot, error } = await sb
     .from('pilots')
-    .select('google_refresh_token')
+    .select('google_refresh_token, season_override')
     .eq('id', user.id)
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -46,6 +47,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'no_availability', detail: 'No availability entered for this month.' }, { status: 400 });
   }
 
+  const season = resolveSeason(pilot.season_override ?? null, new Date(month));
+
   try {
     const tokens = await refreshAccessToken(pilot.google_refresh_token);
     let created = 0, updated = 0;
@@ -54,12 +57,13 @@ export async function POST(req: NextRequest) {
       const notes: string[] = [];
       if (d.exclude_7am) notes.push('kein 07:10');
       if (d.exclude_5pm) notes.push('kein 17:00');
-      const entry: CalendarEntry = {
-        date: d.date,
-        allDay: true,
-        summary: `Tandem ${periodLabel(d.period)}${notes.length ? ` (${notes.join(', ')})` : ''}`,
-        description: 'Verfügbarkeit aus TandemLog.',
-      };
+      const summary = `Tandem ${periodLabel(d.period)}${notes.length ? ` (${notes.join(', ')})` : ''}`;
+      const range = availabilityDayTimeRange(d, season);
+      // Timed event: first trip → last trip + flight time (1h15). If every slot
+      // is opted out, fall back to an all-day marker.
+      const entry: CalendarEntry = range
+        ? { date: d.date, summary, startTime: range.start, endTime: range.end, description: 'Verfügbarkeit aus TandemLog.' }
+        : { date: d.date, allDay: true, summary, description: 'Verfügbarkeit aus TandemLog.' };
       const r = await upsertCalendarEvent(entry, tokens.access_token, 'availability');
       if (r.action === 'created') created++; else updated++;
     }

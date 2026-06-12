@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { buildAvailabilityIcs, type AvailabilityDay } from '@/lib/availability';
+import { resolveSeason } from '@/lib/tripTimes';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
   }
 
   const [pilotRes, subRes] = await Promise.all([
-    sb.from('pilots').select('full_name').eq('id', user.id).maybeSingle(),
+    sb.from('pilots').select('full_name, season_override').eq('id', user.id).maybeSingle(),
     sb.from('availability_submissions').select('days').eq('pilot_id', user.id).eq('month', month).maybeSingle(),
   ]);
 
@@ -34,7 +35,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'no availability entered for this month' }, { status: 404 });
   }
 
-  const ics = buildAvailabilityIcs(days, pilotRes.data?.full_name ?? '');
+  const season = resolveSeason(pilotRes.data?.season_override ?? null, new Date(month));
+  const ics = buildAvailabilityIcs(days, pilotRes.data?.full_name ?? '', season);
   const filename = `tandem-availability-${month.slice(0, 7)}.ics`;
   return new NextResponse(ics, {
     status: 200,
