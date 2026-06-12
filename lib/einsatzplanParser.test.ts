@@ -31,6 +31,53 @@ async function makeMatrix(
   return await wb.xlsx.writeBuffer() as ArrayBuffer;
 }
 
+/** Matrix with priority ranks + a "Total" capacity row (the real Skywings format). */
+async function makeRankMatrix(
+  sheetName: string,
+  pilotName: string,
+  perDay: Array<[unknown, unknown]>,
+  totals: Array<[unknown, unknown]>,
+): Promise<ArrayBuffer> {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet(sheetName);
+  const dayRow = ws.getRow(5);
+  perDay.forEach((_, i) => { dayRow.getCell(2 + i * 2).value = i + 1; });
+  dayRow.commit();
+  const pRow = ws.getRow(8);
+  pRow.getCell(1).value = pilotName;
+  perDay.forEach(([s1, s2], i) => {
+    if (s1 !== null && s1 !== '') pRow.getCell(2 + i * 2).value = s1 as ExcelJS.CellValue;
+    if (s2 !== null && s2 !== '') pRow.getCell(3 + i * 2).value = s2 as ExcelJS.CellValue;
+  });
+  pRow.commit();
+  const tRow = ws.getRow(12);
+  tRow.getCell(1).value = 'Total';
+  totals.forEach(([c1, c2], i) => {
+    if (c1 !== null && c1 !== '') tRow.getCell(2 + i * 2).value = c1 as ExcelJS.CellValue;
+    if (c2 !== null && c2 !== '') tRow.getCell(3 + i * 2).value = c2 as ExcelJS.CellValue;
+  });
+  tRow.commit();
+  return await wb.xlsx.writeBuffer() as ArrayBuffer;
+}
+
+describe('parseEinsatzplan (rank + capacity)', () => {
+  it('only counts a shift as flying when the rank is within the day capacity', async () => {
+    const buf = await makeRankMatrix('June_2026', 'Remy', [
+      [4, 4],      // day 1: rank 4 ≤ 12 → flies full
+      [29, 29],    // day 2: rank 29 > 12 → reserve, not flying
+      [5, ''],     // day 3: rank 5 AM only → half_am
+      [20, 20],    // day 4: rank 20 > 12 → not flying
+    ], [
+      [12, 12], [12, 12], [12, 12], [12, 12],
+    ]);
+    const s = await parseEinsatzplan(buf, { pilotName: 'Remy' });
+    expect(s['2026-06-01'].period).toBe('full');
+    expect(s['2026-06-02']).toBeUndefined();
+    expect(s['2026-06-03'].period).toBe('half_am');
+    expect(s['2026-06-04']).toBeUndefined();
+  });
+});
+
 describe('parseEinsatzplan (matrix format)', () => {
   it('maps both/AM/PM shifts to periods + season times', async () => {
     const buf = await makeMatrix('June_2026', 'Remy', [
