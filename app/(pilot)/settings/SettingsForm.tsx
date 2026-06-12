@@ -2,8 +2,10 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { ChevronDown } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { extractDriveId } from '@/lib/utils';
+import { Toast } from '@/components/Toast';
 
 type Pilot = {
   id: string;
@@ -103,7 +105,7 @@ export function SettingsForm({ pilot, email }: { pilot: Pilot; email: string }) 
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
-      <Section title="Personal">
+      <Section title="Personal" defaultOpen>
         <Input label="Full name *" value={form.full_name ?? ''} onChange={v => set('full_name', v)} required />
         <Input label="Address" value={form.address_line1 ?? ''} onChange={v => set('address_line1', v)} />
         <Input label="Address line 2" value={form.address_line2 ?? ''} onChange={v => set('address_line2', v)} />
@@ -257,9 +259,7 @@ export function SettingsForm({ pilot, email }: { pilot: Pilot; email: string }) 
         </p>
       </Section>
 
-      {msg && (
-        <p className={msg.kind === 'ok' ? 'text-success text-sm' : 'text-danger text-sm'}>{msg.text}</p>
-      )}
+      <Toast msg={msg} onClose={() => setMsg(null)} />
 
       <button type="submit" disabled={pending} className="btn-primary w-full">
         {pending ? 'Saving…' : 'Save'}
@@ -268,12 +268,15 @@ export function SettingsForm({ pilot, email }: { pilot: Pilot; email: string }) 
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
   return (
-    <fieldset className="card p-4 space-y-3">
-      <legend className="px-2 -ml-2 text-sm font-display font-semibold text-text-muted uppercase tracking-wide">{title}</legend>
-      {children}
-    </fieldset>
+    <details open={defaultOpen} className="card p-0 overflow-hidden group">
+      <summary className="flex items-center justify-between px-4 py-3 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
+        <span className="text-sm font-display font-semibold text-text-muted uppercase tracking-wide">{title}</span>
+        <ChevronDown className="w-4 h-4 text-text-muted transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="px-4 pb-4 space-y-3">{children}</div>
+    </details>
   );
 }
 
