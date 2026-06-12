@@ -14,7 +14,29 @@ export type AvailabilitySubmission = {
   submitted_at: string | null;
   email_sent: boolean;
   days: AvailabilityDay[];
+  change_requests?: ChangeRequestMap;
 };
+
+export type ChangeRequestReason =
+  | 'sick' | 'conflict' | 'different_time' | 'swap' | 'other';
+
+export type ChangeRequest = {
+  reason: ChangeRequestReason;
+  note?: string;
+  status: 'pending' | 'resolved' | 'matched';
+  created_at: string;       // ISO
+  resolved_at?: string | null;
+  // Swap metadata (reason === 'swap'): the colleague the pilot wants to swap
+  // with. The id is resolved server-side so the reciprocal pilot can see the
+  // request without exposing it to anyone else.
+  swap_with?: string;            // colleague display name
+  swap_with_pilot_id?: string;   // resolved account id, when unambiguous
+  matched_with?: string;         // who completed the swap (display name)
+  matched_at?: string | null;
+};
+
+/** Change requests for one month, keyed by affected date (YYYY-MM-DD). */
+export type ChangeRequestMap = Record<string, ChangeRequest>;
 
 export function monthFirst(year: number, monthIndex0: number): string {
   const m = String(monthIndex0 + 1).padStart(2, '0');
@@ -78,6 +100,7 @@ export type DeadlineInfo = {
   deadlineMonthLabel: string;  // e.g. "Juni"
   targetMonthLabel: string;    // e.g. "Juli 2026"
   targetMonth: string;         // YYYY-MM-01 of the month being planned
+  daysLeft: number;            // whole days until the 15th deadline
   urgent: boolean;             // deadline within ~5 days
 };
 
@@ -105,7 +128,103 @@ export function nextDeadlineInfo(now: Date = new Date()): DeadlineInfo {
     deadlineMonthLabel: monthName(deadline.year, deadline.monthIndex0),
     targetMonthLabel: monthLabel(target.year, target.monthIndex0),
     targetMonth: `${target.year}-${String(target.monthIndex0 + 1).padStart(2, '0')}-01`,
+    daysLeft,
     urgent: daysLeft <= 5,
+  };
+}
+
+// ============================================================
+// Change requests (post-plan day changes → structured office email)
+// ============================================================
+
+/** German labels for the office email (Skywings office reads German). */
+export const CHANGE_REASON_LABELS_DE: Record<ChangeRequestReason, string> = {
+  sick: 'Krankheit',
+  conflict: 'Private Verhinderung',
+  different_time: 'Andere Zeit gewünscht',
+  swap: 'Tausch mit Kollege gewünscht',
+  other: 'Sonstiges',
+};
+
+/** English labels for the in-app UI. */
+export const CHANGE_REASON_LABELS_EN: Record<ChangeRequestReason, string> = {
+  sick: 'Sick',
+  conflict: 'Conflict (private)',
+  different_time: 'Want different time',
+  swap: 'Want to swap with colleague',
+  other: 'Other',
+};
+
+/** YYYY-MM-DD → DD.MM.YYYY (Swiss date order, used in the email). */
+export function formatChangeRequestDate(date: string): string {
+  const [y, m, d] = date.split('-');
+  return `${d}.${m}.${y}`;
+}
+
+/**
+ * Structured German email to the office for a single-day change request.
+ * Keeps the format consistent so the office can scan/act on it quickly.
+ */
+export function buildChangeRequestEmail({
+  pilotName, date, reason, note,
+}: {
+  pilotName: string;
+  date: string;                 // YYYY-MM-DD
+  reason: ChangeRequestReason;
+  note?: string;
+}): { subject: string; text: string } {
+  const dl = formatChangeRequestDate(date);
+  const subject = `Änderungswunsch ${dl} — ${pilotName}`;
+  const lines = [
+    `Änderungswunsch`,
+    ``,
+    `Pilot: ${pilotName}`,
+    `Datum: ${dl}`,
+    `Grund: ${CHANGE_REASON_LABELS_DE[reason]}`,
+  ];
+  const trimmed = note?.trim();
+  if (trimmed) lines.push(`Notiz: ${trimmed}`);
+  return { subject, text: lines.join('\n') };
+}
+
+/**
+ * Email to the office once two pilots have agreed on a swap for a day. The
+ * office still adjusts the roster — this just gives them one clean,
+ * both-parties-confirmed message instead of two WhatsApp threads.
+ */
+export function buildSwapMatchEmail({
+  requester, accepter, date, note,
+}: {
+  requester: string;
+  accepter: string;
+  date: string;            // YYYY-MM-DD
+  note?: string;
+}): { subject: string; text: string } {
+  const dl = formatChangeRequestDate(date);
+  const subject = `Tausch bestätigt ${dl} — ${requester} ↔ ${accepter}`;
+  const lines = [
+    `Tauschbestätigung`,
+    ``,
+    `Tag: ${dl}`,
+    `Pilot 1: ${requester} (Tauschwunsch)`,
+    `Pilot 2: ${accepter} (übernimmt)`,
+    ``,
+    `Beide Piloten sind mit dem Tausch einverstanden.`,
+  ];
+  const trimmed = note?.trim();
+  if (trimmed) lines.push(``, `Notiz: ${trimmed}`);
+  return { subject, text: lines.join('\n') };
+}
+
+/** Count of change requests in a month, with the pending subset — for the
+ * self-awareness stats card. */
+export function summarizeChangeRequests(
+  map: ChangeRequestMap | undefined,
+): { total: number; pending: number } {
+  const entries = Object.values(map ?? {});
+  return {
+    total: entries.length,
+    pending: entries.filter(c => c.status === 'pending').length,
   };
 }
 

@@ -1,16 +1,19 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { ChevronLeft, ChevronRight, Mail, Check, AlertTriangle, Users, X, RotateCcw, CalendarPlus, Repeat } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Mail, Check, AlertTriangle, Users, X, RotateCcw, CalendarPlus, Repeat, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   addMonths, buildMailto, buildMailtoInverted,
   monthGrid, monthLabel, monthFirst, nextDeadlineInfo,
-  type AvailabilityDay, type DayPeriod,
+  CHANGE_REASON_LABELS_EN, formatChangeRequestDate, summarizeChangeRequests,
+  type AvailabilityDay, type DayPeriod, type ChangeRequest,
+  type ChangeRequestMap, type ChangeRequestReason,
 } from '@/lib/availability';
 import { resolveSeason } from '@/lib/tripTimes';
 import { isoDateZurich, nowInZurich } from '@/lib/utils';
-import { saveAvailability, resetSubmission } from '@/app/(pilot)/availability/actions';
+import { saveAvailability, resetSubmission, resolveChangeRequest } from '@/app/(pilot)/availability/actions';
+import { AvailabilityStatusBanner } from '@/components/AvailabilityStatusBanner';
 import type { FullPlan, FullPlanPilot } from '@/lib/einsatzplanParser';
 
 export type FullPlansByMonth = Record<string, FullPlan>;
@@ -18,6 +21,8 @@ export type FullPlansByMonth = Record<string, FullPlan>;
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
 export type ScheduleMap = Record<string, { period: DayPeriod; times: string[] }>;
+
+type IncomingSwap = { date: string; fromPilotId: string; fromPilotName: string; note?: string };
 
 const PERIOD_ABBR: Record<DayPeriod, string> = {
   full: 'FD', half_am: 'AM', half_pm: 'PM',
@@ -48,6 +53,7 @@ type Props = {
   submittedByMonth: Record<string, boolean>;
   schedule: ScheduleMap;
   fullPlansByMonth: FullPlansByMonth;
+  changeRequestsByMonth: Record<string, ChangeRequestMap>;
 };
 
 // Pilot-count thresholds for the "Einsatzplan"-mode tile colour.
@@ -57,10 +63,17 @@ const OK_THRESHOLD = 11;
 
 export function AvailabilityCalendar({
   pilotName, officeEmail, seasonOverride, initialMonth, initialDaysByMonth,
-  submittedByMonth, schedule, fullPlansByMonth,
+  submittedByMonth, schedule, fullPlansByMonth, changeRequestsByMonth,
 }: Props) {
   const [mode, setMode] = useState<Mode>('own');
-  const [planDate, setPlanDate] = useState<string | null>(null);
+  // Day-detail sheet (roster + change request). Opens in plan mode on any
+  // planned day, and in own mode on an office-confirmed day.
+  const [sheetDate, setSheetDate] = useState<string | null>(null);
+  // Change requests, keyed by month → date. Mirrored in state so submit/resolve
+  // update the calendar (and badges) without a full page reload.
+  const [crByMonth, setCrByMonth] = useState<Record<string, ChangeRequestMap>>(changeRequestsByMonth);
+  // Swap requests addressed to this pilot for the viewed month (Schedule tab).
+  const [incomingSwaps, setIncomingSwaps] = useState<IncomingSwap[]>([]);
   const [cursor, setCursor] = useState(initialMonth);
   // Inverted entry: pilot marks the days they are NOT available; on apply,
   // everything else in the month becomes a full-day availability.
@@ -84,6 +97,8 @@ export function AvailabilityCalendar({
   const dayMap = daysByMonth[monthKey] ?? {};
   const season = resolveSeason(seasonOverride, new Date(monthKey));
   const submitted = !!submittedByMonth[monthKey];
+  const crMap = crByMonth[monthKey] ?? {};
+  const crStats = summarizeChangeRequests(crMap);
 
   // Today in Europe/Zurich — past days in the *current* month are hidden
   // (Skywings does the same in their plan).
@@ -108,6 +123,9 @@ export function AvailabilityCalendar({
       });
       return;
     }
+    // Office-confirmed day → open the day sheet to request a change rather than
+    // cycling the (now moot) availability period.
+    if (schedule[date]) { setSheetDate(date); return; }
     const current = dayMap[date]?.period;
     const next = cellCycle(current);
     setDayState(date, next);
@@ -134,6 +152,72 @@ export function AvailabilityCalendar({
     startTransition(async () => {
       const r = await saveAvailability({ month: monthKey, days: [] });
       setMsg(r.ok ? { kind: 'ok', text: 'Month cleared.' } : { kind: 'err', text: r.error });
+    });
+  }
+
+  /** POST a change request to the office and optimistically badge the day. */
+  async function submitChangeRequest(
+    date: string, reason: ChangeRequestReason, note: string, swapWith?: string,
+  ): Promise<boolean> {
+    const crMonthKey = `${date.slice(0, 7)}-01`;
+    try {
+      const res = await fetch('/api/availability/change-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date, reason,
+          note: note.trim() || undefined,
+          swap_with: reason === 'swap' ? swapWith?.trim() || undefined : undefined,
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMsg({ kind: 'err', text: j.error ?? 'Could not send change request.' });
+        return false;
+      }
+      const cr: ChangeRequest = {
+        reason, note: note.trim() || undefined,
+        status: 'pending', created_at: new Date().toISOString(), resolved_at: null,
+        swap_with: reason === 'swap' ? swapWith?.trim() || undefined : undefined,
+      };
+      setCrByMonth(prev => ({ ...prev, [crMonthKey]: { ...(prev[crMonthKey] ?? {}), [date]: cr } }));
+      setMsg({ kind: 'ok', text: j.demo ? 'Change request recorded (demo — no email sent).' : 'Change request sent to the office.' });
+      return true;
+    } catch {
+      setMsg({ kind: 'err', text: 'Network error — change request not sent.' });
+      return false;
+    }
+  }
+
+  /** Accept an incoming swap addressed to this pilot. */
+  async function acceptSwap(s: IncomingSwap) {
+    try {
+      const res = await fetch('/api/availability/swaps/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: s.date, fromPilotId: s.fromPilotId }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) { setMsg({ kind: 'err', text: j.error ?? 'Could not accept swap.' }); return; }
+      setIncomingSwaps(prev => prev.filter(x => !(x.date === s.date && x.fromPilotId === s.fromPilotId)));
+      setMsg({ kind: 'ok', text: `Swap with ${s.fromPilotName} confirmed — the office has been emailed.` });
+    } catch {
+      setMsg({ kind: 'err', text: 'Network error — swap not accepted.' });
+    }
+  }
+
+  function onResolveChangeRequest(date: string) {
+    const crMonthKey = `${date.slice(0, 7)}-01`;
+    startTransition(async () => {
+      const r = await resolveChangeRequest(date);
+      if (!r.ok) { setMsg({ kind: 'err', text: r.error }); return; }
+      setCrByMonth(prev => {
+        const month = { ...(prev[crMonthKey] ?? {}) };
+        const cr = month[date];
+        if (cr) month[date] = { ...cr, status: 'resolved', resolved_at: new Date().toISOString() };
+        return { ...prev, [crMonthKey]: month };
+      });
+      setMsg({ kind: 'ok', text: 'Marked resolved.' });
     });
   }
 
@@ -251,6 +335,17 @@ export function AvailabilityCalendar({
 
   useEffect(() => setMsg(null), [monthKey]);
 
+  // Fetch incoming swap requests for the viewed month while on the Schedule tab.
+  useEffect(() => {
+    if (mode !== 'plan') { setIncomingSwaps([]); return; }
+    let cancelled = false;
+    fetch(`/api/availability/swaps/incoming?month=${monthKey}`)
+      .then(r => r.ok ? r.json() : { requests: [] })
+      .then(j => { if (!cancelled) setIncomingSwaps((j.requests as IncomingSwap[]) ?? []); })
+      .catch(() => { if (!cancelled) setIncomingSwaps([]); });
+    return () => { cancelled = true; };
+  }, [mode, monthKey]);
+
   const hasSchedule = Object.keys(schedule).some(d => d.startsWith(monthKey.slice(0, 7)));
 
   // Per-month full plan: keyed by YYYY-MM. Tab is enabled only when the
@@ -292,21 +387,30 @@ export function AvailabilityCalendar({
         </div>
       )}
 
-      <div className={cn(
-        'card p-3 border-l-4 text-sm flex items-start gap-2',
-        deadline.urgent ? 'border-l-warning' : 'border-l-primary',
-      )}>
-        <AlertTriangle className={cn('w-4 h-4 shrink-0 mt-0.5', deadline.urgent ? 'text-warning' : 'text-primary')} />
-        <span>
-          Submit availability for <span className="font-semibold capitalize">{deadline.targetMonthLabel}</span>{' '}
-          by <span className="font-semibold">{deadline.deadlineMonthLabel} 15</span>.
-        </span>
-      </div>
+      {mode === 'own' && (
+        <AvailabilityStatusBanner
+          submitted={submitted}
+          viewedMonthLabel={monthLabel(cursor.year, cursor.monthIndex0)}
+          deadline={deadline}
+        />
+      )}
 
-      {submitted && (
-        <div className="card p-3 border-l-4 border-l-success text-sm flex items-center gap-2">
-          <Check className="w-4 h-4 text-success" />
-          <span>Already submitted to Skywings for this month (shown hatched).</span>
+      {mode === 'plan' && incomingSwaps.length > 0 && (
+        <div className="card p-3 border-l-4 border-l-accent text-sm space-y-2">
+          <div className="font-medium flex items-center gap-2">
+            <Repeat className="w-4 h-4" /> Incoming swap requests
+          </div>
+          {incomingSwaps.map(s => (
+            <div key={`${s.fromPilotId}-${s.date}`} className="flex items-center justify-between gap-2">
+              <span className="min-w-0 truncate">
+                <span className="font-medium">{s.fromPilotName}</span> · {formatChangeRequestDate(s.date)}
+                {s.note ? ` — "${s.note}"` : ''}
+              </span>
+              <button onClick={() => acceptSwap(s)} className="btn-primary text-xs px-2 py-1 shrink-0">
+                Accept
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
@@ -337,6 +441,7 @@ export function AvailabilityCalendar({
           const period = entry?.period;
           const dayNum = Number(date.slice(-2));
           const sched = schedule[date];
+          const pendingChange = crMap[date]?.status === 'pending';
           const isSelected = selectedDate === date;
           const planDay = fullPlan?.days?.[date];
           const count = planDay?.pilots.length ?? 0;
@@ -357,7 +462,7 @@ export function AvailabilityCalendar({
               <button
                 key={date}
                 type="button"
-                onClick={() => inMonth && !past && planDay && setPlanDate(date)}
+                onClick={() => inMonth && !past && planDay && setSheetDate(date)}
                 disabled={!inMonth || !planDay || past}
                 className={cn(
                   'aspect-square rounded-lg text-sm font-medium relative select-none transition overflow-hidden',
@@ -368,6 +473,7 @@ export function AvailabilityCalendar({
                 )}
               >
                 <span className="absolute top-1 left-0 right-0 text-center text-text">{dayNum}</span>
+                {pendingChange && <ChangeBadge />}
                 {planDay && (
                   <span className="absolute bottom-1 inset-x-0 text-center text-base font-mono font-semibold leading-none">
                     {count}
@@ -467,6 +573,7 @@ export function AvailabilityCalendar({
                 </>
               )}
               <span className="absolute top-1 left-0 right-0 text-center">{dayNum}</span>
+              {pendingChange && <ChangeBadge />}
               {(period || sched) && (
                 <span className="absolute bottom-1 inset-x-0 text-center text-[10px] font-semibold leading-none text-white/95">
                   {periodAbbr(sched?.period ?? period!)}
@@ -500,6 +607,7 @@ export function AvailabilityCalendar({
           <p className="text-xs text-text-muted">
             Tap a day: free → Full day → ½ Morning → ½ Afternoon.
             {season === 'summer' && ' Below, 07:10 / 17:00 appear to toggle on or off.'}
+            {' '}Tap a confirmed (orange) day to request a change.
           </p>
           {!hasSchedule && (
             <p className="text-xs text-text-muted">
@@ -512,7 +620,10 @@ export function AvailabilityCalendar({
           <Legend swatch="bg-danger/30 border border-danger" label={`≤ ${LOW_THRESHOLD} pilots`} />
           <Legend swatch="bg-warning/30 border border-warning" label={`< ${OK_THRESHOLD}`} />
           <Legend swatch="bg-success/15 border border-success/30" label="ok" />
-          <span className="inline-flex items-center gap-1"><Users className="w-3 h-3" /> Tap a day for the list</span>
+          <span className="inline-flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-warning ring-2 ring-white" /> Change pending
+          </span>
+          <span className="inline-flex items-center gap-1"><Users className="w-3 h-3" /> Tap a day: roster + request change</span>
         </div>
       )}
 
@@ -522,6 +633,15 @@ export function AvailabilityCalendar({
           {invert
             ? `${freeSet.size} free day${freeSet.size === 1 ? '' : 's'} marked — the rest counts as available`
             : `${Object.keys(dayMap).length} day${Object.keys(dayMap).length === 1 ? '' : 's'} available this month`}
+        </p>
+      )}
+
+      {/* Change-request self-awareness stat for the viewed month */}
+      {mode === 'own' && crStats.total > 0 && (
+        <p className="text-xs text-text-muted text-center">
+          {crStats.total} change request{crStats.total === 1 ? '' : 's'} for{' '}
+          <span className="capitalize">{monthLabel(cursor.year, cursor.monthIndex0)}</span>
+          {crStats.pending > 0 ? ` · ${crStats.pending} pending` : ''}
         </p>
       )}
 
@@ -577,15 +697,28 @@ export function AvailabilityCalendar({
         </div>
       )}
 
-      {/* Pilot-list sheet in plan mode */}
-      {planDate && fullPlan?.days?.[planDate] && (
-        <PilotListSheet
-          date={planDate}
-          pilots={fullPlan.days[planDate].pilots}
-          ownName={pilotName}
-          onClose={() => setPlanDate(null)}
-        />
-      )}
+      {/* Day-detail + change-request sheet (both modes) */}
+      {sheetDate && (() => {
+        const roster = fullPlansByMonth[sheetDate.slice(0, 7)]?.days?.[sheetDate]?.pilots ?? null;
+        const colleagues = (roster ?? [])
+          .map(p => p.name)
+          .filter(n => !isOwnPilot(n, pilotName));
+        const ownScheduled =
+          !!schedule[sheetDate] || !!roster?.find(p => isOwnPilot(p.name, pilotName));
+        return (
+          <DayDetailSheet
+            date={sheetDate}
+            pilots={roster}
+            ownName={pilotName}
+            ownScheduled={ownScheduled}
+            colleagues={colleagues}
+            changeRequest={crMap[sheetDate] ?? null}
+            onSubmitChange={(reason, note, swapWith) => submitChangeRequest(sheetDate, reason, note, swapWith)}
+            onResolve={() => onResolveChangeRequest(sheetDate)}
+            onClose={() => setSheetDate(null)}
+          />
+        );
+      })()}
 
       {msg && (
         <p className={cn('text-sm', msg.kind === 'ok' ? 'text-success' : 'text-danger')}>
@@ -654,30 +787,51 @@ function isOwnPilot(rosterName: string, ownName: string): boolean {
   return r === o || o.includes(r) || r.includes(o);
 }
 
-function PilotListSheet({
-  date, pilots, ownName, onClose,
-}: { date: string; pilots: FullPlanPilot[]; ownName: string; onClose: () => void }) {
+function DayDetailSheet({
+  date, pilots, ownName, ownScheduled, colleagues, changeRequest, onSubmitChange, onResolve, onClose,
+}: {
+  date: string;
+  pilots: FullPlanPilot[] | null;
+  ownName: string;
+  ownScheduled: boolean;
+  colleagues: string[];
+  changeRequest: ChangeRequest | null;
+  onSubmitChange: (reason: ChangeRequestReason, note: string, swapWith?: string) => Promise<boolean>;
+  onResolve: () => void;
+  onClose: () => void;
+}) {
   const [, m, d] = date.split('-');
   // Older imports stored before the number-field was added: fall back to
   // array position so display still works. Re-import gives proper numbers.
-  const normalized = pilots.map((p, i) => ({ ...p, number: p.number ?? i + 1 }));
+  const normalized = (pilots ?? []).map((p, i) => ({ ...p, number: p.number ?? i + 1 }));
   normalized.sort((a, b) => a.number - b.number);
   const am = normalized.filter(p => p.period === 'full' || p.period === 'half_am');
   const pm = normalized.filter(p => p.period === 'full' || p.period === 'half_pm');
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-end justify-center" onClick={onClose}>
       <div
-        className="bg-white w-full max-w-sm rounded-t-2xl p-4 space-y-3 max-h-[80vh] overflow-y-auto pb-[calc(1rem+env(safe-area-inset-bottom))]"
+        className="bg-white w-full max-w-sm rounded-t-2xl p-4 space-y-3 max-h-[85vh] overflow-y-auto pb-[calc(1rem+env(safe-area-inset-bottom))]"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
           <h3 className="font-display font-semibold">
-            {d}.{m}. · {pilots.length} {pilots.length === 1 ? 'pilot' : 'pilots'}
+            {d}.{m}.
+            {pilots ? ` · ${pilots.length} ${pilots.length === 1 ? 'pilot' : 'pilots'}` : ' · confirmed'}
           </h3>
           <button onClick={onClose} className="p-1 text-text-muted" aria-label="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {ownScheduled && (
+          <ChangeRequestPanel
+            date={date}
+            colleagues={colleagues}
+            changeRequest={changeRequest}
+            onSubmitChange={onSubmitChange}
+            onResolve={onResolve}
+          />
+        )}
 
         <RosterSection title="Morning" pilots={am} ownName={ownName} />
         <RosterSection title="Afternoon" pilots={pm} ownName={ownName} />
@@ -685,6 +839,158 @@ function PilotListSheet({
         <button type="button" onClick={onClose} className="btn-primary w-full">Done</button>
       </div>
     </div>
+  );
+}
+
+const CHANGE_REASON_ORDER: ChangeRequestReason[] =
+  ['sick', 'conflict', 'different_time', 'swap', 'other'];
+
+/**
+ * Change-request control inside the day sheet. Shown only when the pilot is on
+ * that day's roster. Pending → status + "Mark resolved"; otherwise → a
+ * collapsible reason/note form that emails the office.
+ */
+function ChangeRequestPanel({
+  date, colleagues, changeRequest, onSubmitChange, onResolve,
+}: {
+  date: string;
+  colleagues: string[];
+  changeRequest: ChangeRequest | null;
+  onSubmitChange: (reason: ChangeRequestReason, note: string, swapWith?: string) => Promise<boolean>;
+  onResolve: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState<ChangeRequestReason>('sick');
+  const [note, setNote] = useState('');
+  const [swapWith, setSwapWith] = useState('');
+  const [sending, setSending] = useState(false);
+
+  if (changeRequest?.status === 'matched') {
+    return (
+      <div className="rounded-lg border border-success/40 bg-success/10 p-3 space-y-1 text-sm">
+        <div className="flex items-center gap-2 font-medium text-success">
+          <Check className="w-4 h-4 text-success" /> Swap matched
+        </div>
+        <p className="text-text-muted">
+          {changeRequest.matched_with ? `${changeRequest.matched_with} took this day. ` : ''}
+          The office has been emailed.
+        </p>
+      </div>
+    );
+  }
+
+  if (changeRequest?.status === 'pending') {
+    return (
+      <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 space-y-2 text-sm">
+        <div className="flex items-center gap-2 font-medium text-warning">
+          <AlertTriangle className="w-4 h-4 text-warning" />
+          Change requested — pending
+        </div>
+        <p className="text-text-muted">
+          {CHANGE_REASON_LABELS_EN[changeRequest.reason]}
+          {changeRequest.swap_with ? ` with ${changeRequest.swap_with}` : ''}
+          {changeRequest.note ? ` — "${changeRequest.note}"` : ''}
+        </p>
+        <p className="text-xs text-text-muted">
+          Sent to the office for {formatChangeRequestDate(date)}. They reply by mail or WhatsApp as usual.
+        </p>
+        <button type="button" onClick={onResolve} className="btn-ghost w-full border border-border text-sm">
+          <Check className="w-4 h-4 mr-1" /> Mark resolved
+        </button>
+      </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <div className="space-y-1">
+        {changeRequest?.status === 'resolved' && (
+          <p className="text-xs text-text-muted">Previous change request resolved.</p>
+        )}
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="btn-ghost w-full border border-border text-sm"
+        >
+          <Send className="w-4 h-4 mr-1" /> Request change
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-border p-3 space-y-3 text-sm">
+      <p className="font-medium">Need to change {formatChangeRequestDate(date)}?</p>
+      <div className="space-y-1.5">
+        {CHANGE_REASON_ORDER.map(r => (
+          <label key={r} className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="cr-reason"
+              checked={reason === r}
+              onChange={() => setReason(r)}
+              className="accent-primary"
+            />
+            <span>{CHANGE_REASON_LABELS_EN[r]}</span>
+          </label>
+        ))}
+      </div>
+      {reason === 'swap' && colleagues.length > 0 && (
+        <select
+          value={swapWith}
+          onChange={e => setSwapWith(e.target.value)}
+          className="w-full rounded-md border border-border p-2 text-sm bg-white"
+        >
+          <option value="">Swap with… (pick a colleague)</option>
+          {colleagues.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+      )}
+      <textarea
+        value={note}
+        onChange={e => setNote(e.target.value)}
+        placeholder="Note (optional) — e.g. happy to swap with Flo"
+        rows={2}
+        maxLength={1000}
+        className="w-full rounded-md border border-border p-2 text-sm resize-none"
+      />
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => { setOpen(false); setNote(''); }}
+          disabled={sending}
+          className="btn-ghost flex-1 border border-border"
+        >Cancel</button>
+        <button
+          type="button"
+          disabled={sending}
+          onClick={async () => {
+            setSending(true);
+            const ok = await onSubmitChange(reason, note, swapWith);
+            setSending(false);
+            if (ok) { setOpen(false); setNote(''); setSwapWith(''); }
+          }}
+          className="btn-primary flex-1"
+        >
+          <Send className="w-4 h-4 mr-1" /> {sending ? 'Sending…' : 'Send to office'}
+        </button>
+      </div>
+      <p className="text-xs text-text-muted">
+        {reason === 'swap'
+          ? 'Picking a colleague lets them confirm the swap in-app; the office is emailed either way.'
+          : 'Sends a structured email to the office. They reply as usual.'}
+      </p>
+    </div>
+  );
+}
+
+/** Small amber alert dot for days with a pending change request. */
+function ChangeBadge() {
+  return (
+    <span
+      className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-warning ring-2 ring-white pointer-events-none"
+      aria-label="Change requested"
+      title="Change requested"
+    />
   );
 }
 
