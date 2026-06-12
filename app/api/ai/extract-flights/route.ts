@@ -19,8 +19,24 @@ const SCHEMA = {
     },
     trip_times: {
       type: 'array' as const,
-      description: "Departure times of THIS pilot's flights, format HH:MM, ascending",
+      description: "If the screenshot lists departure times, THIS pilot's times in HH:MM ascending. Empty if it's a counts summary.",
       items: { type: 'string' as const },
+    },
+    flights_count: {
+      type: ['integer', 'null'] as const,
+      description: "Counts-summary layout only: number in THIS pilot's 'Flights' column. Null if the screenshot lists times instead.",
+    },
+    photo_count: {
+      type: ['integer', 'null'] as const,
+      description: "Counts-summary layout: THIS pilot's 'Photo'/'Photo Video' column, else null.",
+    },
+    double_air_count: {
+      type: ['integer', 'null'] as const,
+      description: "Counts-summary layout: THIS pilot's 'Double Air'/'Doppel'/thermal column, else null.",
+    },
+    no_show_count: {
+      type: ['integer', 'null'] as const,
+      description: "Counts-summary layout: THIS pilot's 'No Show' column, else null.",
     },
     confidence: {
       type: 'string' as const,
@@ -28,13 +44,17 @@ const SCHEMA = {
       description: 'How confident the extraction is',
     },
   },
-  required: ['date', 'trip_times', 'confidence'] as const,
+  required: ['date', 'trip_times', 'flights_count', 'photo_count', 'double_air_count', 'no_show_count', 'confidence'] as const,
   additionalProperties: false as const,
 };
 
 export type ExtractResult = {
   date: string | null;
   trip_times: string[];
+  flights_count: number | null;
+  photo_count: number | null;
+  double_air_count: number | null;
+  no_show_count: number | null;
   confidence: 'high' | 'medium' | 'low';
 };
 
@@ -91,10 +111,14 @@ export async function POST(req: NextRequest) {
           {
             type: 'text',
             text: [
-              `This is a screenshot of a tandem-paragliding daysheet or a WhatsApp message listing flights.`,
-              `The pilot's name is "${pilot?.full_name ?? 'unknown'}".`,
-              `Extract the departure times (HH:MM) of THIS pilot's flights only.`,
-              `If the screenshot shows a whole-team plan, find the row/section for this pilot.`,
+              `This is a screenshot of a tandem-paragliding daysheet or a WhatsApp message about flights.`,
+              `The pilot's name is "${pilot?.full_name ?? 'unknown'}". Always work from THIS pilot's row/section only.`,
+              ``,
+              `There are two possible layouts:`,
+              `1) A LIST OF DEPARTURE TIMES → return them in "trip_times" (HH:MM, ascending) and leave the *_count fields null.`,
+              `2) A COUNTS SUMMARY TABLE with columns like "Pilot Name", "Flights", "Photo"/"Photo Video", "Double Air"/"Doppel", "No Show" → return this pilot's numbers in flights_count / photo_count / double_air_count / no_show_count, and leave trip_times empty.`,
+              ``,
+              `Note the pilot's name may be abbreviated (e.g. first name only). Pick the best-matching row.`,
               `If you see a date, return it as YYYY-MM-DD. Set confidence accordingly.`,
             ].join('\n'),
           },
@@ -118,11 +142,18 @@ export async function POST(req: NextRequest) {
         .map(t => t.padStart(5, '0')),
     )].sort();
 
+    const clampCount = (n: number | null | undefined): number | null =>
+      typeof n === 'number' && Number.isFinite(n) && n >= 0 ? Math.min(Math.round(n), 99) : null;
+
     return NextResponse.json({
       ok: true,
       date: parsed.date && /^\d{4}-\d{2}-\d{2}$/.test(parsed.date) ? parsed.date : null,
       trip_times: times,
       count: times.length,
+      flights_count: clampCount(parsed.flights_count),
+      photo_count: clampCount(parsed.photo_count),
+      double_air_count: clampCount(parsed.double_air_count),
+      no_show_count: clampCount(parsed.no_show_count),
       confidence: parsed.confidence ?? 'low',
     });
   } catch (e) {
