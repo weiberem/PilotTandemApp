@@ -68,7 +68,7 @@ export default async function AvailabilityPage() {
     submittedByMonth[key] = !!(s.submitted_at || s.email_sent);
   }
 
-  // Change requests (migration 017). Pulled separately + defensively so the
+  // Change requests (migration 018). Pulled separately + defensively so the
   // page still works if the column hasn't been applied yet. Loaded across all
   // the pilot's rows so requests on any imported plan month show up.
   const changeRequestsByMonth: Record<string, ChangeRequestMap> = {};
