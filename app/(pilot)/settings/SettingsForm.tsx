@@ -38,7 +38,14 @@ type Pilot = {
 
 type Field = keyof NonNullable<Pilot>;
 
-export function SettingsForm({ pilot, email }: { pilot: Pilot; email: string }) {
+export function SettingsForm({
+  pilot, email, driveConnect, driveBackup,
+}: {
+  pilot: Pilot;
+  email: string;
+  driveConnect?: React.ReactNode;
+  driveBackup?: React.ReactNode;
+}) {
   const router = useRouter();
   const supabase = createClient();
   const [form, setForm] = useState<NonNullable<Pilot>>({
@@ -235,28 +242,44 @@ export function SettingsForm({ pilot, email }: { pilot: Pilot; email: string }) 
       </Section>
 
       <Section title="Google Drive">
-        <Input
-          label="Main folder for invoices & backups"
-          value={form.google_drive_folder_id ?? ''}
-          onChange={v => set('google_drive_folder_id', extractDriveId(v))}
-          placeholder="ID or Drive link …/folders/XXX"
-        />
-        <Input
-          label="Schedule folder (Skywings drops a new file every month)"
-          value={form.einsatzplan_folder_id ?? ''}
-          onChange={v => set('einsatzplan_folder_id', extractDriveId(v))}
-          placeholder="ID or Drive link …/folders/XXX"
-        />
-        <Input
-          label="Schedule single file ID (fallback, optional)"
-          value={form.einsatzplan_file_id ?? ''}
-          onChange={v => set('einsatzplan_file_id', extractDriveId(v))}
-          placeholder="only if the folder doesn't work"
-        />
-        <p className="text-xs text-text-muted">
-          Tip: You can paste the whole Drive link — the ID is extracted automatically.
-          With a folder ID, the app always pulls the latest Excel file from the folder.
-        </p>
+        {driveConnect && (
+          <div className="pb-1">
+            <div className="text-xs font-medium text-text-muted mb-1.5">Connection</div>
+            {driveConnect}
+          </div>
+        )}
+
+        <div className="space-y-3 border-t border-border pt-3">
+          <Input
+            label="Main folder for invoices & backups"
+            value={form.google_drive_folder_id ?? ''}
+            onChange={v => set('google_drive_folder_id', extractDriveId(v))}
+            placeholder="ID or Drive link …/folders/XXX"
+          />
+          <Input
+            label="Schedule folder (Skywings drops a new file every month)"
+            value={form.einsatzplan_folder_id ?? ''}
+            onChange={v => set('einsatzplan_folder_id', extractDriveId(v))}
+            placeholder="ID or Drive link …/folders/XXX"
+          />
+          <Input
+            label="Schedule single file ID (fallback, optional)"
+            value={form.einsatzplan_file_id ?? ''}
+            onChange={v => set('einsatzplan_file_id', extractDriveId(v))}
+            placeholder="only if the folder doesn't work"
+          />
+          <p className="text-xs text-text-muted">
+            Tip: You can paste the whole Drive link — the ID is extracted automatically.
+            With a folder ID, the app always pulls the latest Excel file from the folder.
+          </p>
+        </div>
+
+        {driveBackup && (
+          <div className="border-t border-border pt-3">
+            <div className="text-xs font-medium text-text-muted mb-1.5">Monthly Excel backup</div>
+            {driveBackup}
+          </div>
+        )}
       </Section>
 
       <Toast msg={msg} onClose={() => setMsg(null)} />
