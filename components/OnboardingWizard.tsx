@@ -65,8 +65,8 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
     city: pilot.city ?? '',
     iban: pilot.iban ?? '',
     vat_number: pilot.vat_number ?? '',
-    primary_company_name: pilot.primary_company_name ?? '',
-    primary_company_address: pilot.primary_company_address ?? '',
+    primary_company_name: pilot.primary_company_name ?? 'Skywings Adventures GmbH',
+    primary_company_address: pilot.primary_company_address ?? 'Brandstrasse 38, 3852 Ringgenberg',
     office_email: pilot.office_email ?? '',
     personal_email: pilot.personal_email ?? authEmail,
     flight_rate_chf: pilot.flight_rate_chf ?? 105,
@@ -234,10 +234,12 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
             <Input
               label="Primary company" value={state.primary_company_name}
               onChange={v => set('primary_company_name', v)}
+              placeholder="Skywings Adventures GmbH"
             />
             <Input
               label="Company address" value={state.primary_company_address}
               onChange={v => set('primary_company_address', v)}
+              placeholder="Brandstrasse 38, 3852 Ringgenberg"
             />
             <div className="grid grid-cols-2 gap-2">
               <NumInput label="Flight" value={state.flight_rate_chf} onChange={v => set('flight_rate_chf', v)} />
@@ -318,16 +320,19 @@ function NumInput({ label, value, onChange }: { label: string; value: number; on
   return (
     <label className="block">
       <span className="text-sm font-medium">{label}</span>
-      <div className="mt-1 flex items-center rounded-lg border border-border bg-white">
+      <div className="mt-1 relative">
         <input
           type="number"
-          value={value}
+          inputMode="numeric"
+          value={Number.isFinite(value) ? value : 0}
           onChange={e => onChange(Number(e.target.value) || 0)}
-          className="flex-1 min-h-tap px-3 py-2 bg-transparent text-right font-mono"
+          className="w-full min-h-tap rounded-lg border border-border bg-white pl-3 pr-12 py-2 font-mono"
           min={0}
           step={1}
         />
-        <span className="text-xs text-text-muted pr-3">CHF</span>
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">
+          CHF
+        </span>
       </div>
     </label>
   );
