@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
     companies: { company: string; status: string; total: number }[];
     emailed: boolean;
     verification?: { total: number; verified: number; allVerified: boolean } | null;
-    auto_sent?: string[];
+    auto_send_scheduled?: string[];
     backup?: { file_name?: string; deleted?: number; error?: string };
   }> = [];
 
@@ -119,18 +119,16 @@ export async function GET(req: NextRequest) {
 
     // Verification status decides both the email wording and auto-send.
     const verification = await monthVerificationStatusSvc(svc, pilot.id, monthFirst);
-    const autoSent: string[] = [];
+    const autoSendScheduled: string[] = [];
 
+    // Day-1 auto-send is announced, not executed. The actual send fires from
+    // the dedicated auto-send-invoice cron 24h later, giving the pilot a full
+    // day to intervene.
     if (verification?.allVerified && pilot.auto_send_invoice && !pilot.is_demo) {
       for (const c of companyResults) {
         if (c.status !== 'draft_ready') continue;
-        const r = await sendInvoiceForPilot(svc, pilot.id, monthFirst, c.company);
-        if (r.ok) {
-          c.status = `auto_sent:${r.invoice_number}`;
-          autoSent.push(c.company);
-        } else {
-          c.status = `auto_send_failed:${r.error}`;
-        }
+        c.status = 'auto_send_scheduled';
+        autoSendScheduled.push(c.company);
       }
     }
 
@@ -138,24 +136,25 @@ export async function GET(req: NextRequest) {
     const targetEmail = pilot.personal_email ?? pilot.office_email;
     const draftCount = companyResults.filter(c => c.status === 'draft_ready').length;
     let emailed = false;
-    if ((draftCount > 0 || autoSent.length > 0) && targetEmail) {
+    if ((draftCount > 0 || autoSendScheduled.length > 0) && targetEmail) {
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
       let subject: string;
       let bodyLines: string[];
 
-      if (autoSent.length > 0) {
-        subject = `${monthLabel}: invoice sent automatically`;
+      if (autoSendScheduled.length > 0) {
+        subject = `${monthLabel}: invoice will be sent automatically in 24 hours`;
         bodyLines = [
           `Hi ${pilot.full_name ?? ''},`,
           ``,
-          `All flight days of ${monthLabel} were verified and auto-send is on,`,
-          `so your invoice went out to the office automatically:`,
+          `All flight days of ${monthLabel} are verified and auto-send is on, so`,
+          `your invoice will be sent to the office tomorrow at 07:00 unless you stop it:`,
           ``,
           ...companyResults
-            .filter(c => c.status.startsWith('auto_sent'))
+            .filter(c => c.status === 'auto_send_scheduled')
             .map(c => `  ${c.company}: CHF ${c.total.toFixed(0)}`),
           ``,
-          `Details: ${appUrl}/dashboard/invoice?month=${monthFirst}`,
+          `Review or stop: ${appUrl}/dashboard/invoice?month=${monthFirst}`,
+          `To stop: turn off auto-send in Settings, or send manually now.`,
         ];
       } else if (verification?.allVerified) {
         subject = `${monthLabel}: invoice ready — all days verified`;
@@ -217,7 +216,7 @@ export async function GET(req: NextRequest) {
       backup = { error: e instanceof Error ? e.message : 'unknown' };
     }
 
-    summary.push({ pilot_id: pilot.id, companies: companyResults, emailed, verification, auto_sent: autoSent, backup });
+    summary.push({ pilot_id: pilot.id, companies: companyResults, emailed, verification, auto_send_scheduled: autoSendScheduled, backup });
   }
 
   // Archive any per-month Einsatzplan imports whose month has fully ended.

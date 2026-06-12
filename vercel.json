@@ -6,6 +6,10 @@
       "schedule": "0 6 1 * *"
     },
     {
+      "path": "/api/cron/auto-send-invoice",
+      "schedule": "0 6 2-7 * *"
+    },
+    {
       "path": "/api/cron/demo-cleanup",
       "schedule": "0 3 * * *"
     }
