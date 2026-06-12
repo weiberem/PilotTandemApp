@@ -24,8 +24,9 @@ type Draft = {
   photo_prepaid_rate_chf: string;
   thermal_rate_chf: string;
   no_show_rate_chf: string;
-  trip_times_mode: 'manual' | 'fixed';
+  trip_times_mode: 'manual' | 'fixed' | 'seasonal';
   trip_times_csv: string;
+  trip_times_winter_csv: string;
   color_hex: string;
 };
 
@@ -33,12 +34,16 @@ function emptyDraft(): Draft {
   return {
     name: '', address: '', office_email: '',
     flight_rate_chf: '', photo_prepaid_rate_chf: '', thermal_rate_chf: '', no_show_rate_chf: '',
-    trip_times_mode: 'manual', trip_times_csv: '',
+    trip_times_mode: 'manual', trip_times_csv: '', trip_times_winter_csv: '',
     color_hex: '#7B6D8D',
   };
 }
 
 function fromCompany(c: PilotCompany): Draft {
+  const mode: Draft['trip_times_mode'] =
+    c.trip_times_winter && c.trip_times_winter.length > 0 ? 'seasonal'
+    : c.trip_times ? 'fixed'
+    : 'manual';
   return {
     name: c.name,
     address: c.address ?? '',
@@ -47,10 +52,18 @@ function fromCompany(c: PilotCompany): Draft {
     photo_prepaid_rate_chf: c.photo_prepaid_rate_chf?.toString() ?? '',
     thermal_rate_chf: c.thermal_rate_chf?.toString() ?? '',
     no_show_rate_chf: c.no_show_rate_chf?.toString() ?? '',
-    trip_times_mode: c.trip_times ? 'fixed' : 'manual',
+    trip_times_mode: mode,
     trip_times_csv: (c.trip_times ?? []).join(', '),
+    trip_times_winter_csv: (c.trip_times_winter ?? []).join(', '),
     color_hex: c.color_hex,
   };
+}
+
+function parseTimes(csv: string): string[] {
+  return csv.split(',').map(s => s.trim())
+    .filter(s => /^\d{1,2}:\d{2}$/.test(s))
+    .map(s => s.padStart(5, '0'))
+    .sort();
 }
 
 export function PilotCompaniesCard({ initial, primaryRates }: Props) {
@@ -84,11 +97,14 @@ export function PilotCompaniesCard({ initial, primaryRates }: Props) {
   function save() {
     setMsg(null);
     if (!draft.name.trim()) { setMsg({ kind: 'err', text: 'Name required' }); return; }
-    const times = draft.trip_times_mode === 'fixed'
-      ? draft.trip_times_csv.split(',').map(s => s.trim()).filter(s => /^\d{1,2}:\d{2}$/.test(s)).map(s => s.padStart(5, '0')).sort()
-      : null;
-    if (draft.trip_times_mode === 'fixed' && (!times || times.length === 0)) {
-      setMsg({ kind: 'err', text: 'Enter at least one valid trip time (HH:MM)' });
+    const summer = draft.trip_times_mode === 'manual' ? null : parseTimes(draft.trip_times_csv);
+    const winter = draft.trip_times_mode === 'seasonal' ? parseTimes(draft.trip_times_winter_csv) : null;
+    if (draft.trip_times_mode !== 'manual' && (!summer || summer.length === 0)) {
+      setMsg({ kind: 'err', text: 'Enter at least one valid summer trip time (HH:MM)' });
+      return;
+    }
+    if (draft.trip_times_mode === 'seasonal' && (!winter || winter.length === 0)) {
+      setMsg({ kind: 'err', text: 'Enter at least one valid winter trip time (HH:MM)' });
       return;
     }
     const payload = {
@@ -99,7 +115,8 @@ export function PilotCompaniesCard({ initial, primaryRates }: Props) {
       photo_prepaid_rate_chf: numOrNull(draft.photo_prepaid_rate_chf),
       thermal_rate_chf: numOrNull(draft.thermal_rate_chf),
       no_show_rate_chf: numOrNull(draft.no_show_rate_chf),
-      trip_times: times,
+      trip_times: summer,
+      trip_times_winter: winter,
       color_hex: draft.color_hex,
     };
     startTransition(async () => {
@@ -266,33 +283,54 @@ function CompanyForm({
 
       <div className="space-y-2">
         <div className="text-sm font-medium">Trip times</div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => set('trip_times_mode', 'manual')}
-            className={`flex-1 min-h-tap rounded-lg border text-sm ${
-              draft.trip_times_mode === 'manual'
-                ? 'border-primary bg-primary/5 text-primary-dark'
-                : 'border-border text-text-muted'
-            }`}
-          >Enter manually each flight</button>
-          <button
-            type="button"
-            onClick={() => set('trip_times_mode', 'fixed')}
-            className={`flex-1 min-h-tap rounded-lg border text-sm ${
-              draft.trip_times_mode === 'fixed'
-                ? 'border-primary bg-primary/5 text-primary-dark'
-                : 'border-border text-text-muted'
-            }`}
-          >Fixed schedule</button>
+        <div className="grid grid-cols-3 gap-1.5">
+          {([
+            ['manual', 'Manual'],
+            ['fixed', 'Year-round'],
+            ['seasonal', 'Summer + Winter'],
+          ] as const).map(([mode, label]) => (
+            <button
+              key={mode} type="button"
+              onClick={() => set('trip_times_mode', mode)}
+              className={`min-h-tap rounded-lg border text-xs px-2 ${
+                draft.trip_times_mode === mode
+                  ? 'border-primary bg-primary/5 text-primary-dark'
+                  : 'border-border text-text-muted'
+              }`}
+            >{label}</button>
+          ))}
         </div>
         {draft.trip_times_mode === 'fixed' && (
           <Input
-            label="Trip times (comma-separated HH:MM)"
+            label="Trip times (HH:MM, comma-separated)"
             value={draft.trip_times_csv}
             onChange={v => set('trip_times_csv', v)}
             placeholder="08:30, 10:00, 11:30, 13:30, 15:00"
           />
+        )}
+        {draft.trip_times_mode === 'seasonal' && (
+          <>
+            <Input
+              label="Summer times (Apr–Oct)"
+              value={draft.trip_times_csv}
+              onChange={v => set('trip_times_csv', v)}
+              placeholder="07:10, 08:10, 09:20, 10:30, 11:45, 13:30, 14:45, 16:00, 17:00"
+            />
+            <Input
+              label="Winter times (Nov–Mar)"
+              value={draft.trip_times_winter_csv}
+              onChange={v => set('trip_times_winter_csv', v)}
+              placeholder="08:30, 09:45, 11:00, 12:15, 13:45, 15:00"
+            />
+            <p className="text-xs text-text-muted">
+              Auto-switches based on your season setting in the Skywings card above.
+            </p>
+          </>
+        )}
+        {draft.trip_times_mode === 'manual' && (
+          <p className="text-xs text-text-muted">
+            You'll enter the time freely for each flight.
+          </p>
         )}
       </div>
 

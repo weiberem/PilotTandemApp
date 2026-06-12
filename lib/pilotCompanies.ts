@@ -9,6 +9,7 @@ export type PilotCompany = {
   thermal_rate_chf: number | null;
   no_show_rate_chf: number | null;
   trip_times: string[] | null;
+  trip_times_winter: string[] | null;
   color_hex: string;
   office_email: string | null;
   is_active: boolean;
@@ -36,6 +37,17 @@ export function suggestColor(name: string): string {
   return '#7B6D8D';
 }
 
+/** Pick the right schedule for the active season. Winter falls back to summer. */
+export function companyTimesForSeason(
+  c: Pick<PilotCompany, 'trip_times' | 'trip_times_winter'>,
+  season: 'summer' | 'winter',
+): string[] | null {
+  if (season === 'winter' && c.trip_times_winter && c.trip_times_winter.length > 0) {
+    return c.trip_times_winter;
+  }
+  return c.trip_times && c.trip_times.length > 0 ? c.trip_times : null;
+}
+
 /**
  * Built-in suggestions shown on the "Add company" form. The pilot picks one
  * (or types their own) and rates default to the pilot's primary rates.
@@ -50,7 +62,7 @@ export const COMPANY_SUGGESTIONS: Array<{ name: string; address: string }> = [
 export async function listPilotCompanies(sb: SupabaseClient, pilotId: string): Promise<PilotCompany[]> {
   const { data } = await sb
     .from('pilot_companies')
-    .select('id, name, address, flight_rate_chf, photo_prepaid_rate_chf, thermal_rate_chf, no_show_rate_chf, trip_times, color_hex, office_email, is_active, display_order')
+    .select('id, name, address, flight_rate_chf, photo_prepaid_rate_chf, thermal_rate_chf, no_show_rate_chf, trip_times, trip_times_winter, color_hex, office_email, is_active, display_order')
     .eq('pilot_id', pilotId)
     .order('display_order')
     .order('name');

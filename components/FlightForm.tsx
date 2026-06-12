@@ -9,7 +9,7 @@ import {
 import {
   getCurrentTripTimes, resolveSeason, type Season,
 } from '@/lib/tripTimes';
-import { type PilotCompany } from '@/lib/pilotCompanies';
+import { type PilotCompany, companyTimesForSeason } from '@/lib/pilotCompanies';
 import { createFlight, updateFlight } from '@/app/(pilot)/log/actions';
 
 const SKYWINGS = 'Skywings';
@@ -47,10 +47,13 @@ export function FlightForm({
   );
 
   const tripTimeOptions = useMemo(() => {
-    if (matchedOther?.trip_times && matchedOther.trip_times.length > 0) {
-      const list = [...matchedOther.trip_times];
-      if (form.trip_time && !list.includes(form.trip_time)) list.unshift(form.trip_time);
-      return list;
+    if (matchedOther) {
+      const seasonal = companyTimesForSeason(matchedOther, season);
+      if (seasonal && seasonal.length > 0) {
+        const list = [...seasonal];
+        if (form.trip_time && !list.includes(form.trip_time)) list.unshift(form.trip_time);
+        return list;
+      }
     }
     if (!isSkywingsLike) return [] as readonly string[];
     const seasonTimes = getCurrentTripTimes(season);
