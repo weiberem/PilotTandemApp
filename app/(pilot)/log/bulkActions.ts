@@ -207,6 +207,36 @@ export async function applySumupCcTimes(input: z.input<typeof sumupSchema>) {
   return { ok: true as const, assigned, payments: payment_times.length };
 }
 
+const daySchema = z.object({
+  flight_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+/**
+ * Reset a day: delete every flight the pilot logged on that date. Used by the
+ * "Reset day" button to clear a mis-scanned daysheet and start over.
+ */
+export async function deleteDayFlights(input: z.input<typeof daySchema>) {
+  const parsed = daySchema.safeParse(input);
+  if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
+  const { flight_date } = parsed.data;
+
+  const sb = createClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return { ok: false as const, error: 'Not authenticated' };
+
+  const { error, count } = await sb
+    .from('flights')
+    .delete({ count: 'exact' })
+    .eq('pilot_id', user.id)
+    .eq('flight_date', flight_date);
+  if (error) return { ok: false as const, error: error.message };
+
+  revalidatePath('/home');
+  revalidatePath('/today');
+  revalidatePath('/flights');
+  return { ok: true as const, deleted: count ?? 0 };
+}
+
 const cashSchema = z.object({
   flight_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   count: z.number().int().min(1).max(40),

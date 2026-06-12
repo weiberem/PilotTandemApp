@@ -9,6 +9,7 @@ import {
 import { computeDayTotals, type FlightInput, type FlightRow, type PilotRates } from '@/lib/flights';
 import { QuickAddFlightRow } from '@/components/QuickAddFlightRow';
 import { ScreenshotCapture } from '@/components/ScreenshotCapture';
+import { DayControls } from '@/components/DayControls';
 import { FlightLine } from '@/components/FlightLine';
 import { buildMonths, DayDetails, MonthDetails } from '@/components/HistoryAccordion';
 import { PeriodSummary } from '@/components/PeriodSummary';
@@ -23,7 +24,9 @@ function monthsAgoIso(months: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: { searchParams: { date?: string } }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
@@ -33,7 +36,13 @@ export default async function HomePage() {
     redirect('/onboarding');
   }
 
-  const today = isoDateZurich();
+  const realToday = isoDateZurich();
+  // The header date picker lets the pilot scan / log / reset a past day.
+  const viewDate = searchParams.date && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.date)
+    ? searchParams.date
+    : realToday;
+  const isViewingToday = viewDate === realToday;
+  const today = viewDate;
   const historyFrom = monthsAgoIso(HISTORY_MONTHS);
 
   const [{ data: rows }, { data: vers }] = await Promise.all([
@@ -69,7 +78,7 @@ export default async function HomePage() {
   const prefillTime = prefillNextTripTime({
     scheduledTimes, seasonTimes, season,
     lastSkywingsTime: lastSkywings?.trip_time ?? null,
-    isToday: true,
+    isToday: isViewingToday,
     now: nowInZurich(),
   });
 
@@ -94,9 +103,14 @@ export default async function HomePage() {
 
   return (
     <div className="p-4 space-y-4 max-w-2xl mx-auto">
-      <section>
-        <p className="text-text-muted text-sm">{formatDateDe(new Date())}</p>
-        <h1 className="text-2xl font-display font-bold">Today</h1>
+      <section className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-text-muted text-sm">{formatDateDe(new Date(viewDate))}</p>
+          <h1 className="text-2xl font-display font-bold">{isViewingToday ? 'Today' : 'Day log'}</h1>
+        </div>
+        <div className="pt-1">
+          <DayControls viewDate={viewDate} realToday={realToday} flightCount={todayFlights.length} />
+        </div>
       </section>
 
       {pilot.simple_capture ? (
