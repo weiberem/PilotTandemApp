@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { ChevronLeft, ChevronRight, Mail, Check, AlertTriangle, Users, X, RotateCcw, CalendarPlus, Repeat, Send, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Mail, Check, AlertTriangle, Users, X, RotateCcw, CalendarPlus, Repeat, Send, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   addMonths, buildMailto, buildMailtoInverted,
@@ -75,6 +75,8 @@ export function AvailabilityCalendar({
   const [crByMonth, setCrByMonth] = useState<Record<string, ChangeRequestMap>>(changeRequestsByMonth);
   // Swap requests addressed to this pilot for the viewed month (Schedule tab).
   const [incomingSwaps, setIncomingSwaps] = useState<IncomingSwap[]>([]);
+  // "Add to calendar" menu (collapsed by default to keep the actions tidy).
+  const [calMenuOpen, setCalMenuOpen] = useState(false);
   const [cursor, setCursor] = useState(initialMonth);
   // Inverted entry: pilot marks the days they are NOT available; on apply,
   // everything else in the month becomes a full-day availability.
@@ -785,35 +787,41 @@ export function AvailabilityCalendar({
               <Check className="w-3.5 h-3.5 mr-1" /> Apply to calendar
             </button>
           )}
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-text-muted shrink-0">Add to calendar:</span>
+
+          {/* Collapsible "Add to calendar" menu — keeps the export/sync
+              actions out of the way until needed. */}
+          <div className="rounded-lg border border-border overflow-hidden">
             <button
-              onClick={onExportIcs}
-              disabled={invert || pending}
-              className="btn-ghost flex-1 border border-border text-xs"
-              title="Download / open an .ics file (Apple Calendar, Outlook, …)"
+              type="button"
+              onClick={() => setCalMenuOpen(v => !v)}
+              disabled={invert}
+              className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium disabled:opacity-50"
+              aria-expanded={calMenuOpen}
             >
-              <CalendarPlus className="w-3.5 h-3.5 mr-1" /> .ics file
+              <span className="inline-flex items-center gap-2 text-text-muted">
+                <CalendarPlus className="w-4 h-4" /> Add to calendar
+              </span>
+              <ChevronDown className={cn('w-4 h-4 text-text-muted transition-transform', calMenuOpen && 'rotate-180')} />
             </button>
-            <button
-              onClick={onPushGoogle}
-              disabled={invert || pending}
-              className="btn-ghost flex-1 border border-border text-xs"
-              title="Add this month's availability straight to your Google Calendar"
-            >
-              <GoogleIcon className="w-3.5 h-3.5 mr-1" /> Google
-            </button>
+            {calMenuOpen && !invert && (
+              <div className="border-t border-border divide-y divide-border text-sm">
+                <button onClick={onExportIcs} disabled={pending} className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-bg-subtle/60">
+                  <CalendarPlus className="w-4 h-4 text-text-muted" />
+                  <span><span className="font-medium">.ics file</span> <span className="text-text-muted">— Apple, Outlook, Android</span></span>
+                </button>
+                <button onClick={onPushGoogle} disabled={pending} className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-bg-subtle/60">
+                  <GoogleIcon className="w-4 h-4" />
+                  <span><span className="font-medium">Google Calendar</span> <span className="text-text-muted">— one tap</span></span>
+                </button>
+                {googleConnected && (
+                  <button onClick={onClearGoogle} disabled={pending} className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-text-muted hover:bg-bg-subtle/60">
+                    <Trash2 className="w-4 h-4" />
+                    <span>Remove this month from Google Calendar</span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
-          {googleConnected && (
-            <button
-              onClick={onClearGoogle}
-              disabled={pending}
-              className="w-full text-text-muted underline-offset-2 hover:underline text-xs py-1"
-              title="Remove the TandemLog availability events this month from Google Calendar"
-            >
-              <Trash2 className="w-3 h-3 inline mr-1" /> Remove this month from Google Calendar
-            </button>
-          )}
           <div className="flex gap-2 text-xs">
             <button
               onClick={clearMonth}
