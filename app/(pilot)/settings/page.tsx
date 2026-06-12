@@ -99,6 +99,9 @@ export default async function SettingsPage({
         <p className="text-sm text-text-muted">
           Signed in as <span className="font-mono">{user.email}</span>
         </p>
+        <a href="/home?tour=1" className="btn-ghost border border-border text-sm inline-flex w-fit">
+          Replay intro tour
+        </a>
         <LogoutButton />
       </fieldset>
     </div>

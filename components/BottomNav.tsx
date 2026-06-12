@@ -11,13 +11,14 @@ type Item = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   primary?: boolean;
+  tour?: string;
 };
 
 const items: readonly Item[] = [
   { href: '/availability', label: 'Working days', icon: Calendar },
   { href: '/home', label: 'Log', icon: Paraglider, primary: true },
-  { href: '/dashboard/stats', label: 'Invoice', icon: BarChart3 },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/dashboard/stats', label: 'Invoice', icon: BarChart3, tour: 'nav-invoice' },
+  { href: '/settings', label: 'Settings', icon: Settings, tour: 'nav-settings' },
 ];
 
 function isActive(path: string, href: string): boolean {
@@ -32,7 +33,7 @@ export function BottomNav() {
   return (
     <nav className="fixed bottom-0 inset-x-0 bg-white border-t border-border z-30 pb-[env(safe-area-inset-bottom)]">
       <div className="relative flex items-end justify-around h-16">
-        {items.map(({ href, label, icon: Icon, primary }) => {
+        {items.map(({ href, label, icon: Icon, primary, tour }) => {
           const active = isActive(path, href);
           if (primary) {
             return (
@@ -56,6 +57,7 @@ export function BottomNav() {
             <Link
               key={href}
               href={href}
+              data-tour={tour}
               className={cn(
                 'flex-1 flex flex-col items-center justify-center gap-0.5 min-h-tap text-[11px]',
                 active ? 'text-primary' : 'text-text-muted',

@@ -10,6 +10,7 @@ import { computeDayTotals, type FlightInput, type FlightRow, type PilotRates } f
 import { QuickAddFlightRow } from '@/components/QuickAddFlightRow';
 import { ScreenshotCapture } from '@/components/ScreenshotCapture';
 import { DayControls } from '@/components/DayControls';
+import { IntroTour } from '@/components/IntroTour';
 import { FlightLine } from '@/components/FlightLine';
 import { buildMonths, DayDetails, MonthDetails } from '@/components/HistoryAccordion';
 import { PeriodSummary } from '@/components/PeriodSummary';
@@ -103,27 +104,30 @@ export default async function HomePage({
 
   return (
     <div className="p-4 space-y-4 max-w-2xl mx-auto">
+      <IntroTour />
       <section className="flex items-start justify-between gap-2">
         <div>
           <p className="text-text-muted text-sm">{formatDateDe(new Date(viewDate))}</p>
           <h1 className="text-2xl font-display font-bold">{isViewingToday ? 'Today' : 'Day log'}</h1>
         </div>
-        <div className="pt-1">
+        <div className="pt-1" data-tour="daynav">
           <DayControls viewDate={viewDate} realToday={realToday} flightCount={todayFlights.length} />
         </div>
       </section>
 
-      {pilot.simple_capture ? (
-        <ScreenshotCapture today={today} company={pilot.primary_company_name ?? 'Skywings'} />
-      ) : (
-        <QuickAddFlightRow
-          key={todayFlights.length}
-          defaults={defaults}
-          scheduledTimes={scheduledTimes}
-          loggedCount={todayFlights.length}
-          usedTripTimes={todayFlights.map(f => f.trip_time)}
-        />
-      )}
+      <div data-tour="capture">
+        {pilot.simple_capture ? (
+          <ScreenshotCapture today={today} company={pilot.primary_company_name ?? 'Skywings'} />
+        ) : (
+          <QuickAddFlightRow
+            key={todayFlights.length}
+            defaults={defaults}
+            scheduledTimes={scheduledTimes}
+            loggedCount={todayFlights.length}
+            usedTripTimes={todayFlights.map(f => f.trip_time)}
+          />
+        )}
+      </div>
 
       {todayFlights.length > 0 && (
         <section className="card overflow-hidden">
@@ -133,7 +137,7 @@ export default async function HomePage({
         </section>
       )}
 
-      <section className="space-y-3">
+      <section className="space-y-3" data-tour="summary">
         <PeriodSummary
           totals={todayTotals}
           totalLabel={todayTotals.tipChf > 0
