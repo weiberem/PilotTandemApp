@@ -268,21 +268,29 @@ function MonthBillingCard({
         <p className="p-3 text-text-muted text-sm">—</p>
       ) : (
         <>
-          <div className="px-3 py-2 text-xs border-b border-border flex items-center gap-2">
+          <div className="border-b border-border text-xs">
             {verification.ready ? (
-              <span className="inline-flex items-center gap-1 text-success">
+              <span className="flex items-center gap-1 px-3 py-2 text-success">
                 <Check className="w-3.5 h-3.5" /> All {verification.total} flight days verified
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-warning">
-                <Circle className="w-3.5 h-3.5" />
-                {verification.verified} of {verification.total} days verified
-                {verification.unverifiedDates.length > 0 && (
-                  <span className="text-text-muted ml-1">
-                    (open: {verification.unverifiedDates.slice(0, 3).map(d => d.split('-').reverse().join('.')).join(', ')}{verification.unverifiedDates.length > 3 ? '…' : ''})
-                  </span>
-                )}
-              </span>
+              <Link
+                href={`/flights?month=${month.slice(0, 7)}`}
+                className="flex items-center gap-1 px-3 py-2 text-warning hover:bg-warning/5"
+              >
+                <Circle className="w-3.5 h-3.5 shrink-0" />
+                <span>
+                  {verification.verified} of {verification.total} days verified
+                  {verification.unverifiedDates.length > 0 && (
+                    <span className="text-text-muted ml-1">
+                      (open: {verification.unverifiedDates.slice(0, 3).map(d => d.split('-').reverse().join('.')).join(', ')}{verification.unverifiedDates.length > 3 ? '…' : ''})
+                    </span>
+                  )}
+                </span>
+                <span className="ml-auto inline-flex items-center gap-1 font-medium whitespace-nowrap">
+                  Verify <ArrowRight className="w-3.5 h-3.5" />
+                </span>
+              </Link>
             )}
           </div>
           <ul className="divide-y divide-border">
