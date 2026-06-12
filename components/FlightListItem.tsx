@@ -73,7 +73,7 @@ export function FlightListItem({ flight }: { flight: FlightRow }) {
           onClick={e => { if (moved.current) e.preventDefault(); }}
           className="flex items-center gap-3 p-3 min-h-[64px]"
         >
-          <div className="font-mono text-lg tabular-nums w-14">{flight.trip_time}</div>
+          <div className="font-mono text-lg tabular-nums w-14">{flight.trip_time ?? '—:—'}</div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary-dark">

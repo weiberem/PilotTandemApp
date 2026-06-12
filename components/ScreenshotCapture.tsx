@@ -121,7 +121,7 @@ export function ScreenshotCapture({ today, company }: Props) {
           <div>
             <div className="font-display font-semibold text-lg">Daysheet totals</div>
             <div className="text-xs text-text-muted">
-              {(extract.date ?? today).split('-').reverse().join('.')} · no times on this sheet — set placeholders, edit later
+              {(extract.date ?? today).split('-').reverse().join('.')} · added without times — fill in later or from a SumUp upload
               {extract.confidence !== 'high' && (
                 <span className="text-warning ml-1">· please double-check</span>
               )}

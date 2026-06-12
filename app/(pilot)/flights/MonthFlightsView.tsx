@@ -126,7 +126,7 @@ export function MonthFlightsView({
                     </div>
                     {flights.map(f => (
                       <div key={f.id} className="flex items-center gap-3 p-3 pl-10 flex-wrap">
-                        <span className="font-mono text-sm tabular-nums w-12">{f.trip_time}</span>
+                        <span className="font-mono text-sm tabular-nums w-12">{f.trip_time ?? '—:—'}</span>
                         <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary-dark">
                           {f.company}
                         </span>

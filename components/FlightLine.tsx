@@ -10,7 +10,7 @@ export function FlightLine({ flight, indent = 'pl-10' }: { flight: FlightRow; in
   const color = suggestColor(flight.company);
   return (
     <div className={`flex items-center gap-3 p-3 ${indent} flex-wrap`}>
-      <span className="font-mono text-sm tabular-nums w-12">{flight.trip_time}</span>
+      <span className="font-mono text-sm tabular-nums w-12">{flight.trip_time ?? '—:—'}</span>
       <span
         className="text-xs px-2 py-0.5 rounded-full inline-flex items-center gap-1.5"
         style={{ backgroundColor: `${color}1A`, color: color }}

@@ -84,11 +84,14 @@ const countSchema = z.object({
 
 /**
  * Counts-summary capture (Tagesabrechnung): the daysheet has no departure
- * times, only per-pilot totals. Create `flights_count` flight rows for the
- * day. No-shows take their own rows (they can't carry photo/thermal); the
- * remaining rows are tagged with PP photo and double-airtime up to their
- * counts (these may overlap on the same flight). Times are unknown, so each
- * row gets an editable placeholder time — adjust later in Today's Flights.
+ * times, only per-pilot totals. Create `flights_count` flight rows for the day
+ * WITHOUT times (no invented clock times) — times can be filled in later
+ * (manually, or derived from a SumUp upload). No-shows take their own rows
+ * (they can't carry photo/thermal); the remaining rows are tagged with PP photo
+ * and double-airtime up to their counts (these may overlap on the same flight).
+ *
+ * Re-running replaces the day's previous timeless count rows (so re-uploading
+ * the sheet doesn't pile up duplicates); manually-timed flights are untouched.
  */
 export async function bulkAddFlightsByCount(input: z.input<typeof countSchema>) {
   const parsed = countSchema.safeParse(input);
@@ -104,28 +107,21 @@ export async function bulkAddFlightsByCount(input: z.input<typeof countSchema>) 
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return { ok: false as const, error: 'Not authenticated' };
 
-  // Placeholder times that don't collide with anything already logged today.
-  const { data: existing } = await sb
-    .from('flights')
-    .select('trip_time')
+  // Replace any prior timeless count rows for this day (keeps re-uploads clean);
+  // manually-timed flights (trip_time set) are left alone.
+  await sb.from('flights')
+    .delete()
     .eq('pilot_id', user.id)
-    .eq('flight_date', flight_date);
-  const seen = new Set((existing ?? []).map(r => r.trip_time as string));
-  const times: string[] = [];
-  for (let min = 9 * 60; times.length < flights_count && min < 24 * 60; min++) {
-    const t = `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
-    if (!seen.has(t)) times.push(t);
-  }
-  if (times.length < flights_count) return { ok: false as const, error: 'Too many flights already logged this day' };
+    .eq('flight_date', flight_date)
+    .is('trip_time', null);
 
-  const rows = times.map((t, i) => {
+  const rows = Array.from({ length: flights_count }, (_, i) => {
     const isNoShow = i < no_show_count;
-    // Flying rows start after the no-show rows.
-    const fi = i - no_show_count;
+    const fi = i - no_show_count; // index among flying rows
     return {
       pilot_id: user.id,
       flight_date,
-      trip_time: t,
+      trip_time: null,
       company,
       photo_status: !isNoShow && fi < photo_pp_count ? 'PP' : 'none',
       is_no_show: isNoShow,
