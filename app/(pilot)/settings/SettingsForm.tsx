@@ -29,6 +29,7 @@ type Pilot = {
   season_override: 'summer' | 'winter' | null;
   auto_send_invoice: boolean | null;
   simple_capture: boolean | null;
+  vat_registered: boolean | null;
 } | null;
 
 type Field = keyof NonNullable<Pilot>;
@@ -53,19 +54,30 @@ export function SettingsForm({ pilot, email }: { pilot: Pilot; email: string }) 
     google_drive_folder_id: pilot?.google_drive_folder_id ?? '',
     einsatzplan_folder_id: pilot?.einsatzplan_folder_id ?? '',
     einsatzplan_file_id: pilot?.einsatzplan_file_id ?? '',
-    flight_rate_chf: pilot?.flight_rate_chf ?? 105,
+    flight_rate_chf: pilot?.flight_rate_chf ?? ((pilot?.vat_registered ?? true) ? 105 : 100),
     photo_prepaid_rate_chf: pilot?.photo_prepaid_rate_chf ?? 40,
     thermal_rate_chf: pilot?.thermal_rate_chf ?? 50,
     no_show_rate_chf: pilot?.no_show_rate_chf ?? 32,
     season_override: pilot?.season_override ?? null,
     auto_send_invoice: pilot?.auto_send_invoice ?? false,
     simple_capture: pilot?.simple_capture ?? false,
+    vat_registered: pilot?.vat_registered ?? true,
   });
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
   function set<K extends Field>(key: K, value: NonNullable<Pilot>[K]) {
-    setForm(prev => ({ ...prev, [key]: value }));
+    setForm(prev => {
+      const next = { ...prev, [key]: value };
+      // Toggle VAT: nudge the flight rate to the matching default (105 vs 100)
+      // only if the pilot hadn't customised it away from the other default.
+      if (key === 'vat_registered') {
+        const cur = Number(prev.flight_rate_chf ?? 0);
+        if (value === true && (cur === 100 || cur === 0)) next.flight_rate_chf = 105;
+        if (value === false && (cur === 105 || cur === 0)) next.flight_rate_chf = 100;
+      }
+      return next;
+    });
   }
 
   function onSubmit(e: React.FormEvent) {
@@ -94,7 +106,27 @@ export function SettingsForm({ pilot, email }: { pilot: Pilot; email: string }) 
           <Input label="City" value={form.city ?? ''} onChange={v => set('city', v)} className="col-span-2" />
         </div>
         <Input label="IBAN *" value={form.iban ?? ''} onChange={v => set('iban', v)} required />
-        <Input label="VAT number" value={form.vat_number ?? ''} onChange={v => set('vat_number', v)} placeholder="CHE-…" />
+
+        <label className="flex items-start gap-3 cursor-pointer py-1">
+          <input
+            type="checkbox"
+            checked={!!form.vat_registered}
+            onChange={e => set('vat_registered', e.target.checked)}
+            className="mt-1 w-5 h-5 rounded border-border accent-primary"
+          />
+          <span>
+            <span className="text-sm font-medium block">VAT registered (MWST-pflichtig)</span>
+            <span className="text-xs text-text-muted">
+              Standard-Flugtarif: {form.vat_registered ? '105' : '100'} CHF
+              {form.vat_registered ? ' (inkl. MWST 8.1%)' : ' (kein MWST)'}.
+              Halbjährliche MWST-Report-Mail wird {form.vat_registered ? 'gesendet' : 'NICHT gesendet'}.
+            </span>
+          </span>
+        </label>
+
+        {form.vat_registered && (
+          <Input label="VAT number" value={form.vat_number ?? ''} onChange={v => set('vat_number', v)} placeholder="CHE-…" />
+        )}
       </Section>
 
       <Section title="Primary company">
