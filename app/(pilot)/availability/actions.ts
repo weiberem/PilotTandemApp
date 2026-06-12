@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+import type { ChangeRequestMap } from '@/lib/availability';
 
 const daySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -54,6 +55,40 @@ export async function resetSubmission(month: string) {
   const { error } = await supabase
     .from('availability_submissions')
     .update({ submitted_at: null, email_sent: false })
+    .eq('pilot_id', user.id)
+    .eq('month', month);
+  if (error) return { ok: false as const, error: error.message };
+  revalidatePath('/availability');
+  return { ok: true as const };
+}
+
+/**
+ * Mark a pending change request as resolved (the office has replied by mail or
+ * WhatsApp and the pilot considers it sorted). Clears the calendar badge.
+ */
+export async function resolveChangeRequest(date: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false as const, error: 'Invalid date' };
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: 'Not authenticated' };
+
+  const month = `${date.slice(0, 7)}-01`;
+  const { data: row } = await supabase
+    .from('availability_submissions')
+    .select('change_requests')
+    .eq('pilot_id', user.id)
+    .eq('month', month)
+    .maybeSingle();
+
+  const requests = (row?.change_requests as ChangeRequestMap | null) ?? {};
+  const cr = requests[date];
+  if (!cr) return { ok: false as const, error: 'No change request for this day' };
+
+  requests[date] = { ...cr, status: 'resolved', resolved_at: new Date().toISOString() };
+
+  const { error } = await supabase
+    .from('availability_submissions')
+    .update({ change_requests: requests })
     .eq('pilot_id', user.id)
     .eq('month', month);
   if (error) return { ok: false as const, error: error.message };

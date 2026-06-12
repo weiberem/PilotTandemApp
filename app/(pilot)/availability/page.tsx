@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { AvailabilityCalendar, type ScheduleMap, type FullPlansByMonth } from '@/components/AvailabilityCalendar';
 import { PlanManager } from '@/components/PlanManager';
-import { addMonths, monthFirst, type AvailabilityDay } from '@/lib/availability';
+import { addMonths, monthFirst, type AvailabilityDay, type ChangeRequestMap } from '@/lib/availability';
 import type { EinsatzplanImports } from '@/lib/einsatzplanImports';
 import type { FullPlan } from '@/lib/einsatzplanParser';
 
@@ -68,6 +68,19 @@ export default async function AvailabilityPage() {
     submittedByMonth[key] = !!(s.submitted_at || s.email_sent);
   }
 
+  // Change requests (migration 017). Pulled separately + defensively so the
+  // page still works if the column hasn't been applied yet. Loaded across all
+  // the pilot's rows so requests on any imported plan month show up.
+  const changeRequestsByMonth: Record<string, ChangeRequestMap> = {};
+  const { data: crRows } = await supabase
+    .from('availability_submissions')
+    .select('month, change_requests');
+  for (const r of crRows ?? []) {
+    if ('change_requests' in r) {
+      changeRequestsByMonth[r.month as string] = (r.change_requests as ChangeRequestMap | null) ?? {};
+    }
+  }
+
   // Same map idea for the per-pilot schedule (used to dot the calendar with
   // "Skywings geplant" rings). Per-month imports take precedence; the legacy
   // active column covers anything not in a slot yet.
@@ -90,6 +103,7 @@ export default async function AvailabilityPage() {
         submittedByMonth={submittedByMonth}
         schedule={schedule}
         fullPlansByMonth={fullPlansByMonth}
+        changeRequestsByMonth={changeRequestsByMonth}
       />
       <PlanManager />
     </div>

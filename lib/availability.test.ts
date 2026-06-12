@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   addMonths, monthFirst, monthGrid, monthLabel, nextDeadlineInfo,
-  buildMailto, dayMailtoLine, type AvailabilityDay,
+  buildMailto, dayMailtoLine, buildChangeRequestEmail, formatChangeRequestDate,
+  type AvailabilityDay,
 } from './availability';
 
 describe('monthFirst', () => {
@@ -103,5 +104,37 @@ describe('nextDeadlineInfo', () => {
   it('flags urgent within 5 days of the deadline', () => {
     expect(nextDeadlineInfo(new Date(2026, 4, 12)).urgent).toBe(true);  // 3 days before 15 May
     expect(nextDeadlineInfo(new Date(2026, 4, 2)).urgent).toBe(false);  // 13 days before
+  });
+
+  it('reports whole days left until the 15th', () => {
+    expect(nextDeadlineInfo(new Date(2026, 4, 12)).daysLeft).toBe(3);
+    expect(nextDeadlineInfo(new Date(2026, 4, 10)).daysLeft).toBe(5);
+  });
+});
+
+describe('formatChangeRequestDate', () => {
+  it('formats YYYY-MM-DD as DD.MM.YYYY', () => {
+    expect(formatChangeRequestDate('2026-07-18')).toBe('18.07.2026');
+  });
+});
+
+describe('buildChangeRequestEmail', () => {
+  it('builds a German subject and body with the reason', () => {
+    const { subject, text } = buildChangeRequestEmail({
+      pilotName: 'Rémy Weibel', date: '2026-07-18', reason: 'sick',
+    });
+    expect(subject).toBe('Änderungswunsch 18.07.2026 — Rémy Weibel');
+    expect(text).toContain('Grund: Krankheit');
+    expect(text).toContain('Datum: 18.07.2026');
+    expect(text).not.toContain('Notiz:');
+  });
+
+  it('includes a trimmed note when present, omits when blank', () => {
+    expect(buildChangeRequestEmail({
+      pilotName: 'X', date: '2026-07-18', reason: 'swap', note: '  tausche mit Flo  ',
+    }).text).toContain('Notiz: tausche mit Flo');
+    expect(buildChangeRequestEmail({
+      pilotName: 'X', date: '2026-07-18', reason: 'swap', note: '   ',
+    }).text).not.toContain('Notiz:');
   });
 });
