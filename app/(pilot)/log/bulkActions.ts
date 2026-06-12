@@ -206,3 +206,45 @@ export async function applySumupCcTimes(input: z.input<typeof sumupSchema>) {
   revalidatePath('/flights');
   return { ok: true as const, assigned, payments: payment_times.length };
 }
+
+const cashSchema = z.object({
+  flight_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  count: z.number().int().min(1).max(40),
+});
+
+/**
+ * Cash photos for the day: tag `count` of the day's flights (that don't already
+ * have a photo and aren't no-shows) with photo_status 'C'. Asked after SumUp;
+ * skipped entirely when the pilot has none.
+ */
+export async function applyCashPhotos(input: z.input<typeof cashSchema>) {
+  const parsed = cashSchema.safeParse(input);
+  if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
+  const { flight_date, count } = parsed.data;
+
+  const sb = createClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return { ok: false as const, error: 'Not authenticated' };
+
+  const { data: rows } = await sb
+    .from('flights')
+    .select('id, photo_status, is_no_show, trip_time')
+    .eq('pilot_id', user.id)
+    .eq('flight_date', flight_date);
+  // Prefer timeless flights (count-capture) so timed CC/PP ones keep their slot.
+  const free = (rows ?? [])
+    .filter(r => r.photo_status === 'none' && !r.is_no_show)
+    .sort((a, b) => (a.trip_time === null ? 0 : 1) - (b.trip_time === null ? 0 : 1))
+    .slice(0, count);
+
+  let assigned = 0;
+  for (const f of free) {
+    const { error } = await sb.from('flights').update({ photo_status: 'C' }).eq('id', f.id);
+    if (!error) assigned++;
+  }
+
+  revalidatePath('/home');
+  revalidatePath('/today');
+  revalidatePath('/flights');
+  return { ok: true as const, assigned };
+}
