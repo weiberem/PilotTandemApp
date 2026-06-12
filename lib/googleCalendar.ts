@@ -59,19 +59,22 @@ function eventBody(entry: CalendarEntry, tag: string) {
     extendedProperties: { private: { [TAG_KEY]: tag } },
   };
   if (entry.allDay) {
-    // All-day, shown as "free" so it doesn't block the day.
+    // All-day, shown as "free". `dateTime: null` clears any time from a prior
+    // timed version of this event (PATCH can't have both date and dateTime).
     return {
       ...base,
-      start: { date: entry.date },
-      end: { date: nextDay(entry.date) },
+      start: { date: entry.date, dateTime: null },
+      end: { date: nextDay(entry.date), dateTime: null },
       transparency: 'transparent',
       reminders: { useDefault: false },
     };
   }
+  // Timed event. `date: null` clears any all-day value from a prior version
+  // (otherwise Google rejects with "Invalid start time").
   return {
     ...base,
-    start: { dateTime: `${entry.date}T${entry.startTime}:00`, timeZone: TZ },
-    end: { dateTime: `${entry.date}T${entry.endTime}:00`, timeZone: TZ },
+    start: { dateTime: `${entry.date}T${entry.startTime}:00`, timeZone: TZ, date: null },
+    end: { dateTime: `${entry.date}T${entry.endTime}:00`, timeZone: TZ, date: null },
     reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 90 }] },
   };
 }
