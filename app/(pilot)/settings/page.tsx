@@ -53,7 +53,22 @@ export default async function SettingsPage({
 
       <h1 className="text-2xl font-display font-bold">Settings</h1>
       <SetupStatusCard missing={missingMigrations} />
-      <SettingsForm pilot={pilot} email={user.email ?? ''} />
+      <SettingsForm
+        pilot={pilot}
+        email={user.email ?? ''}
+        driveConnect={
+          <GoogleDriveConnect
+            connected={!!pilot?.google_refresh_token}
+            lastSyncedAt={pilot?.einsatzplan_synced_at ?? null}
+            hasFileId={!!pilot?.einsatzplan_file_id}
+          />
+        }
+        driveBackup={
+          pilot?.google_refresh_token && pilot?.google_drive_folder_id
+            ? <BackupButton />
+            : null
+        }
+      />
 
       <fieldset className="card p-4 space-y-3">
         <legend className="px-2 -ml-2 text-sm font-display font-semibold text-text-muted uppercase tracking-wide">
@@ -69,26 +84,6 @@ export default async function SettingsPage({
           }}
         />
       </fieldset>
-
-      <fieldset className="card p-4 space-y-3">
-        <legend className="px-2 -ml-2 text-sm font-display font-semibold text-text-muted uppercase tracking-wide">
-          Google Drive Connection
-        </legend>
-        <GoogleDriveConnect
-          connected={!!pilot?.google_refresh_token}
-          lastSyncedAt={pilot?.einsatzplan_synced_at ?? null}
-          hasFileId={!!pilot?.einsatzplan_file_id}
-        />
-      </fieldset>
-
-      {pilot?.google_refresh_token && pilot?.google_drive_folder_id && (
-        <fieldset className="card p-4 space-y-3">
-          <legend className="px-2 -ml-2 text-sm font-display font-semibold text-text-muted uppercase tracking-wide">
-            Monthly Excel backup
-          </legend>
-          <BackupButton />
-        </fieldset>
-      )}
 
       <fieldset className="card p-4 space-y-3">
         <legend className="px-2 -ml-2 text-sm font-display font-semibold text-text-muted uppercase tracking-wide">
