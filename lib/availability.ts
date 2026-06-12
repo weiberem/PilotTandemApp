@@ -1,3 +1,7 @@
+import {
+  SUMMER_TRIP_TIMES, WINTER_TRIP_TIMES, type Season,
+} from './tripTimes';
+
 export type DayPeriod = 'full' | 'half_am' | 'half_pm';
 
 export type AvailabilityDay = {
@@ -276,34 +280,71 @@ export function buildMailtoInverted({
   return `mailto:${encodeURIComponent(to)}?${qs}`;
 }
 
+/** Minutes a tandem trip blocks the pilot — last departure + this = day end. */
+export const TRIP_DURATION_MIN = 75; // 1h15
+
+function addMinutesHHMM(hhmm: string, mins: number): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  const total = Math.min(h * 60 + m + mins, 23 * 60 + 59);
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
+
+/** Effective trip departure times for an availability day (season + period +
+ * 07:10/17:00 opt-outs). Ascending. */
+export function availabilityDayTimes(day: AvailabilityDay, season: Season): string[] {
+  const base: string[] = season === 'summer' ? [...SUMMER_TRIP_TIMES] : [...WINTER_TRIP_TIMES];
+  const half = Math.ceil(base.length / 2);
+  let times: string[] = day.period === 'half_am' ? base.slice(0, half)
+    : day.period === 'half_pm' ? base.slice(half)
+    : base;
+  if (season === 'summer') {
+    times = times.filter(t =>
+      !(day.exclude_7am && t === '07:10') && !(day.exclude_5pm && t === '17:00'));
+  }
+  return times;
+}
+
+/** Clock range for an availability day: first trip → last trip + flight time.
+ * Returns "HH:MM" start/end, or null when nothing flies (all opted out). */
+export function availabilityDayTimeRange(
+  day: AvailabilityDay, season: Season,
+): { start: string; end: string } | null {
+  const times = availabilityDayTimes(day, season);
+  if (times.length === 0) return null;
+  return { start: times[0], end: addMinutesHHMM(times[times.length - 1], TRIP_DURATION_MIN) };
+}
+
 /**
- * Build an ICS file (RFC 5545) with one all-day event per availability day,
- * importable into Google Calendar, Apple Calendar, Android and Outlook.
+ * Build an ICS file (RFC 5545) with one TIMED event per availability day —
+ * first scheduled trip to last trip + flight time — importable into Google,
+ * Apple, Android and Outlook calendars. Times are floating local (Europe/Zurich).
  */
-export function buildAvailabilityIcs(days: AvailabilityDay[], pilotName: string): string {
+export function buildAvailabilityIcs(days: AvailabilityDay[], pilotName: string, season: Season): string {
   const stamp = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
   const events = [...days]
     .sort((a, b) => a.date.localeCompare(b.date))
     .map(d => {
       const dateCompact = d.date.replace(/-/g, '');
-      const next = new Date(d.date + 'T00:00:00Z');
-      next.setUTCDate(next.getUTCDate() + 1);
-      const endCompact = next.toISOString().slice(0, 10).replace(/-/g, '');
+      const range = availabilityDayTimeRange(d, season);
       const label = PERIOD_LABEL[d.period];
       const notes: string[] = [];
       if (d.exclude_7am) notes.push('kein 07:10');
       if (d.exclude_5pm) notes.push('kein 17:00');
       const summary = `Tandem ${label}${notes.length ? ` (${notes.join(', ')})` : ''}`;
-      return [
-        'BEGIN:VEVENT',
-        `UID:tandemlog-${d.date}-${d.period}@tandemlog`,
-        `DTSTAMP:${stamp}`,
-        `DTSTART;VALUE=DATE:${dateCompact}`,
-        `DTEND;VALUE=DATE:${endCompact}`,
-        `SUMMARY:${summary}`,
-        'TRANSP:TRANSPARENT',
-        'END:VEVENT',
-      ].join('\r\n');
+      const lines = ['BEGIN:VEVENT', `UID:tandemlog-${d.date}-${d.period}@tandemlog`, `DTSTAMP:${stamp}`];
+      if (range) {
+        lines.push(
+          `DTSTART:${dateCompact}T${range.start.replace(':', '')}00`,
+          `DTEND:${dateCompact}T${range.end.replace(':', '')}00`,
+        );
+      } else {
+        // Fully opted out → keep it as an all-day marker rather than dropping it.
+        const next = new Date(d.date + 'T00:00:00Z');
+        next.setUTCDate(next.getUTCDate() + 1);
+        lines.push(`DTSTART;VALUE=DATE:${dateCompact}`, `DTEND;VALUE=DATE:${next.toISOString().slice(0, 10).replace(/-/g, '')}`);
+      }
+      lines.push(`SUMMARY:${summary}`, 'TRANSP:TRANSPARENT', 'END:VEVENT');
+      return lines.join('\r\n');
     });
   return [
     'BEGIN:VCALENDAR',

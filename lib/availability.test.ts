@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   addMonths, monthFirst, monthGrid, monthLabel, nextDeadlineInfo,
   buildMailto, dayMailtoLine, buildChangeRequestEmail, formatChangeRequestDate,
-  buildSwapMatchEmail, summarizeChangeRequests,
+  buildSwapMatchEmail, summarizeChangeRequests, availabilityDayTimeRange,
   type AvailabilityDay, type ChangeRequestMap,
 } from './availability';
 
@@ -149,6 +149,28 @@ describe('buildSwapMatchEmail', () => {
     expect(text).toContain('Pilot 1: Rémy');
     expect(text).toContain('Pilot 2: Flo');
     expect(text).toContain('18.07.2026');
+  });
+});
+
+describe('availabilityDayTimeRange', () => {
+  const d = (p: AvailabilityDay['period'], extra: Partial<AvailabilityDay> = {}): AvailabilityDay =>
+    ({ date: '2026-07-07', period: p, ...extra });
+
+  it('summer full day: 07:10 → last trip + 1h15', () => {
+    expect(availabilityDayTimeRange(d('full'), 'summer')).toEqual({ start: '07:10', end: '18:15' });
+  });
+  it('summer full day with edge opt-outs: 08:10 → 16:00 + 1h15', () => {
+    expect(availabilityDayTimeRange(d('full', { exclude_7am: true, exclude_5pm: true }), 'summer'))
+      .toEqual({ start: '08:10', end: '17:15' });
+  });
+  it('summer afternoon half: 13:30 → 17:00 + 1h15', () => {
+    expect(availabilityDayTimeRange(d('half_pm'), 'summer')).toEqual({ start: '13:30', end: '18:15' });
+  });
+  it('summer morning half: 07:10 → 11:45 + 1h15', () => {
+    expect(availabilityDayTimeRange(d('half_am'), 'summer')).toEqual({ start: '07:10', end: '13:00' });
+  });
+  it('winter full day uses winter times', () => {
+    expect(availabilityDayTimeRange(d('full'), 'winter')).toEqual({ start: '08:30', end: '16:15' });
   });
 });
 
