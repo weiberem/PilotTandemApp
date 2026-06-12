@@ -15,7 +15,7 @@ export default async function AvailabilityPage() {
 
   const { data: pilot } = await supabase
     .from('pilots')
-    .select('full_name, office_email, season_override, einsatzplan_schedule')
+    .select('full_name, office_email, season_override, einsatzplan_schedule, google_refresh_token')
     .eq('id', user.id)
     .maybeSingle();
   if (!pilot) redirect('/onboarding');
@@ -116,6 +116,7 @@ export default async function AvailabilityPage() {
         schedule={schedule}
         fullPlansByMonth={fullPlansByMonth}
         changeRequestsByMonth={changeRequestsByMonth}
+        googleConnected={!!pilot.google_refresh_token}
       />
       <PlanManager />
     </div>

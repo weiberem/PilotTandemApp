@@ -18,12 +18,20 @@ const TAG_KEY = 'tandemlog';
 export type CalendarEntry = {
   date: string;          // YYYY-MM-DD
   summary: string;       // e.g. "Skywings — Ganztag"
-  startTime: string;     // "HH:MM" local
-  endTime: string;       // "HH:MM" local
+  startTime?: string;    // "HH:MM" local (timed events)
+  endTime?: string;      // "HH:MM" local (timed events)
   description?: string;
+  allDay?: boolean;      // all-day event (e.g. availability) — times ignored
 };
 
 type ExistingEvent = { id: string };
+
+/** YYYY-MM-DD one day later (exclusive end for all-day events). */
+function nextDay(date: string): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
 
 async function findTaggedEvent(
   calendarId: string,
@@ -45,12 +53,25 @@ async function findTaggedEvent(
 }
 
 function eventBody(entry: CalendarEntry, tag: string) {
-  return {
+  const base = {
     summary: entry.summary,
     description: entry.description ?? 'Automatisch aus dem Skywings-Einsatzplan (TandemLog).',
+    extendedProperties: { private: { [TAG_KEY]: tag } },
+  };
+  if (entry.allDay) {
+    // All-day, shown as "free" so it doesn't block the day.
+    return {
+      ...base,
+      start: { date: entry.date },
+      end: { date: nextDay(entry.date) },
+      transparency: 'transparent',
+      reminders: { useDefault: false },
+    };
+  }
+  return {
+    ...base,
     start: { dateTime: `${entry.date}T${entry.startTime}:00`, timeZone: TZ },
     end: { dateTime: `${entry.date}T${entry.endTime}:00`, timeZone: TZ },
-    extendedProperties: { private: { [TAG_KEY]: tag } },
     reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 90 }] },
   };
 }
