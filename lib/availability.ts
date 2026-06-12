@@ -165,6 +165,14 @@ export function formatChangeRequestDate(date: string): string {
   return `${d}.${m}.${y}`;
 }
 
+/** Skywings desk WhatsApp number (international digits, no +/spaces). */
+export const DESK_WHATSAPP = '41792668228';
+
+/** wa.me deep link with a pre-filled message. */
+export function buildWhatsAppLink(numberDigits: string, text: string): string {
+  return `https://wa.me/${numberDigits.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`;
+}
+
 /**
  * Structured German email to the office for a single-day change request.
  * Keeps the format consistent so the office can scan/act on it quickly.
