@@ -125,7 +125,7 @@ export async function sendInvoiceForPilot(
   const monthName = monthLabelDe(monthFirst);
   const cc = [pilot.personal_email, pilot.invoice_cc_email].filter((s): s is string => !!s);
   try {
-    await getResend().emails.send({
+    const r = await getResend().emails.send({
       from: getFromAddress(),
       to: pilot.office_email,
       cc: cc.length ? cc : undefined,
@@ -151,6 +151,10 @@ export async function sendInvoiceForPilot(
         { filename: `${baseName}.xlsx`, content: xlsxBuf },
       ],
     });
+    // Resend reports API failures in `error` rather than throwing — bail out
+    // so a rejected send is never recorded as "sent".
+    const err = (r as { error?: { message?: string; name?: string } | null }).error;
+    if (err) return { ok: false, error: `email_send_failed: ${err.message ?? err.name ?? 'Resend rejected the message'}` };
   } catch (e) {
     return { ok: false, error: `email_send_failed: ${String(e)}` };
   }

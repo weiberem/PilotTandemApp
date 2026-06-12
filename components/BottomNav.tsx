@@ -2,19 +2,20 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Calendar, Plane, BarChart3, Settings } from 'lucide-react';
+import { Calendar, BarChart3, Settings } from 'lucide-react';
+import { Paraglider } from '@/components/icons/Paraglider';
 import { cn } from '@/lib/utils';
 
 type Item = {
   href: string;
   label: string;
-  icon: typeof Calendar;
+  icon: React.ComponentType<{ className?: string }>;
   primary?: boolean;
 };
 
 const items: readonly Item[] = [
   { href: '/availability', label: 'Working days', icon: Calendar },
-  { href: '/home', label: 'Log', icon: Plane, primary: true },
+  { href: '/home', label: 'Log', icon: Paraglider, primary: true },
   { href: '/dashboard/stats', label: 'Invoice', icon: BarChart3 },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
@@ -45,7 +46,7 @@ export function BottomNav() {
                   'absolute -top-5 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition active:scale-95',
                   active ? 'bg-primary text-white' : 'bg-accent text-white',
                 )}>
-                  <Icon className="w-7 h-7 -rotate-45" />
+                  <Icon className="w-7 h-7" />
                 </span>
                 <span className={cn('mt-9', active ? 'text-primary font-medium' : 'text-text-muted')}>{label}</span>
               </Link>
