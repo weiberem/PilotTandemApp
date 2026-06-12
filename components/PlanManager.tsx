@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { CalendarRange, RefreshCw, Lock, Trash2 } from 'lucide-react';
+import { CalendarRange, RefreshCw, Lock, Trash2, FolderSync } from 'lucide-react';
 import { extractDriveId, formatDateDe } from '@/lib/utils';
 import { monthKeyLabel } from '@/lib/einsatzplanImports';
 
@@ -13,7 +13,11 @@ type Slot = {
   days: number;
 } | null;
 
-type Status = { current_month: string; next_month: string; current: Slot; next: Slot };
+type Status = {
+  current_month: string; next_month: string;
+  current: Slot; next: Slot;
+  folder_configured: boolean;
+};
 
 export function PlanManager() {
   const [status, setStatus] = useState<Status | null>(null);
@@ -56,6 +60,26 @@ export function PlanManager() {
         return;
       }
       setMsg({ kind: 'ok', text: `${data.days} days imported${data.file_name ? ` (${data.file_name})` : ''}.` });
+      reload();
+    });
+  }
+
+  function importFromFolder(month: string) {
+    setMsg(null);
+    setBusyKey(`folder:${month}`);
+    startTransition(async () => {
+      const r = await fetch('/api/einsatzplan/import-from-folder', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ month }),
+      });
+      const data = await r.json();
+      setBusyKey(null);
+      if (!r.ok) {
+        setMsg({ kind: 'err', text: friendly(data.error, data.detail) });
+        return;
+      }
+      setMsg({ kind: 'ok', text: `${data.days} days imported from folder${data.file_name ? ` (${data.file_name})` : ''}.` });
       reload();
     });
   }
@@ -112,25 +136,33 @@ export function PlanManager() {
         <h2 className="font-display font-semibold">Schedule imports</h2>
       </div>
       <p className="text-xs text-text-muted">
-        Paste the Drive link for each month. Data appears in the calendar, in stats, and in the Google Calendar push.
+        {status.folder_configured
+          ? 'Load each month straight from your linked Schedule folder — the right file is matched by month. Data appears in the calendar, stats, and the Google Calendar push.'
+          : 'Paste the Drive link for each month. (Link a Schedule folder in Settings to load with one tap.) Data appears in the calendar, stats, and the Google Calendar push.'}
       </p>
 
       <PlanSlot
         title={`Current month — ${monthKeyLabel(status.current_month)}`}
         month={status.current_month}
         slot={status.current}
+        folderConfigured={status.folder_configured}
         busyImport={busyKey === `import:${status.current_month}` && pending}
         busyReset={busyKey === `reset:${status.current_month}` && pending}
+        busyFolder={busyKey === `folder:${status.current_month}` && pending}
         onImport={(link) => importPlan(status.current_month, link)}
+        onImportFromFolder={() => importFromFolder(status.current_month)}
         onReset={() => resetPlan(status.current_month)}
       />
       <PlanSlot
         title={`Upcoming month — ${monthKeyLabel(status.next_month)}`}
         month={status.next_month}
         slot={status.next}
+        folderConfigured={status.folder_configured}
         busyImport={busyKey === `import:${status.next_month}` && pending}
         busyReset={busyKey === `reset:${status.next_month}` && pending}
+        busyFolder={busyKey === `folder:${status.next_month}` && pending}
         onImport={(link) => importPlan(status.next_month, link)}
+        onImportFromFolder={() => importFromFolder(status.next_month)}
         onReset={() => resetPlan(status.next_month)}
       />
 
@@ -142,17 +174,21 @@ export function PlanManager() {
 }
 
 function PlanSlot({
-  title, month, slot, busyImport, busyReset, onImport, onReset,
+  title, month, slot, folderConfigured, busyImport, busyReset, busyFolder, onImport, onImportFromFolder, onReset,
 }: {
   title: string;
   month: string;
   slot: Slot;
+  folderConfigured: boolean;
   busyImport: boolean;
   busyReset: boolean;
+  busyFolder: boolean;
   onImport: (link: string) => void;
+  onImportFromFolder: () => void;
   onReset: () => void;
 }) {
   const [link, setLink] = useState(slot?.drive_link ?? '');
+  const busy = busyImport || busyReset || busyFolder;
 
   useEffect(() => {
     if (slot?.drive_link && !link) setLink(slot.drive_link);
@@ -169,6 +205,18 @@ function PlanSlot({
         )}
       </div>
 
+      {folderConfigured && !slot?.archived && (
+        <button
+          type="button"
+          onClick={onImportFromFolder}
+          disabled={busy}
+          className="btn-primary w-full"
+        >
+          <FolderSync className={`w-4 h-4 mr-2 ${busyFolder ? 'animate-spin' : ''}`} />
+          {busyFolder ? 'Loading from folder…' : 'Load from folder'}
+        </button>
+      )}
+
       {slot && (
         <div className="text-xs text-text-muted">
           {slot.days} days · last imported {formatDateDe(slot.last_synced_at, {
@@ -178,12 +226,15 @@ function PlanSlot({
         </div>
       )}
 
+      {folderConfigured && (
+        <p className="text-[11px] text-text-muted">Or paste a link manually:</p>
+      )}
       <input
         type="text"
         value={link}
         onChange={(e) => setLink(extractDriveId(e.target.value))}
         placeholder="Paste Drive link or file ID"
-        disabled={slot?.archived || busyImport || busyReset}
+        disabled={slot?.archived || busy}
         className="w-full min-h-tap rounded-lg border border-border px-3 py-2 bg-white font-mono text-xs disabled:opacity-50"
       />
 
@@ -191,8 +242,8 @@ function PlanSlot({
         <button
           type="button"
           onClick={() => onImport(link)}
-          disabled={slot?.archived || busyImport || busyReset || !link.trim()}
-          className="btn-primary flex-1"
+          disabled={slot?.archived || busy || !link.trim()}
+          className={`${folderConfigured ? 'btn-ghost border border-border' : 'btn-primary'} flex-1`}
         >
           <RefreshCw className={`w-4 h-4 mr-2 ${busyImport ? 'animate-spin' : ''}`} />
           {busyImport ? 'Importing…' : slot ? 'Import again' : `Import schedule for ${month}`}
@@ -201,7 +252,7 @@ function PlanSlot({
           <button
             type="button"
             onClick={onReset}
-            disabled={busyImport || busyReset}
+            disabled={busy}
             className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-danger/40 bg-danger/5 text-danger px-3 min-h-tap text-sm font-medium hover:bg-danger/10"
             aria-label="Reset and re-import"
             title="Clear this month's import (data + optional calendar entries) so you can import a fresh file"
