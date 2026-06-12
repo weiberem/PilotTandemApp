@@ -67,6 +67,22 @@ describe('parseEinsatzplan (role colour)', () => {
     expect(s['2026-06-05'].period).toBe('half_pm');
   });
 
+  it('treats ANY green shade as flying (dark/bright greens, not just olive)', async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('June_2026');
+    [1, 2, 3].forEach((_, i) => { ws.getCell(5, 2 + i * 2).value = i + 1; });
+    ws.getCell(8, 1).value = 'Remy';
+    // day1 dark green, day2 bright green, day3 red (not flying)
+    ws.getCell(8, 2).value = 1; paint(ws.getCell(8, 2), 'FF38761D'); ws.mergeCells(8, 2, 8, 3);
+    ws.getCell(8, 4).value = 1; paint(ws.getCell(8, 4), 'FF00FF00'); ws.mergeCells(8, 4, 8, 5);
+    ws.getCell(8, 6).value = 1; paint(ws.getCell(8, 6), 'FFDD0806'); ws.mergeCells(8, 6, 8, 7);
+    const buf = await wb.xlsx.writeBuffer() as ArrayBuffer;
+    const s = await parseEinsatzplan(buf, { pilotName: 'Remy' });
+    expect(s['2026-06-01'].period).toBe('full'); // dark green
+    expect(s['2026-06-02'].period).toBe('full'); // bright green
+    expect(s['2026-06-03']).toBeUndefined();      // red
+  });
+
   it('maps full/AM/PM to periods + season times', async () => {
     const buf = await makeColorMatrix('June_2026', 'Remy', ['full', 'pm', 'am']);
     const s = await parseEinsatzplan(buf, { pilotName: 'Rémy Weibel' });
