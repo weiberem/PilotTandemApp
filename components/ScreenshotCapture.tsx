@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Camera, Check, Minus, Plus, X } from 'lucide-react';
-import { bulkAddFlights, bulkAddFlightsByCount, applySumupCcTimes } from '@/app/(pilot)/log/bulkActions';
+import { bulkAddFlights, bulkAddFlightsByCount, applySumupCcTimes, applyCashPhotos } from '@/app/(pilot)/log/bulkActions';
 
 type Extract = {
   date: string | null;
@@ -26,9 +26,10 @@ type Props = { today: string; company: string };
 export function ScreenshotCapture({ today, company }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const sumupRef = useRef<HTMLInputElement>(null);
-  const [phase, setPhase] = useState<'idle' | 'scanning' | 'review' | 'sumup'>('idle');
+  const [phase, setPhase] = useState<'idle' | 'scanning' | 'review' | 'sumup' | 'cash'>('idle');
   const [sumupDate, setSumupDate] = useState<string | null>(null);
   const [sumupBusy, setSumupBusy] = useState(false);
+  const [cashCount, setCashCount] = useState(0);
   const [extract, setExtract] = useState<Extract | null>(null);
   const [pp, setPp] = useState(0);
   const [cc, setCc] = useState(0);
@@ -127,6 +128,17 @@ export function ScreenshotCapture({ today, company }: Props) {
     }
   }
 
+  function finishCash(n: number) {
+    if (n <= 0) { setPhase('idle'); setSumupDate(null); setCashCount(0); return; }
+    setMsg(null);
+    startTransition(async () => {
+      const res = await applyCashPhotos({ flight_date: sumupDate ?? today, count: n });
+      if (!res.ok) { setMsg({ kind: 'err', text: res.error }); return; }
+      setMsg({ kind: 'ok', text: `${res.assigned} cash photo${res.assigned === 1 ? '' : 's'} added.` });
+      setPhase('idle'); setSumupDate(null); setCashCount(0);
+    });
+  }
+
   function onConfirm() {
     if (!extract) return;
     const wasCounts = countsMode;
@@ -209,7 +221,7 @@ export function ScreenshotCapture({ today, company }: Props) {
               to their flights’ times automatically.
             </div>
           </div>
-          <button onClick={() => { setPhase('idle'); setSumupDate(null); }} className="p-1 text-text-muted" aria-label="Skip">
+          <button onClick={() => setPhase('cash')} className="p-1 text-text-muted" aria-label="Skip">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -225,11 +237,37 @@ export function ScreenshotCapture({ today, company }: Props) {
         <input ref={sumupRef} type="file" accept="image/*" onChange={onSumupFile} className="hidden" />
         <button
           type="button"
-          onClick={() => { setPhase('idle'); setSumupDate(null); }}
+          onClick={() => setPhase('cash')}
           className="btn-ghost w-full border border-border text-sm"
         >
-          Done — skip SumUp
+          {msg?.kind === 'ok' ? 'Next' : 'Skip SumUp'}
         </button>
+        {msg && <p className={msg.kind === 'ok' ? 'text-success text-sm' : 'text-danger text-sm'}>{msg.text}</p>}
+      </div>
+    );
+  }
+
+  if (phase === 'cash') {
+    return (
+      <div className="card p-4 space-y-3">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="font-display font-semibold text-lg">Cash photos?</div>
+            <div className="text-xs text-text-muted">Any photos paid in cash today? Set the count, or tap “No”.</div>
+          </div>
+          <button onClick={() => finishCash(0)} className="p-1 text-text-muted" aria-label="No"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="flex justify-center">
+          <Counter label="Cash photos" value={cashCount} onChange={setCashCount} max={20} />
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => finishCash(0)} disabled={pending} className="btn-ghost flex-1 border border-border">
+            No cash photos
+          </button>
+          <button onClick={() => finishCash(cashCount)} disabled={pending || cashCount < 1} className="btn-primary flex-1">
+            <Check className="w-4 h-4 mr-1" /> Add {cashCount > 0 ? cashCount : ''} cash
+          </button>
+        </div>
         {msg && <p className={msg.kind === 'ok' ? 'text-success text-sm' : 'text-danger text-sm'}>{msg.text}</p>}
       </div>
     );
