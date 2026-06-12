@@ -61,10 +61,16 @@ export function PlanManager() {
   }
 
   function resetPlan(month: string) {
+    const label = monthKeyLabel(month);
+    const proceed = window.confirm(
+      `Reset the schedule for ${label}?\n\n` +
+      `This clears the imported plan so you can import a fresh file (e.g. an updated version from Skywings). Your own availability and your flights are NOT affected.\n\n` +
+      `Tap OK to continue, Cancel to keep the current import.`,
+    );
+    if (!proceed) return;
     const clearCal = window.confirm(
-      `Reset schedule for ${monthKeyLabel(month)}.\n\n` +
-      `Should the Skywings entries for this month also be deleted from Google Calendar?\n\n` +
-      `OK = yes, delete both\nCancel = only delete app data`,
+      `Also delete the Skywings calendar entries for ${label} from your Google Calendar?\n\n` +
+      `OK = delete calendar entries too\nCancel = keep them (only clear app data)`,
     );
     setMsg(null);
     setBusyKey(`reset:${month}`);
@@ -85,7 +91,7 @@ export function PlanManager() {
           ? ` (calendar cleanup: ${data.warning})`
           : ` · ${data.calendar_deleted} calendar entries deleted`
         : '';
-      setMsg({ kind: 'ok', text: `Schedule for ${monthKeyLabel(month)} reset.${calNote}` });
+      setMsg({ kind: 'ok', text: `Schedule for ${label} reset.${calNote} You can now import a new file.` });
       reload();
     });
   }
@@ -196,14 +202,21 @@ function PlanSlot({
             type="button"
             onClick={onReset}
             disabled={busyImport || busyReset}
-            className="btn-ghost border border-danger/30 text-danger min-w-tap"
-            aria-label="Reset schedule"
-            title="Reset schedule"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-danger/40 bg-danger/5 text-danger px-3 min-h-tap text-sm font-medium hover:bg-danger/10"
+            aria-label="Reset and re-import"
+            title="Clear this month's import (data + optional calendar entries) so you can import a fresh file"
           >
             <Trash2 className={`w-4 h-4 ${busyReset ? 'animate-pulse' : ''}`} />
+            <span>Reset</span>
           </button>
         )}
       </div>
+      {slot && !slot.archived && (
+        <p className="text-[11px] text-text-muted">
+          Wrong import or new plan from Skywings? Reset to clear this month,
+          then paste the new Drive link and Import.
+        </p>
+      )}
     </div>
   );
 }
