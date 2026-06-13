@@ -68,9 +68,14 @@ export function GoogleDriveConnect({ connected, lastSyncedAt, hasFileId }: Props
           )}
         </>
       ) : (
-        <a href="/api/gdrive/auth/start" className="btn-primary w-full inline-flex">
-          <Cloud className="w-4 h-4 mr-2" /> Connect Google Drive
-        </a>
+        <>
+          <a href="/api/gdrive/auth/start" className="btn-primary w-full inline-flex">
+            <Cloud className="w-4 h-4 mr-2" /> Connect Google Drive
+          </a>
+          <p className="text-xs text-text-muted">
+            Beim ersten Verbinden wird der Administrator benachrichtigt, um deinen Zugang freizuschalten.
+          </p>
+        </>
       )}
       {msg && (
         <p className={msg.kind === 'ok' ? 'text-success text-xs' : 'text-danger text-xs'}>{msg.text}</p>

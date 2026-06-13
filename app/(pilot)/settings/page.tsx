@@ -48,6 +48,7 @@ const GDRIVE_MESSAGES: Record<string, { kind: 'ok' | 'warn' | 'err'; text: strin
   connected: { kind: 'ok', text: 'Google Drive connected.' },
   state_mismatch: { kind: 'err', text: 'OAuth state mismatch — please try again.' },
   no_refresh: { kind: 'warn', text: 'No refresh token received. Revoke in your Google account and connect again.' },
+  denied: { kind: 'warn', text: 'Zugriff noch nicht freigegeben. Der Administrator wurde mit deiner E-Mail benachrichtigt und schaltet dich frei — danach erneut verbinden.' },
   error: { kind: 'err', text: 'Connection failed.' },
 };
 

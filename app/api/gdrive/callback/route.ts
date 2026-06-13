@@ -11,8 +11,15 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
+  const oauthError = url.searchParams.get('error');
   const expected = cookies().get('gdrive_oauth_state')?.value;
   cookies().delete('gdrive_oauth_state');
+
+  // App still in Google "Testing" mode and the user isn't a whitelisted test
+  // user (or declined). The owner was already pinged at connect-start.
+  if (oauthError) {
+    return NextResponse.redirect(new URL('/settings?gdrive=denied', req.url));
+  }
 
   if (!code || !state || !expected || state !== expected) {
     return NextResponse.redirect(new URL('/settings?gdrive=state_mismatch', req.url));
