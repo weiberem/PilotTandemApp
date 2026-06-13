@@ -9,8 +9,40 @@ import { LocalBackupCard } from '@/components/LocalBackupCard';
 import { PilotCompaniesCard } from '@/components/PilotCompaniesCard';
 import { listPilotCompanies } from '@/lib/pilotCompanies';
 import { probeMissingMigrations } from '@/lib/setupProbe';
+import { PageTour } from '@/components/PageTour';
 
 export const dynamic = 'force-dynamic';
+
+const SETTINGS_STEPS = [
+  {
+    element: '[data-tour="settings-rates"]',
+    popover: {
+      title: 'Tarife',
+      description: 'Deine Ansätze pro Flug, Foto (PP), Thermik und No-Show. Sie bestimmen die Beträge auf der Rechnung.',
+    },
+  },
+  {
+    element: '[data-tour="settings-drive"]',
+    popover: {
+      title: 'Google Drive',
+      description: 'Verbindung, Ordner für Rechnungen/Backups und der Einsatzplan-Ordner — alles an einem Ort.',
+    },
+  },
+  {
+    element: '[data-tour="settings-companies"]',
+    popover: {
+      title: 'Weitere Firmen',
+      description: 'Fliegst du auch für andere Firmen? Hier legst du sie mit eigenen Tarifen an — jede bekommt eine separate Rechnung.',
+    },
+  },
+  {
+    element: '[data-tour="settings-replay"]',
+    popover: {
+      title: 'Tour erneut starten',
+      description: 'Über diesen Link kannst du die Einführungstour jederzeit wieder ansehen.',
+    },
+  },
+];
 
 const GDRIVE_MESSAGES: Record<string, { kind: 'ok' | 'warn' | 'err'; text: string }> = {
   connected: { kind: 'ok', text: 'Google Drive connected.' },
@@ -52,6 +84,7 @@ export default async function SettingsPage({
       )}
 
       <h1 className="text-2xl font-display font-bold">Settings</h1>
+      <PageTour steps={SETTINGS_STEPS} />
       <SetupStatusCard missing={missingMigrations} />
       <SettingsForm
         pilot={pilot}
@@ -70,7 +103,7 @@ export default async function SettingsPage({
         }
       />
 
-      <fieldset className="card p-4 space-y-3">
+      <fieldset className="card p-4 space-y-3" data-tour="settings-companies">
         <legend className="px-2 -ml-2 text-sm font-display font-semibold text-text-muted uppercase tracking-wide">
           Other companies
         </legend>
@@ -99,7 +132,7 @@ export default async function SettingsPage({
         <p className="text-sm text-text-muted">
           Signed in as <span className="font-mono">{user.email}</span>
         </p>
-        <a href="/home?tour=1" className="btn-ghost border border-border text-sm inline-flex w-fit">
+        <a href="/home?tour=1" data-tour="settings-replay" className="btn-ghost border border-border text-sm inline-flex w-fit">
           Replay intro tour
         </a>
         <LogoutButton />

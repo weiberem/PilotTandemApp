@@ -155,7 +155,7 @@ export function SettingsForm({
         <Input label="Invoice CC recipient" type="email" value={form.invoice_cc_email ?? ''} onChange={v => set('invoice_cc_email', v)} placeholder="optional" />
       </Section>
 
-      <Section title="Rates (CHF)">
+      <Section title="Rates (CHF)" tourId="settings-rates">
         <div className="grid grid-cols-2 gap-2">
           <NumberInput label="Flight" value={form.flight_rate_chf ?? 0} onChange={v => set('flight_rate_chf', v)} />
           <NumberInput label="Photo prepaid" value={form.photo_prepaid_rate_chf ?? 0} onChange={v => set('photo_prepaid_rate_chf', v)} />
@@ -241,7 +241,7 @@ export function SettingsForm({
         </label>
       </Section>
 
-      <Section title="Google Drive">
+      <Section title="Google Drive" tourId="settings-drive">
         {driveConnect && (
           <div className="pb-1">
             <div className="text-xs font-medium text-text-muted mb-1.5">Connection</div>
@@ -291,9 +291,9 @@ export function SettingsForm({
   );
 }
 
-function Section({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+function Section({ title, children, defaultOpen = false, tourId }: { title: string; children: React.ReactNode; defaultOpen?: boolean; tourId?: string }) {
   return (
-    <details open={defaultOpen} className="card p-0 overflow-hidden group">
+    <details open={defaultOpen} data-tour={tourId} className="card p-0 overflow-hidden group">
       <summary className="flex items-center justify-between px-4 py-3 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
         <span className="text-sm font-display font-semibold text-text-muted uppercase tracking-wide">{title}</span>
         <ChevronDown className="w-4 h-4 text-text-muted transition-transform group-open:rotate-180" />
