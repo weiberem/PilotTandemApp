@@ -7,7 +7,32 @@ import { getMonthVerificationStatus } from '@/lib/dayVerify';
 import { MonthlyChart } from '@/components/StatsCharts';
 import { VkpiReminder } from '@/components/VkpiReminder';
 import { YearPicker } from './YearPicker';
+import { PageTour } from '@/components/PageTour';
 import { formatChf } from '@/lib/utils';
+
+const STATS_STEPS = [
+  {
+    element: '[data-tour="stats-year"]',
+    popover: {
+      title: 'Jahr wählen',
+      description: 'Wechsle zwischen den Jahren, um Abrechnungen und Statistik vergangener Saisons zu sehen.',
+    },
+  },
+  {
+    element: '[data-tour="stats-billing"]',
+    popover: {
+      title: 'Monatsabrechnung',
+      description: 'Pro Monat: Total, Karten-/Cash-Anteil und „Send“, um die Rechnung ans Office zu schicken. Ist ein Monat noch offen, führt dich ein Tipp auf die Zeile zur Verifizierung.',
+    },
+  },
+  {
+    element: '[data-tour="stats-detail"]',
+    popover: {
+      title: 'Jahresdetail',
+      description: 'Alle Monate mit Flügen, Foto-/Thermik-/No-Show-Zahlen und Umsatz. Tippe auf einen Monat für die Detail-Rechnung.',
+    },
+  },
+];
 import { computeDayTotals, type FlightRow, type PilotRates } from '@/lib/flights';
 import { monthLabelDe } from '@/lib/invoice';
 
@@ -140,10 +165,14 @@ export default async function StatsPage({
           <h1 className="text-2xl lg:text-3xl font-display font-bold">Invoice & Stats</h1>
           <p className="text-text-muted text-sm">{primaryCompany} · Year {year}</p>
         </div>
-        <YearPicker year={year} options={yearOptions} />
+        <div data-tour="stats-year">
+          <YearPicker year={year} options={yearOptions} />
+        </div>
       </div>
 
-      <section className="space-y-3">
+      <PageTour steps={STATS_STEPS} />
+
+      <section className="space-y-3" data-tour="stats-billing">
         <h2 className="font-display font-semibold text-lg">Monthly billing</h2>
         {monthBlocks.map(block => (
           <MonthBillingCard
@@ -163,7 +192,7 @@ export default async function StatsPage({
 
       <MonthlyChart data={stats.months} />
 
-      <div className="card p-4 overflow-x-auto">
+      <div className="card p-4 overflow-x-auto" data-tour="stats-detail">
         <h2 className="font-display font-semibold mb-2">Year detail</h2>
         <table className="w-full text-sm">
           <thead>

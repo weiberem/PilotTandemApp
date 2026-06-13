@@ -10,7 +10,51 @@ import { computeDayTotals, type FlightInput, type FlightRow, type PilotRates } f
 import { QuickAddFlightRow } from '@/components/QuickAddFlightRow';
 import { ScreenshotCapture } from '@/components/ScreenshotCapture';
 import { DayControls } from '@/components/DayControls';
-import { IntroTour } from '@/components/IntroTour';
+import { PageTour } from '@/components/PageTour';
+
+const HOME_STEPS = [
+  {
+    popover: {
+      title: 'Willkommen bei TandemLog 🪂',
+      description: 'Kurze Tour durch die wichtigsten Funktionen — dauert nur 30 Sekunden. Mit Esc oder dem „?“-Button unten kannst du sie jederzeit erneut starten.',
+    },
+  },
+  {
+    element: '[data-tour="capture"]',
+    popover: {
+      title: 'Tag erfassen',
+      description: 'Scanne hier den Daysheet-Screenshot — die Flüge werden automatisch gezählt. Danach kommen SumUp (Karte) und Cash-Fotos.',
+    },
+  },
+  {
+    element: '[data-tour="daynav"]',
+    popover: {
+      title: 'Datum & Reset',
+      description: 'Blättere mit den Pfeilen oder tippe aufs Datum, um einen anderen Tag zu erfassen. „Reset“ löscht alle Flüge des Tages.',
+    },
+  },
+  {
+    element: '[data-tour="summary"]',
+    popover: {
+      title: 'Tagesübersicht',
+      description: 'Dein Umsatz für den Tag. Über „Day Summary“ und „Month overview“ siehst du Details und verifizierst die Tage.',
+    },
+  },
+  {
+    element: '[data-tour="nav-invoice"]',
+    popover: {
+      title: 'Rechnung & Statistik',
+      description: 'Monatsabrechnung ans Office senden und deine Jahres-Statistik ansehen.',
+    },
+  },
+  {
+    element: '[data-tour="nav-settings"]',
+    popover: {
+      title: 'Einstellungen',
+      description: 'Tarife, E-Mail-Adressen, Google Drive und weitere Firmen. Jede Seite hat unten rechts einen „?“-Button für ihre eigene Tour.',
+    },
+  },
+];
 import { FlightLine } from '@/components/FlightLine';
 import { buildMonths, DayDetails, MonthDetails } from '@/components/HistoryAccordion';
 import { PeriodSummary } from '@/components/PeriodSummary';
@@ -104,7 +148,7 @@ export default async function HomePage({
 
   return (
     <div className="p-4 space-y-4 max-w-2xl mx-auto">
-      <IntroTour />
+      <PageTour steps={HOME_STEPS} autoStartKey="tandemlog_tour_v1" />
       <section className="flex items-start justify-between gap-2">
         <div>
           <p className="text-text-muted text-sm">{formatDateDe(new Date(viewDate))}</p>

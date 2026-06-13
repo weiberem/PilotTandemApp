@@ -2,11 +2,29 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { AvailabilityCalendar, type ScheduleMap, type FullPlansByMonth } from '@/components/AvailabilityCalendar';
 import { PlanManager } from '@/components/PlanManager';
+import { PageTour } from '@/components/PageTour';
 import { addMonths, monthFirst, nextDeadlineInfo, type AvailabilityDay, type ChangeRequestMap } from '@/lib/availability';
 import type { EinsatzplanImports } from '@/lib/einsatzplanImports';
 import type { FullPlan } from '@/lib/einsatzplanParser';
 
 export const dynamic = 'force-dynamic';
+
+const AVAIL_STEPS = [
+  {
+    element: '[data-tour="avail-calendar"]',
+    popover: {
+      title: 'Verfügbarkeit planen',
+      description: 'Markiere die Tage, an denen du fliegen kannst, und sende deine Verfügbarkeit ans Office. Importierte Einsatzpläne erscheinen hier ebenfalls.',
+    },
+  },
+  {
+    element: '[data-tour="avail-plans"]',
+    popover: {
+      title: 'Pläne verwalten',
+      description: 'Hier verwaltest du importierte Monatspläne und Änderungswünsche.',
+    },
+  },
+];
 
 export default async function AvailabilityPage() {
   const supabase = createClient();
@@ -105,20 +123,25 @@ export default async function AvailabilityPage() {
 
   return (
     <div className="p-4 space-y-4 max-w-xl mx-auto">
+      <PageTour steps={AVAIL_STEPS} />
       <h1 className="text-2xl font-display font-bold">Plan working days</h1>
-      <AvailabilityCalendar
-        pilotName={pilot.full_name ?? ''}
-        officeEmail={pilot.office_email ?? null}
-        seasonOverride={pilot.season_override ?? null}
-        initialMonth={planned}
-        initialDaysByMonth={initialDaysByMonth}
-        submittedByMonth={submittedByMonth}
-        schedule={schedule}
-        fullPlansByMonth={fullPlansByMonth}
-        changeRequestsByMonth={changeRequestsByMonth}
-        googleConnected={!!pilot.google_refresh_token}
-      />
-      <PlanManager />
+      <div data-tour="avail-calendar">
+        <AvailabilityCalendar
+          pilotName={pilot.full_name ?? ''}
+          officeEmail={pilot.office_email ?? null}
+          seasonOverride={pilot.season_override ?? null}
+          initialMonth={planned}
+          initialDaysByMonth={initialDaysByMonth}
+          submittedByMonth={submittedByMonth}
+          schedule={schedule}
+          fullPlansByMonth={fullPlansByMonth}
+          changeRequestsByMonth={changeRequestsByMonth}
+          googleConnected={!!pilot.google_refresh_token}
+        />
+      </div>
+      <div data-tour="avail-plans">
+        <PlanManager />
+      </div>
     </div>
   );
 }

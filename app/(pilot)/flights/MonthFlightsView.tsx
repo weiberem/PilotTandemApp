@@ -11,6 +11,24 @@ import type { DayTotals, FlightRow } from '@/lib/flights';
 import { PhotoStatusSwitch } from '@/components/PhotoStatusSwitch';
 import { DayVerifyButton } from '@/components/DayVerifyButton';
 import { PeriodSummary } from '@/components/PeriodSummary';
+import { PageTour } from '@/components/PageTour';
+
+const FLIGHTS_STEPS = [
+  {
+    element: '[data-tour="flights-monthnav"]',
+    popover: {
+      title: 'Monat wählen',
+      description: 'Blättere zwischen den Monaten. Tippe auf den Monatsnamen, um zum aktuellen Monat zurückzuspringen.',
+    },
+  },
+  {
+    element: '[data-tour="flights-days"]',
+    popover: {
+      title: 'Tage & Verifizieren',
+      description: 'Tippe einen Tag an, um die Flüge zu sehen, Fotos (PP/CC/C) anzupassen und den Tag mit dem Daysheet zu verifizieren (✓). Erst dann lässt sich die Rechnung senden.',
+    },
+  },
+];
 
 export type DayGroup = {
   date: string;
@@ -52,8 +70,9 @@ export function MonthFlightsView({
 
   return (
     <div className="p-4 space-y-4 max-w-2xl mx-auto">
+      <PageTour steps={FLIGHTS_STEPS} />
       {/* Month navigation */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between" data-tour="flights-monthnav">
         <button
           onClick={() => router.push(`/flights?month=${shiftMonth(month, -1)}`)}
           className="btn-ghost border border-border min-w-tap" aria-label="Previous month"
@@ -84,11 +103,11 @@ export function MonthFlightsView({
 
       {/* Day list */}
       {days.length === 0 ? (
-        <div className="card p-6 text-center text-text-muted">
+        <div className="card p-6 text-center text-text-muted" data-tour="flights-days">
           No flights in this month.
         </div>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-2" data-tour="flights-days">
           {days.map(({ date, flights, totals, verified }) => {
             const isOpen = open.has(date);
             return (
