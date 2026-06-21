@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import {
-  downloadDriveFile, fetchExcelBytes, listExcelFilesInFolder, refreshAccessToken,
+  downloadDriveFile, fetchExcelBytes, listExcelFilesInFolder, refreshAccessTokenOrClear,
   type DriveFileEntry,
 } from '@/lib/googleDrive';
 import { parseEinsatzplan, parseFullPlan } from '@/lib/einsatzplanParser';
@@ -28,7 +28,7 @@ export async function POST() {
   }
 
   try {
-    const tokens = await refreshAccessToken(pilot.google_refresh_token);
+    const tokens = await refreshAccessTokenOrClear(supabase, user.id, pilot.google_refresh_token);
 
     // Resolve the file to download.
     // Priority: folder → newest file inside; fallback: pinned file id.
