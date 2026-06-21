@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
-import { exchangeCode } from '@/lib/googleDrive';
+import { exchangeCode, redirectUriFromRequest } from '@/lib/googleDrive';
 
 export async function GET(req: NextRequest) {
   const supabase = createClient();
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const tokens = await exchangeCode(code);
+    const tokens = await exchangeCode(code, redirectUriFromRequest(req));
     if (!tokens.refresh_token) {
       // No refresh token means the user previously consented; force prompt=consent
       // already does it, but if it still happens, ask them to revoke and retry.

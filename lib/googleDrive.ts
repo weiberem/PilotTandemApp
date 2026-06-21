@@ -42,11 +42,28 @@ export const DRIVE_SCOPES = [
   'https://www.googleapis.com/auth/calendar.events',
 ].join(' ');
 
-export function buildAuthUrl(state: string): string {
+/**
+ * Build the redirect URI from the incoming request so the whole OAuth flow
+ * (start → Google → callback) stays on whatever domain the user is currently
+ * on. This avoids the "state mismatch" that happens when start and callback
+ * land on different hosts (e.g. custom domain vs. *.vercel.app), and makes
+ * Google show the domain the user is actually using. Every domain whose
+ * /api/gdrive/callback is used must be listed in the OAuth client's authorized
+ * redirect URIs. Falls back to GOOGLE_REDIRECT_URI when the host is unknown.
+ */
+export function redirectUriFromRequest(req: Request): string {
+  const h = req.headers;
+  const host = h.get('x-forwarded-host') ?? h.get('host');
+  const proto = h.get('x-forwarded-proto') ?? 'https';
+  if (host) return `${proto}://${host}/api/gdrive/callback`;
+  return process.env.GOOGLE_REDIRECT_URI ?? new URL('/api/gdrive/callback', req.url).toString();
+}
+
+export function buildAuthUrl(state: string, redirectUri?: string): string {
   const env = getGoogleEnv();
   const params = new URLSearchParams({
     client_id: env.clientId,
-    redirect_uri: env.redirectUri,
+    redirect_uri: redirectUri ?? env.redirectUri,
     response_type: 'code',
     scope: DRIVE_SCOPES,
     access_type: 'offline',
@@ -65,13 +82,13 @@ export type TokenResponse = {
   token_type: string;
 };
 
-export async function exchangeCode(code: string): Promise<TokenResponse> {
+export async function exchangeCode(code: string, redirectUri?: string): Promise<TokenResponse> {
   const env = getGoogleEnv();
   const body = new URLSearchParams({
     code,
     client_id: env.clientId,
     client_secret: env.clientSecret,
-    redirect_uri: env.redirectUri,
+    redirect_uri: redirectUri ?? env.redirectUri,
     grant_type: 'authorization_code',
   });
   const res = await fetch(TOKEN_URL, {
