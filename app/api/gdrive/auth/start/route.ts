@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
 import { randomBytes } from 'crypto';
 import { createClient } from '@/lib/supabase/server';
-import { buildAuthUrl } from '@/lib/googleDrive';
+import { buildAuthUrl, redirectUriFromRequest } from '@/lib/googleDrive';
 import { notifyDriveAccessRequest } from '@/lib/notify';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
@@ -34,5 +34,5 @@ export async function GET() {
     path: '/',
     maxAge: 600,
   });
-  return NextResponse.redirect(buildAuthUrl(state));
+  return NextResponse.redirect(buildAuthUrl(state, redirectUriFromRequest(req)));
 }
