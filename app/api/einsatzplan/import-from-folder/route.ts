@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import {
-  fetchExcelBytes, listExcelFilesInFolder, refreshAccessToken, type DriveFileEntry,
+  fetchExcelBytes, listExcelFilesInFolder, refreshAccessTokenOrClear, type DriveFileEntry,
 } from '@/lib/googleDrive';
 import { parseEinsatzplan, parseFullPlan } from '@/lib/einsatzplanParser';
 import {
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const tokens = await refreshAccessToken(pilot.google_refresh_token);
+    const tokens = await refreshAccessTokenOrClear(sb, user.id, pilot.google_refresh_token);
     const files = await listExcelFilesInFolder(pilot.einsatzplan_folder_id, tokens.access_token);
     if (files.length === 0) {
       return NextResponse.json({ error: 'no_files_in_folder', detail: 'The Schedule folder has no Excel/Sheets files.' }, { status: 400 });

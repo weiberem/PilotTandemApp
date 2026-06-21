@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { refreshAccessToken } from '@/lib/googleDrive';
+import { refreshAccessTokenOrClear } from '@/lib/googleDrive';
 import { upsertCalendarEvent, deleteMonthCalendarEvents, type CalendarEntry } from '@/lib/googleCalendar';
 import { periodLabel, availabilityDayTimeRange, type AvailabilityDay } from '@/lib/availability';
 import { resolveSeason } from '@/lib/tripTimes';
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   const season = resolveSeason(pilot.season_override ?? null, new Date(month));
 
   try {
-    const tokens = await refreshAccessToken(pilot.google_refresh_token);
+    const tokens = await refreshAccessTokenOrClear(sb, user.id, pilot.google_refresh_token);
     let created = 0, updated = 0;
 
     for (const d of [...days].sort((a, b) => a.date.localeCompare(b.date))) {
@@ -103,7 +103,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   try {
-    const tokens = await refreshAccessToken(pilot.google_refresh_token);
+    const tokens = await refreshAccessTokenOrClear(sb, user.id, pilot.google_refresh_token);
     const deleted = await deleteMonthCalendarEvents(month.slice(0, 7), tokens.access_token, 'availability');
     return NextResponse.json({ ok: true, deleted });
   } catch (e) {

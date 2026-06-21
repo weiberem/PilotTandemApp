@@ -12,6 +12,8 @@
  * reading the Einsatzplan file the user pasted by ID.
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const DRIVE_FILES = 'https://www.googleapis.com/drive/v3/files';
@@ -94,8 +96,45 @@ export async function refreshAccessToken(refreshToken: string): Promise<TokenRes
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body,
   });
-  if (!res.ok) throw new Error(`Google token refresh failed: ${res.status} ${await res.text()}`);
+  if (!res.ok) {
+    const text = await res.text();
+    // invalid_grant = refresh token expired or revoked. In Google "Testing"
+    // mode these expire after 7 days, so this is the common case.
+    if (res.status === 400 && text.includes('invalid_grant')) {
+      throw new GoogleAuthError();
+    }
+    throw new Error(`Google token refresh failed: ${res.status} ${text}`);
+  }
   return res.json();
+}
+
+/** Thrown when the stored refresh token is expired/revoked and the pilot must reconnect. */
+export class GoogleAuthError extends Error {
+  readonly code = 'invalid_grant' as const;
+  constructor(message = 'Google Drive Zugriff abgelaufen — bitte in den Einstellungen neu verbinden.') {
+    super(message);
+    this.name = 'GoogleAuthError';
+  }
+}
+
+/**
+ * Refresh the access token and, if the refresh token is dead (invalid_grant),
+ * clear it from the pilot row so the UI falls back to "not connected" and the
+ * pilot is prompted to reconnect. Re-throws GoogleAuthError either way.
+ */
+export async function refreshAccessTokenOrClear(
+  sb: SupabaseClient,
+  userId: string,
+  refreshToken: string,
+): Promise<TokenResponse> {
+  try {
+    return await refreshAccessToken(refreshToken);
+  } catch (e) {
+    if (e instanceof GoogleAuthError) {
+      try { await sb.from('pilots').update({ google_refresh_token: null }).eq('id', userId); } catch { /* best effort */ }
+    }
+    throw e;
+  }
 }
 
 /**

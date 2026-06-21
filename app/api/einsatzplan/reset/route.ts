@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { refreshAccessToken } from '@/lib/googleDrive';
+import { refreshAccessTokenOrClear } from '@/lib/googleDrive';
 import { deleteMonthCalendarEvents } from '@/lib/googleCalendar';
 import { monthKey as toMonthKey, type EinsatzplanImports } from '@/lib/einsatzplanImports';
 
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       });
     }
     try {
-      const tokens = await refreshAccessToken(pilot.google_refresh_token);
+      const tokens = await refreshAccessTokenOrClear(sb, user.id, pilot.google_refresh_token);
       calendarDeleted = await deleteMonthCalendarEvents(month, tokens.access_token);
     } catch (e) {
       return NextResponse.json({

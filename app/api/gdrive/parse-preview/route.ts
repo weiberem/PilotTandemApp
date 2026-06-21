@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import {
-  extractDriveFileId, fetchExcelBytes, getFileMetadata, refreshAccessToken,
+  extractDriveFileId, fetchExcelBytes, getFileMetadata, refreshAccessTokenOrClear,
 } from '@/lib/googleDrive';
 import { parseEinsatzplan } from '@/lib/einsatzplanParser';
 
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const tokens = await refreshAccessToken(pilot.google_refresh_token);
+    const tokens = await refreshAccessTokenOrClear(sb, user.id, pilot.google_refresh_token);
     const meta = await getFileMetadata(fileId, tokens.access_token);
     const buf = await fetchExcelBytes(meta, tokens.access_token);
     const schedule = await parseEinsatzplan(buf, {

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import {
   downloadDriveFile, extractDriveFileId, fetchExcelBytes, getFileMetadata,
-  refreshAccessToken,
+  refreshAccessTokenOrClear,
 } from '@/lib/googleDrive';
 import { parseEinsatzplan, parseFullPlan } from '@/lib/einsatzplanParser';
 import {
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const tokens = await refreshAccessToken(pilot.google_refresh_token);
+    const tokens = await refreshAccessTokenOrClear(sb, user.id, pilot.google_refresh_token);
 
     // Pull the file. Google Sheets need exportSheetAsXlsx; everything else uses alt=media.
     const meta = await getFileMetadata(fileId, tokens.access_token);
