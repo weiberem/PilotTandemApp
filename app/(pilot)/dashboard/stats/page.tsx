@@ -4,7 +4,7 @@ import { Check, Circle, FileText, Send, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { yearStats } from '@/lib/stats';
 import { getMonthVerificationStatus } from '@/lib/dayVerify';
-import { MonthlyChart } from '@/components/StatsCharts';
+import { MonthlyChart, StatsInsights, type DayStat } from '@/components/StatsCharts';
 import { VkpiReminder } from '@/components/VkpiReminder';
 import { YearPicker } from './YearPicker';
 import { PageTour } from '@/components/PageTour';
@@ -23,6 +23,13 @@ const STATS_STEPS = [
     popover: {
       title: 'Monatsabrechnung',
       description: 'Pro Monat: Total, Karten-/Cash-Anteil und „Send“, um die Rechnung ans Office zu schicken. Ist ein Monat noch offen, führt dich ein Tipp auf die Zeile zur Verifizierung.',
+    },
+  },
+  {
+    element: '[data-tour="stats-insights"]',
+    popover: {
+      title: 'Insights',
+      description: 'Wähle Monat oder ganzes Jahr und sieh Ø Flüge/Tag, Foto-Quote in % und die Verteilung PP/CC/Cash als Diagramme.',
     },
   },
   {
@@ -90,6 +97,28 @@ export default async function StatsPage({
   };
   const primaryCompany = pilot?.primary_company_name ?? 'Skywings';
   const stats = yearStats((yearFlights ?? []) as FlightRow[], rates, year, primaryCompany);
+
+  // Per-day aggregates for the Insights section (avg flights/day, photo split).
+  const byDay = new Map<string, FlightRow[]>();
+  for (const f of (yearFlights ?? []) as FlightRow[]) {
+    const list = byDay.get(f.flight_date) ?? [];
+    list.push(f);
+    byDay.set(f.flight_date, list);
+  }
+  const dailyStats: DayStat[] = [...byDay.entries()].map(([date, list]) => {
+    const t = computeDayTotals(list, rates);
+    const photo = t.ppCount + t.ccCount + t.cCount;
+    return {
+      date,
+      monthIndex0: Number(date.slice(5, 7)) - 1,
+      flights: t.flightsBilled,
+      pp: t.ppCount, cc: t.ccCount, cash: t.cCount,
+      none: Math.max(0, t.flightsBilled - photo),
+      photo,
+      photoChf: (t.ppCount + t.ccCount + t.cCount) * rates.photo_prepaid_rate_chf,
+      revenue: t.personalTotalChf,
+    };
+  }).filter(d => d.flights > 0);
 
   // Optional column from migration 007 — fetch separately so the page still
   // works before the migration is applied.
@@ -189,6 +218,8 @@ export default async function StatsPage({
       {yearIsComplete && (
         <VkpiReminder year={year} count={stats.vkpiFlights} reported={yearReported} />
       )}
+
+      <StatsInsights year={year} months={stats.months} dailyStats={dailyStats} />
 
       <MonthlyChart data={stats.months} />
 
