@@ -31,6 +31,7 @@ type Pilot = {
   season_override: 'summer' | 'winter' | null;
   auto_send_invoice: boolean | null;
   simple_capture: boolean | null;
+  google_enabled: boolean | null;
   vat_registered: boolean | null;
   default_exclude_7am: boolean | null;
   default_exclude_5pm: boolean | null;
@@ -74,6 +75,7 @@ export function SettingsForm({
     season_override: pilot?.season_override ?? null,
     auto_send_invoice: pilot?.auto_send_invoice ?? false,
     simple_capture: pilot?.simple_capture ?? false,
+    google_enabled: pilot?.google_enabled ?? true,
     vat_registered: pilot?.vat_registered ?? true,
     default_exclude_7am: pilot?.default_exclude_7am ?? false,
     default_exclude_5pm: pilot?.default_exclude_5pm ?? false,
@@ -242,43 +244,63 @@ export function SettingsForm({
       </Section>
 
       <Section title="Google Drive" tourId="settings-drive">
-        {driveConnect && (
-          <div className="pb-1">
-            <div className="text-xs font-medium text-text-muted mb-1.5">Connection</div>
-            {driveConnect}
-          </div>
-        )}
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={!!form.google_enabled}
+            onChange={e => set('google_enabled', e.target.checked)}
+            className="mt-1 w-4 h-4 accent-primary"
+          />
+          <span>
+            <span className="text-sm font-medium">Google-Integration aktiviert</span>
+            <span className="block text-xs text-text-muted">
+              Drive (Rechnungen/Backups), Einsatzplan-Import und Google-Kalender. Ausschalten,
+              wenn du keine Google-Funktionen brauchst (z.B. Office-Account).
+            </span>
+          </span>
+        </label>
 
-        <div className="space-y-3 border-t border-border pt-3">
-          <Input
-            label="Main folder for invoices & backups"
-            value={form.google_drive_folder_id ?? ''}
-            onChange={v => set('google_drive_folder_id', extractDriveId(v))}
-            placeholder="ID or Drive link …/folders/XXX"
-          />
-          <Input
-            label="Schedule folder (Skywings drops a new file every month)"
-            value={form.einsatzplan_folder_id ?? ''}
-            onChange={v => set('einsatzplan_folder_id', extractDriveId(v))}
-            placeholder="ID or Drive link …/folders/XXX"
-          />
-          <Input
-            label="Schedule single file ID (fallback, optional)"
-            value={form.einsatzplan_file_id ?? ''}
-            onChange={v => set('einsatzplan_file_id', extractDriveId(v))}
-            placeholder="only if the folder doesn't work"
-          />
-          <p className="text-xs text-text-muted">
-            Tip: You can paste the whole Drive link — the ID is extracted automatically.
-            With a folder ID, the app always pulls the latest Excel file from the folder.
-          </p>
-        </div>
+        {form.google_enabled && (
+          <>
+            {driveConnect && (
+              <div className="pb-1 border-t border-border pt-3">
+                <div className="text-xs font-medium text-text-muted mb-1.5">Connection</div>
+                {driveConnect}
+              </div>
+            )}
 
-        {driveBackup && (
-          <div className="border-t border-border pt-3">
-            <div className="text-xs font-medium text-text-muted mb-1.5">Monthly Excel backup</div>
-            {driveBackup}
-          </div>
+            <div className="space-y-3 border-t border-border pt-3">
+              <Input
+                label="Main folder for invoices & backups"
+                value={form.google_drive_folder_id ?? ''}
+                onChange={v => set('google_drive_folder_id', extractDriveId(v))}
+                placeholder="ID or Drive link …/folders/XXX"
+              />
+              <Input
+                label="Schedule folder (Skywings drops a new file every month)"
+                value={form.einsatzplan_folder_id ?? ''}
+                onChange={v => set('einsatzplan_folder_id', extractDriveId(v))}
+                placeholder="ID or Drive link …/folders/XXX"
+              />
+              <Input
+                label="Schedule single file ID (fallback, optional)"
+                value={form.einsatzplan_file_id ?? ''}
+                onChange={v => set('einsatzplan_file_id', extractDriveId(v))}
+                placeholder="only if the folder doesn't work"
+              />
+              <p className="text-xs text-text-muted">
+                Tip: You can paste the whole Drive link — the ID is extracted automatically.
+                With a folder ID, the app always pulls the latest Excel file from the folder.
+              </p>
+            </div>
+
+            {driveBackup && (
+              <div className="border-t border-border pt-3">
+                <div className="text-xs font-medium text-text-muted mb-1.5">Monthly Excel backup</div>
+                {driveBackup}
+              </div>
+            )}
+          </>
         )}
       </Section>
 

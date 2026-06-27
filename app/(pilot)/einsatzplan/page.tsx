@@ -14,10 +14,12 @@ export default async function EinsatzplanPage() {
 
   const { data: pilot } = await supabase
     .from('pilots')
-    .select('full_name, google_refresh_token, einsatzplan_synced_at, einsatzplan_last_file_name, season_override')
+    .select('full_name, google_refresh_token, einsatzplan_synced_at, einsatzplan_last_file_name, season_override, google_enabled')
     .eq('id', user.id)
     .maybeSingle();
   if (!pilot) redirect('/onboarding');
+  // Google integration switched off for this pilot → nothing to do here.
+  if (!(pilot.google_enabled ?? true)) redirect('/home');
 
   return (
     <div className="p-4 space-y-4 max-w-2xl mx-auto">
