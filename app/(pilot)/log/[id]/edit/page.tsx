@@ -5,7 +5,8 @@ import { FlightForm } from '@/components/FlightForm';
 import { listPilotCompanies } from '@/lib/pilotCompanies';
 import { DeleteFlightButton } from '@/components/DeleteFlightButton';
 import { formatDateDe } from '@/lib/utils';
-import { getCurrentTripTimes, resolveSeason, type Season } from '@/lib/tripTimes';
+import { getCurrentTripTimes, effectiveSeason, type Season } from '@/lib/tripTimes';
+import { getAdminSeason } from '@/lib/appSettings';
 import type { FlightInput, FlightRow } from '@/lib/flights';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +24,8 @@ export default async function EditFlightPage({ params }: { params: { id: string 
   if (!flight) notFound();
   const row = flight as FlightRow;
 
-  const season: Season = resolveSeason(pilot?.season_override ?? null, new Date(row.flight_date));
+  const adminSeason = await getAdminSeason(supabase);
+  const season: Season = effectiveSeason(pilot?.season_override ?? null, adminSeason, new Date(row.flight_date));
   const seasonTimes = getCurrentTripTimes(season);
   const scheduleEntry = (pilot?.einsatzplan_schedule as Record<string, { times?: string[] }> | null)?.[row.flight_date];
   const scheduledTimes = scheduleEntry?.times ?? [...seasonTimes];

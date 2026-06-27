@@ -5,8 +5,9 @@ import { FlightForm } from '@/components/FlightForm';
 import { listPilotCompanies } from '@/lib/pilotCompanies';
 import { isoDate, isoDateZurich, nowInZurich, formatDateDe } from '@/lib/utils';
 import {
-  getCurrentTripTimes, getNextTripTime, resolveSeason, suggestCurrentTripTime, type Season,
+  getCurrentTripTimes, getNextTripTime, effectiveSeason, suggestCurrentTripTime, type Season,
 } from '@/lib/tripTimes';
+import { getAdminSeason } from '@/lib/appSettings';
 import type { FlightInput } from '@/lib/flights';
 
 export const dynamic = 'force-dynamic';
@@ -35,7 +36,8 @@ export default async function LogPage({
     .eq('flight_date', flightDate)
     .order('trip_time', { ascending: true });
 
-  const season: Season = resolveSeason(pilot.season_override, new Date(flightDate));
+  const adminSeason = await getAdminSeason(supabase);
+  const season: Season = effectiveSeason(pilot.season_override, adminSeason, new Date(flightDate));
   const seasonTimes = getCurrentTripTimes(season);
 
   // Pull pilot's scheduled trip times for this date from cached Einsatzplan (if any).

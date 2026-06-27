@@ -4,7 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { deriveCcTripTimes } from '@/lib/sumup';
-import { resolveSeason, SUMMER_TRIP_TIMES, WINTER_TRIP_TIMES } from '@/lib/tripTimes';
+import { effectiveSeason, SUMMER_TRIP_TIMES, WINTER_TRIP_TIMES } from '@/lib/tripTimes';
+import { getAdminSeason } from '@/lib/appSettings';
 import type { ParsedSchedule } from '@/lib/einsatzplanParser';
 
 const schema = z.object({
@@ -170,7 +171,8 @@ export async function applySumupCcTimes(input: z.input<typeof sumupSchema>) {
     .maybeSingle();
 
   const schedule = (pilot?.einsatzplan_schedule as ParsedSchedule | null) ?? {};
-  const season = resolveSeason(pilot?.season_override ?? null, new Date(flight_date));
+  const adminSeason = await getAdminSeason(sb);
+  const season = effectiveSeason(pilot?.season_override ?? null, adminSeason, new Date(flight_date));
   const seasonTimes = season === 'summer' ? [...SUMMER_TRIP_TIMES] : [...WINTER_TRIP_TIMES];
   const candidates = schedule[flight_date]?.times?.length ? schedule[flight_date].times : seasonTimes;
 

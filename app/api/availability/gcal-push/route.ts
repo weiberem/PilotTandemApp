@@ -3,7 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { refreshAccessTokenOrClear } from '@/lib/googleDrive';
 import { upsertCalendarEvent, deleteMonthCalendarEvents, type CalendarEntry } from '@/lib/googleCalendar';
 import { periodLabel, availabilityDayTimeRange, type AvailabilityDay } from '@/lib/availability';
-import { resolveSeason } from '@/lib/tripTimes';
+import { effectiveSeason } from '@/lib/tripTimes';
+import { getAdminSeason } from '@/lib/appSettings';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -47,7 +48,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'no_availability', detail: 'No availability entered for this month.' }, { status: 400 });
   }
 
-  const season = resolveSeason(pilot.season_override ?? null, new Date(month));
+  const adminSeason = await getAdminSeason(sb);
+  const season = effectiveSeason(pilot.season_override ?? null, adminSeason, new Date(month));
 
   try {
     const tokens = await refreshAccessTokenOrClear(sb, user.id, pilot.google_refresh_token);

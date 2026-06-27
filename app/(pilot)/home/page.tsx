@@ -4,13 +4,15 @@ import { CalendarRange, ChevronDown } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatDateDe, isoDateZurich, nowInZurich, formatChf } from '@/lib/utils';
 import {
-  getCurrentTripTimes, prefillNextTripTime, resolveSeason, type Season,
+  getCurrentTripTimes, prefillNextTripTime, effectiveSeason, detectSeason, type Season,
 } from '@/lib/tripTimes';
+import { getAdminSeason } from '@/lib/appSettings';
 import { computeDayTotals, type FlightInput, type FlightRow, type PilotRates } from '@/lib/flights';
 import { QuickAddFlightRow } from '@/components/QuickAddFlightRow';
 import { ScreenshotCapture } from '@/components/ScreenshotCapture';
 import { DayControls } from '@/components/DayControls';
 import { PageTour } from '@/components/PageTour';
+import { SeasonNoticeBanner } from '@/components/SeasonNoticeBanner';
 
 const HOME_STEPS = [
   {
@@ -113,8 +115,15 @@ export default async function HomePage({
   };
   const todayTotals = computeDayTotals(todayFlights, rates);
 
-  const season: Season = resolveSeason(pilot.season_override, new Date(today));
+  const adminSeason = await getAdminSeason(supabase);
+  const season: Season = effectiveSeason(pilot.season_override, adminSeason, new Date(today));
   const seasonTimes = getCurrentTripTimes(season);
+  // Office season the pilot would otherwise follow (for the mismatch notice).
+  const officeSeason: Season = adminSeason === 'summer' || adminSeason === 'winter'
+    ? adminSeason
+    : detectSeason(new Date(today));
+  const pilotForced = pilot.season_override === 'summer' || pilot.season_override === 'winter';
+  const seasonMismatch = pilotForced && pilot.season_override !== officeSeason;
   const scheduleEntry = (pilot.einsatzplan_schedule as Record<string, { times?: string[] }> | null)?.[today];
   const scheduledTimes = scheduleEntry?.times ?? [...seasonTimes];
   const lastSkywings = [...todayFlights]
@@ -149,6 +158,12 @@ export default async function HomePage({
   return (
     <div className="p-4 space-y-4 max-w-2xl mx-auto">
       <PageTour steps={HOME_STEPS} autoStartKey="tandemlog_tour_v1" />
+      {seasonMismatch && (
+        <SeasonNoticeBanner
+          pilotSeason={pilot.season_override as 'summer' | 'winter'}
+          officeSeason={officeSeason}
+        />
+      )}
       <section className="flex items-start justify-between gap-2">
         <div>
           <p className="text-text-muted text-sm">{formatDateDe(new Date(viewDate))}</p>

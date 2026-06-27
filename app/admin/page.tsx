@@ -1,4 +1,5 @@
 import { AdminPilots } from './AdminPilots';
+import { AdminSeason } from './AdminSeason';
 
 export default function AdminPage() {
   return (
@@ -7,6 +8,7 @@ export default function AdminPage() {
       <p className="text-text-muted text-sm">
         Admins can invite and deactivate pilots. No access to individual pilots' flight data or invoices.
       </p>
+      <AdminSeason />
       <AdminPilots />
     </div>
   );
