@@ -236,9 +236,9 @@ export function SettingsForm({
             onChange={e => set('season_override', (e.target.value || null) as 'summer' | 'winter' | null)}
             className="mt-1 w-full min-h-tap rounded-lg border border-border px-3 py-2 bg-white"
           >
-            <option value="">Automatic (Summer Apr–Oct, Winter Nov–Mar)</option>
-            <option value="summer">Force summer</option>
-            <option value="winter">Force winter</option>
+            <option value="">Automatisch (folgt der Office-Einstellung)</option>
+            <option value="summer">Sommer erzwingen</option>
+            <option value="winter">Winter erzwingen</option>
           </select>
         </label>
       </Section>

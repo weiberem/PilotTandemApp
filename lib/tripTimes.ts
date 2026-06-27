@@ -37,6 +37,23 @@ export function resolveSeason(override: string | null | undefined, date: Date = 
   return detectSeason(date);
 }
 
+/**
+ * Season actually in effect for a pilot:
+ *   1. the pilot's own forced override wins ('summer' / 'winter'),
+ *   2. otherwise the office/admin setting ('summer' / 'winter'),
+ *   3. otherwise the automatic date-based season.
+ * `adminSeason` is the app-wide setting ('auto' | 'summer' | 'winter').
+ */
+export function effectiveSeason(
+  override: string | null | undefined,
+  adminSeason: string | null | undefined,
+  date: Date = new Date(),
+): Season {
+  if (override === 'summer' || override === 'winter') return override;
+  if (adminSeason === 'summer' || adminSeason === 'winter') return adminSeason;
+  return detectSeason(date);
+}
+
 export function getNextTripTime(currentTime: string, season: Season): string | null {
   const times = getCurrentTripTimes(season);
   const idx = times.indexOf(currentTime);

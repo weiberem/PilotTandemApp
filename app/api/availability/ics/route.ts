@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { buildAvailabilityIcs, type AvailabilityDay } from '@/lib/availability';
-import { resolveSeason } from '@/lib/tripTimes';
+import { effectiveSeason } from '@/lib/tripTimes';
+import { getAdminSeason } from '@/lib/appSettings';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -35,7 +36,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'no availability entered for this month' }, { status: 404 });
   }
 
-  const season = resolveSeason(pilotRes.data?.season_override ?? null, new Date(month));
+  const adminSeason = await getAdminSeason(sb);
+  const season = effectiveSeason(pilotRes.data?.season_override ?? null, adminSeason, new Date(month));
   const ics = buildAvailabilityIcs(days, pilotRes.data?.full_name ?? '', season);
   const filename = `tandem-availability-${month.slice(0, 7)}.ics`;
   return new NextResponse(ics, {
