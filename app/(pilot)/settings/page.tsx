@@ -60,6 +60,8 @@ export default async function SettingsPage({
   if (!user) redirect('/login');
 
   const { data: pilot } = await supabase.from('pilots').select('*').eq('id', user.id).maybeSingle();
+  const { data: adminRow } = await supabase.from('admins').select('id').eq('id', user.id).maybeSingle();
+  const isAdmin = !!adminRow;
   const gdriveMsg = searchParams.gdrive ? GDRIVE_MESSAGES[searchParams.gdrive] : null;
   const missingMigrations = await probeMissingMigrations(user.id);
   const otherCompanies = await listPilotCompanies(supabase, user.id);
@@ -136,6 +138,11 @@ export default async function SettingsPage({
         <a href="/home?tour=1" data-tour="settings-replay" className="btn-ghost border border-border text-sm inline-flex w-fit">
           Replay intro tour
         </a>
+        {isAdmin && (
+          <a href="/admin" className="btn-ghost border border-border text-sm inline-flex w-fit">
+            Admin-Bereich
+          </a>
+        )}
         <LogoutButton />
       </fieldset>
     </div>
