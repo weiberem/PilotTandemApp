@@ -39,6 +39,12 @@ export default async function OnboardingPage() {
     .maybeSingle();
   const pilot = (data ?? null) as PilotRow | null;
 
+  // Admin-only accounts skip pilot onboarding and go straight to the admin area.
+  if (!pilot?.full_name || !pilot?.iban) {
+    const { data: adminRow } = await supabase.from('admins').select('id').eq('id', user.id).maybeSingle();
+    if (adminRow) redirect('/admin');
+  }
+
   return (
     <div className="min-h-dvh bg-bg">
       <header className="bg-bg-dark text-white px-6 py-6 text-center">
