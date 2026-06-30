@@ -55,7 +55,8 @@ export function InvoiceComparisonView(p: Props) {
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
-        setMsg({ kind: 'err', text: data.error ?? 'Send failed' });
+        const text = data.detail ? `${data.error ?? 'Send failed'}: ${data.detail}` : (data.error ?? 'Send failed');
+        setMsg({ kind: 'err', text });
         return;
       }
       const driveNote = data.drive_uploaded ? ' Drive ✓' : ' (Drive skipped)';
