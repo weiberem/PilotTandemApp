@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { Spinner } from '@/components/Spinner';
 import {
   PHOTO_STATUSES, type PhotoStatus, type FlightInput, type FlightRow,
 } from '@/lib/flights';
@@ -205,6 +206,7 @@ export function FlightForm({
       {error && <p className="text-danger text-sm" role="alert">{error}</p>}
 
       <button type="submit" disabled={pending} className="btn-primary w-full text-base">
+        {pending && <Spinner className="w-4 h-4 mr-2" />}
         {pending ? 'Saving…' : mode === 'create' ? 'Log' : 'Update'}
       </button>
 
