@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Plus, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Spinner } from '@/components/Spinner';
 import { createFlight } from '@/app/(pilot)/log/actions';
 import { PHOTO_STATUSES, type FlightInput, type PhotoStatus } from '@/lib/flights';
 
@@ -51,11 +52,11 @@ export function QuickAddFlightRow({ defaults, scheduledTimes, loggedCount, usedT
           aria-label="Log flight"
           className={cn(
             'shrink-0 inline-flex items-center justify-center rounded-full bg-primary text-white',
-            'w-12 h-12 shadow-sm hover:bg-primary-dark active:scale-95 transition',
-            pending && 'opacity-60',
+            'w-12 h-12 shadow-sm hover:bg-primary-dark active:scale-90 transition',
+            pending && 'opacity-80',
           )}
         >
-          <Plus className="w-6 h-6" />
+          {pending ? <Spinner className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
         </button>
 
         <div className="flex-1 min-w-0">
