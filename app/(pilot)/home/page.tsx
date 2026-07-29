@@ -160,6 +160,9 @@ export default async function HomePage({
     ? prefillTime
     : (dayTimes.find(t => !usedToday.has(t)) ?? dayTimes[dayTimes.length - 1] ?? prefillTime);
 
+  // Sites usually stay the same across a day → prefill from the last flight.
+  const lastFlightToday = [...todayFlights].reverse()[0] ?? null;
+
   const defaults: FlightInput = {
     flight_date: today,
     trip_time: prefillForDay,
@@ -169,6 +172,9 @@ export default async function HomePage({
     is_double_airtime: false,
     tip_chf: 0,
     notes: null,
+    takeoff_site: lastFlightToday?.takeoff_site ?? null,
+    landing_site: lastFlightToday?.landing_site ?? null,
+    passenger_nationality: null,
   };
 
   const currentMonthKey = today.slice(0, 7);
@@ -211,6 +217,9 @@ export default async function HomePage({
             primaryCompany={primaryCompany}
             otherCompanies={otherCompanies}
             season={season}
+            trackSites={pilot.track_sites ?? false}
+            trackNationality={pilot.track_nationality ?? false}
+            nationalityCounts={(pilot.nationality_counts as Record<string, number> | null) ?? {}}
           />
         )}
       </div>

@@ -11,6 +11,8 @@ import {
   getCurrentTripTimes, resolveSeason, type Season,
 } from '@/lib/tripTimes';
 import { type PilotCompany, companyTimesForSeason } from '@/lib/pilotCompanies';
+import { SitePicker } from '@/components/SitePicker';
+import { NationalityPicker } from '@/components/NationalityPicker';
 import { createFlight, updateFlight } from '@/app/(pilot)/log/actions';
 
 const SKYWINGS = 'Skywings';
@@ -25,10 +27,14 @@ type Props = {
   scheduledTimes: string[];
   /** Other companies registered by this pilot (Settings → Other companies). */
   otherCompanies?: PilotCompany[];
+  trackSites?: boolean;
+  trackNationality?: boolean;
+  nationalityCounts?: Record<string, number>;
 };
 
 export function FlightForm({
   mode, flight, defaults, seasonOverride, primaryCompany, scheduledTimes, otherCompanies = [],
+  trackSites = false, trackNationality = false, nationalityCounts = {},
 }: Props) {
   const router = useRouter();
   const season: Season = resolveSeason(seasonOverride, new Date(defaults.flight_date));
@@ -205,6 +211,24 @@ export function FlightForm({
           className="mt-2 w-full rounded-lg border border-border px-3 py-2 bg-white"
         />
       </details>
+
+      {trackSites && (
+        <Field label="Start- & Landeplatz">
+          <SitePicker
+            takeoff={form.takeoff_site ?? null}
+            landing={form.landing_site ?? null}
+            onChange={({ takeoff, landing }) => { patch('takeoff_site', takeoff); patch('landing_site', landing); }}
+          />
+        </Field>
+      )}
+
+      {trackNationality && (
+        <NationalityPicker
+          value={form.passenger_nationality ?? null}
+          counts={nationalityCounts}
+          onChange={v => patch('passenger_nationality', v)}
+        />
+      )}
 
       {error && <p className="text-danger text-sm" role="alert">{error}</p>}
 

@@ -16,6 +16,16 @@ function mapInsertError(message: string, tripTime: string): string {
   return message;
 }
 
+/** Bump the pilot's per-country pick count so the nationality ranking adapts. */
+async function bumpNationality(
+  supabase: ReturnType<typeof createClient>, pilotId: string, country: string,
+) {
+  const { data } = await supabase.from('pilots').select('nationality_counts').eq('id', pilotId).maybeSingle();
+  const counts = { ...((data?.nationality_counts as Record<string, number> | null) ?? {}) };
+  counts[country] = (counts[country] ?? 0) + 1;
+  await supabase.from('pilots').update({ nationality_counts: counts }).eq('id', pilotId);
+}
+
 export async function createFlight(input: FlightInput): Promise<FlightActionResult> {
   const parsed = flightInputSchema.safeParse(input);
   if (!parsed.success) {
@@ -44,6 +54,10 @@ export async function createFlight(input: FlightInput): Promise<FlightActionResu
     .single();
 
   if (error) return { ok: false, error: mapInsertError(error.message, parsed.data.trip_time) };
+
+  if (parsed.data.passenger_nationality) {
+    await bumpNationality(supabase, user.id, parsed.data.passenger_nationality);
+  }
 
   revalidatePath('/');
   revalidatePath('/today');

@@ -21,7 +21,7 @@ export default async function LogPage({
 
   const { data: pilot } = await supabase
     .from('pilots')
-    .select('full_name, iban, primary_company_name, season_override, einsatzplan_schedule')
+    .select('full_name, iban, primary_company_name, season_override, einsatzplan_schedule, track_sites, track_nationality, nationality_counts')
     .eq('id', user.id)
     .maybeSingle();
   if (!pilot || !pilot.full_name || !pilot.iban) redirect('/onboarding');
@@ -110,6 +110,9 @@ export default async function LogPage({
         primaryCompany={pilot.primary_company_name ?? 'Skywings'}
         scheduledTimes={scheduledTimes}
         otherCompanies={await listPilotCompanies(supabase, user.id)}
+        trackSites={pilot.track_sites ?? false}
+        trackNationality={pilot.track_nationality ?? false}
+        nationalityCounts={(pilot.nationality_counts as Record<string, number> | null) ?? {}}
       />
 
       <div className="flex gap-2 pt-2">

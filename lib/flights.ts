@@ -15,6 +15,9 @@ export const flightInputSchema = z.object({
   is_double_airtime: z.boolean(),
   tip_chf: z.number().min(0).max(10000),
   notes: z.string().max(500).optional().nullable(),
+  takeoff_site: z.string().max(80).optional().nullable(),
+  landing_site: z.string().max(80).optional().nullable(),
+  passenger_nationality: z.string().max(80).optional().nullable(),
 }).refine(
   v => !v.is_no_show || (v.photo_status === 'none' && !v.is_double_airtime),
   { message: 'No-show flight cannot have a photo or thermal.' },
