@@ -1,35 +1,76 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus, ChevronRight } from 'lucide-react';
+import { Plus, ChevronRight, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Spinner } from '@/components/Spinner';
 import { createFlight } from '@/app/(pilot)/log/actions';
 import { PHOTO_STATUSES, type FlightInput, type PhotoStatus } from '@/lib/flights';
+import { type PilotCompany, companyTimesForSeason, suggestColor } from '@/lib/pilotCompanies';
 
 type Props = {
   defaults: FlightInput;
   scheduledTimes: readonly string[];
   loggedCount: number;
   usedTripTimes: readonly string[];
+  primaryCompany: string;
+  otherCompanies: PilotCompany[];
+  season: 'summer' | 'winter';
 };
 
-export function QuickAddFlightRow({ defaults, scheduledTimes, loggedCount, usedTripTimes }: Props) {
+export function QuickAddFlightRow({
+  defaults, scheduledTimes, loggedCount, usedTripTimes,
+  primaryCompany, otherCompanies, season,
+}: Props) {
   const usedSet = new Set(usedTripTimes);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [tripTime, setTripTime] = useState(defaults.trip_time);
   const [photoStatus, setPhotoStatus] = useState<PhotoStatus>(defaults.photo_status);
+  const [company, setCompany] = useState(defaults.company);
   const [error, setError] = useState<string | null>(null);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
+  const [companyMenuOpen, setCompanyMenuOpen] = useState(false);
+  // A non-primary company the pilot tapped, awaiting "log all following?" confirm.
+  const [pendingCompany, setPendingCompany] = useState<string | null>(null);
+
+  // Trip times of the currently active company. Primary → schedule/season list;
+  // others → their own schedule (winter falls back to summer).
+  const timesFor = useMemo(() => (name: string): string[] => {
+    if (name === primaryCompany) return [...scheduledTimes];
+    const c = otherCompanies.find(o => o.name === name);
+    const t = c ? companyTimesForSeason(c, season) : null;
+    return t && t.length > 0 ? t : [...scheduledTimes];
+  }, [primaryCompany, otherCompanies, season, scheduledTimes]);
+
+  const activeTimes = timesFor(company);
+
+  function firstFree(times: string[]): string {
+    return times.find(t => !usedSet.has(t)) ?? times[times.length - 1] ?? tripTime;
+  }
+
+  function chooseCompany(name: string) {
+    if (name === company) { setCompanyMenuOpen(false); return; }
+    // Switching companies → ask before it applies to the following flights.
+    setPendingCompany(name);
+    setCompanyMenuOpen(false);
+  }
+
+  function confirmCompany() {
+    if (!pendingCompany) return;
+    setCompany(pendingCompany);
+    setTripTime(firstFree(timesFor(pendingCompany)));
+    setPendingCompany(null);
+  }
 
   function doAdd() {
     setError(null);
     startTransition(async () => {
       const r = await createFlight({
         ...defaults,
+        company,
         trip_time: tripTime,
         photo_status: photoStatus,
       });
@@ -42,18 +83,21 @@ export function QuickAddFlightRow({ defaults, scheduledTimes, loggedCount, usedT
     });
   }
 
+  const companyList = [primaryCompany, ...otherCompanies.map(c => c.name).filter(n => n !== primaryCompany)];
+  const dot = (name: string) => otherCompanies.find(o => o.name === name)?.color_hex ?? suggestColor(name);
+
   return (
     <div className="card p-3 space-y-2">
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={doAdd}
-          disabled={pending}
+          disabled={pending || !!pendingCompany}
           aria-label="Log flight"
           className={cn(
             'shrink-0 inline-flex items-center justify-center rounded-full bg-primary text-white',
             'w-12 h-12 shadow-sm hover:bg-primary-dark active:scale-90 transition',
-            pending && 'opacity-80',
+            (pending || !!pendingCompany) && 'opacity-80',
           )}
         >
           {pending ? <Spinner className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
@@ -69,12 +113,19 @@ export function QuickAddFlightRow({ defaults, scheduledTimes, loggedCount, usedT
             >
               {tripTime}
             </button>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary-dark">
-              {defaults.company}
-            </span>
+            <button
+              type="button"
+              onClick={() => setCompanyMenuOpen(o => !o)}
+              className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary-dark hover:bg-primary/20"
+              aria-expanded={companyMenuOpen}
+            >
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: dot(company) }} />
+              {company}
+              {companyList.length > 1 && <ChevronDown className="w-3 h-3" />}
+            </button>
           </div>
           <div className="text-xs text-text-muted mt-0.5">
-            {loggedCount === 0 ? 'First flight — time & photo status adjustable' : `Next flight after ${loggedCount} already logged`}
+            {loggedCount === 0 ? 'First flight — time, company & photo adjustable' : `Next flight after ${loggedCount} already logged`}
           </div>
         </div>
 
@@ -87,9 +138,50 @@ export function QuickAddFlightRow({ defaults, scheduledTimes, loggedCount, usedT
         </Link>
       </div>
 
+      {companyMenuOpen && companyList.length > 1 && (
+        <div className="flex flex-wrap gap-1 pt-1 border-t border-border">
+          {companyList.map(name => {
+            const active = name === company;
+            return (
+              <button
+                key={name}
+                type="button"
+                onClick={() => chooseCompany(name)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border',
+                  active ? 'bg-primary text-white border-primary' : 'bg-bg-card border-border hover:bg-bg-subtle',
+                )}
+              >
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: active ? '#fff' : dot(name) }} />
+                {name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {pendingCompany && (
+        <div className="pt-1 border-t border-border">
+          <p className="text-sm">
+            Alle folgenden Flüge für <span className="font-medium">{pendingCompany}</span> loggen?
+            <span className="block text-xs text-text-muted">
+              Bereits geloggte Flüge bleiben unverändert. Trip-Zeiten wechseln auf {pendingCompany}.
+            </span>
+          </p>
+          <div className="flex gap-2 mt-2">
+            <button type="button" onClick={() => setPendingCompany(null)} className="btn-ghost border border-border text-sm">
+              Abbrechen
+            </button>
+            <button type="button" onClick={confirmCompany} className="btn-primary text-sm">
+              Ja, wechseln
+            </button>
+          </div>
+        </div>
+      )}
+
       {timePickerOpen && (
         <div className="flex flex-wrap gap-1 pt-1 border-t border-border">
-          {scheduledTimes.map(t => {
+          {activeTimes.map(t => {
             const used = usedSet.has(t);
             const active = t === tripTime;
             return (

@@ -7,6 +7,7 @@ import {
   getCurrentTripTimes, prefillNextTripTime, effectiveSeason, detectSeason, type Season,
 } from '@/lib/tripTimes';
 import { getAdminSeason } from '@/lib/appSettings';
+import { listPilotCompanies, companyTimesForSeason } from '@/lib/pilotCompanies';
 import { computeDayTotals, type FlightInput, type FlightRow, type PilotRates } from '@/lib/flights';
 import { QuickAddFlightRow } from '@/components/QuickAddFlightRow';
 import { ScreenshotCapture } from '@/components/ScreenshotCapture';
@@ -136,10 +137,31 @@ export default async function HomePage({
     now: nowInZurich(),
   });
 
+  // Companies the pilot can log for. The "active company" for the day is the
+  // company of the most recent flight already logged today, else the primary.
+  const otherCompanies = await listPilotCompanies(supabase, user.id);
+  const primaryCompany = pilot.primary_company_name ?? 'Skywings';
+  const dayCompany = [...todayFlights].reverse().find(f => f.company)?.company ?? primaryCompany;
+
+  // Trip times for a given company: primary uses the schedule/season list,
+  // other companies use their own schedule (winter falls back to summer).
+  const timesForCompany = (name: string): string[] => {
+    if (name === primaryCompany) return [...scheduledTimes];
+    const c = otherCompanies.find(o => o.name === name);
+    const t = c ? companyTimesForSeason(c, season) : null;
+    return t && t.length > 0 ? t : [...scheduledTimes];
+  };
+
+  const usedToday = new Set(todayFlights.map(f => f.trip_time));
+  const dayTimes = timesForCompany(dayCompany);
+  const prefillForDay = dayCompany === primaryCompany
+    ? prefillTime
+    : (dayTimes.find(t => !usedToday.has(t)) ?? dayTimes[dayTimes.length - 1] ?? prefillTime);
+
   const defaults: FlightInput = {
     flight_date: today,
-    trip_time: prefillTime,
-    company: pilot.primary_company_name ?? 'Skywings',
+    trip_time: prefillForDay,
+    company: dayCompany,
     photo_status: 'none',
     is_no_show: false,
     is_double_airtime: false,
@@ -179,11 +201,14 @@ export default async function HomePage({
           <ScreenshotCapture today={today} company={pilot.primary_company_name ?? 'Skywings'} />
         ) : (
           <QuickAddFlightRow
-            key={todayFlights.length}
+            key={`${todayFlights.length}-${dayCompany}`}
             defaults={defaults}
             scheduledTimes={scheduledTimes}
             loggedCount={todayFlights.length}
             usedTripTimes={todayFlights.map(f => f.trip_time)}
+            primaryCompany={primaryCompany}
+            otherCompanies={otherCompanies}
+            season={season}
           />
         )}
       </div>
