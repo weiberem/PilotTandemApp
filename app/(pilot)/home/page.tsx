@@ -127,12 +127,15 @@ export default async function HomePage({
   const seasonMismatch = pilotForced && pilot.season_override !== officeSeason;
   const scheduleEntry = (pilot.einsatzplan_schedule as Record<string, { times?: string[] }> | null)?.[today];
   const scheduledTimes = scheduleEntry?.times ?? [...seasonTimes];
-  const lastSkywings = [...todayFlights]
+  const primaryCompany = pilot.primary_company_name ?? 'Skywings';
+  // Prefill from the last flight of the PRIMARY company (its schedule drives
+  // the season list); other companies get prefilled from their own list below.
+  const lastPrimary = [...todayFlights]
     .reverse()
-    .find(f => (f.company ?? '').toLowerCase().startsWith('skyw'));
+    .find(f => f.company === primaryCompany || (f.company ?? '').toLowerCase().startsWith('skyw'));
   const prefillTime = prefillNextTripTime({
     scheduledTimes, seasonTimes, season,
-    lastSkywingsTime: lastSkywings?.trip_time ?? null,
+    lastPrimaryTime: lastPrimary?.trip_time ?? null,
     isToday: isViewingToday,
     now: nowInZurich(),
   });
@@ -140,7 +143,6 @@ export default async function HomePage({
   // Companies the pilot can log for. The "active company" for the day is the
   // company of the most recent flight already logged today, else the primary.
   const otherCompanies = await listPilotCompanies(supabase, user.id);
-  const primaryCompany = pilot.primary_company_name ?? 'Skywings';
   const dayCompany = [...todayFlights].reverse().find(f => f.company)?.company ?? primaryCompany;
 
   // Trip times for a given company: primary uses the schedule/season list,

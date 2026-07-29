@@ -3,11 +3,9 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTransition } from 'react';
 
-const COMPANIES = ['Skywings', 'AlpinAir', 'Twin Paragliding'] as const;
-
 export function MonthCompanyPicker({
-  month, company, primaryCompany,
-}: { month: string; company: string; primaryCompany: string }) {
+  month, company, companies,
+}: { month: string; company: string; companies: string[] }) {
   const router = useRouter();
   const search = useSearchParams();
   const [, startTransition] = useTransition();
@@ -23,7 +21,7 @@ export function MonthCompanyPicker({
     if (/^\d{4}-\d{2}$/.test(v)) setParam('month', `${v}-01`);
   }
 
-  const allCompanies = Array.from(new Set([primaryCompany, ...COMPANIES, company]));
+  const allCompanies = Array.from(new Set([...companies, company]));
 
   return (
     <div className="flex gap-2 items-end">
