@@ -38,8 +38,10 @@ export function FlightForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const isSkywings = form.company === SKYWINGS || form.company === primaryCompany && primaryCompany.toLowerCase().startsWith('skyw');
-  const isSkywingsLike = form.company === SKYWINGS || form.company.toLowerCase().includes('skyw');
+  // The primary company drives the schedule/season list; a registered other
+  // company uses its own schedule. (SKYWINGS is the legacy primary name for
+  // flights stored before the company was renamed.)
+  const isPrimary = form.company === primaryCompany || form.company === SKYWINGS;
 
   // If the selected company has its own fixed schedule, use that.
   const matchedOther = useMemo(
@@ -56,7 +58,8 @@ export function FlightForm({
         return list;
       }
     }
-    if (!isSkywingsLike) return [] as readonly string[];
+    // Primary company → schedule/season list. Unknown ad-hoc company → free entry.
+    if (!isPrimary) return [] as readonly string[];
     const seasonTimes = getCurrentTripTimes(season);
     // Show scheduled times first if available; otherwise full season list.
     const list = scheduledTimes.length > 0 ? scheduledTimes : seasonTimes;
@@ -65,9 +68,9 @@ export function FlightForm({
       return [form.trip_time, ...list];
     }
     return list;
-  }, [isSkywingsLike, matchedOther, season, scheduledTimes, form.trip_time]);
+  }, [isPrimary, matchedOther, season, scheduledTimes, form.trip_time]);
 
-  const useDropdown = isSkywingsLike || tripTimeOptions.length > 0;
+  const useDropdown = tripTimeOptions.length > 0;
 
   function patch<K extends keyof FlightInput>(key: K, value: FlightInput[K]) {
     setForm(prev => {

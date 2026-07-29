@@ -4,6 +4,7 @@ import { assembleInvoice } from '@/lib/invoiceAssemble';
 import { InvoiceComparisonView } from '@/components/InvoiceComparisonView';
 import { monthLabelDe } from '@/lib/invoice';
 import { getMonthVerificationStatus } from '@/lib/dayVerify';
+import { listPilotCompanies } from '@/lib/pilotCompanies';
 import { MonthCompanyPicker } from './MonthCompanyPicker';
 
 export const dynamic = 'force-dynamic';
@@ -33,7 +34,16 @@ export default async function InvoiceDashboardPage({
   const monthFirst = /^\d{4}-\d{2}-01$/.test(searchParams.month ?? '')
     ? (searchParams.month as string)
     : defaultMonth();
-  const companyKey = searchParams.company || 'Skywings';
+  const primaryCompany = pilot.primary_company_name ?? 'Skywings';
+  const companyKey = searchParams.company || primaryCompany;
+
+  // Real company list for the picker: primary + the pilot's registered companies.
+  const pilotCompanies = await listPilotCompanies(supabase, user.id);
+  const companyOptions = Array.from(new Set([
+    primaryCompany,
+    ...pilotCompanies.map(c => c.name),
+    companyKey,
+  ]));
 
   const [assembled, { data: invoiceRow }, verification] = await Promise.all([
     assembleInvoice({ monthFirst, company: companyKey }),
@@ -65,7 +75,7 @@ export default async function InvoiceDashboardPage({
         <MonthCompanyPicker
           month={monthFirst}
           company={companyKey}
-          primaryCompany={pilot.primary_company_name ?? 'Skywings'}
+          companies={companyOptions}
         />
       </div>
 

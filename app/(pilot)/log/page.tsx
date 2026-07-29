@@ -45,9 +45,10 @@ export default async function LogPage({
   const scheduleEntry = (pilot.einsatzplan_schedule as Record<string, { times?: string[] }> | null)?.[flightDate];
   const scheduledTimes = scheduleEntry?.times ?? [...seasonTimes];
 
-  const lastSkywings = [...(existing ?? [])]
+  const primaryCompany = pilot.primary_company_name ?? 'Skywings';
+  const lastPrimary = [...(existing ?? [])]
     .reverse()
-    .find(f => (f.company ?? '').toLowerCase().startsWith('skyw'));
+    .find(f => f.company === primaryCompany || (f.company ?? '').toLowerCase().startsWith('skyw'));
 
   // Smart pre-fill:
   // - No flights logged yet → the trip time closest to "now":
@@ -59,20 +60,20 @@ export default async function LogPage({
   // - Flights already logged → the NEXT trip time after the last one.
   const isToday = flightDate === isoDateZurich();
   let prefillTime: string;
-  if (!lastSkywings) {
+  if (!lastPrimary) {
     const suggested = isToday
       ? suggestCurrentTripTime(scheduledTimes, nowInZurich())
       : scheduledTimes[0];
     prefillTime = suggested ?? scheduledTimes[0] ?? seasonTimes[0];
   } else {
-    const next = getNextTripTime(lastSkywings.trip_time, season);
+    const next = getNextTripTime(lastPrimary.trip_time, season);
     prefillTime = next ?? scheduledTimes[scheduledTimes.length - 1] ?? seasonTimes[seasonTimes.length - 1];
   }
 
   const defaults: FlightInput = {
     flight_date: flightDate,
     trip_time: prefillTime,
-    company: pilot.primary_company_name ?? 'Skywings',
+    company: primaryCompany,
     photo_status: 'none',
     is_no_show: false,
     is_double_airtime: false,
