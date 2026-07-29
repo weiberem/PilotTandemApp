@@ -17,7 +17,7 @@ export default async function EditFlightPage({ params }: { params: { id: string 
   if (!user) redirect('/login');
 
   const [{ data: pilot }, { data: flight }] = await Promise.all([
-    supabase.from('pilots').select('primary_company_name, season_override, einsatzplan_schedule').eq('id', user.id).maybeSingle(),
+    supabase.from('pilots').select('primary_company_name, season_override, einsatzplan_schedule, track_sites, track_nationality, nationality_counts').eq('id', user.id).maybeSingle(),
     supabase.from('flights').select('*').eq('id', params.id).maybeSingle(),
   ]);
 
@@ -39,6 +39,9 @@ export default async function EditFlightPage({ params }: { params: { id: string 
     is_double_airtime: row.is_double_airtime,
     tip_chf: Number(row.tip_chf ?? 0),
     notes: row.notes ?? null,
+    takeoff_site: row.takeoff_site ?? null,
+    landing_site: row.landing_site ?? null,
+    passenger_nationality: row.passenger_nationality ?? null,
   };
 
   return (
@@ -59,6 +62,9 @@ export default async function EditFlightPage({ params }: { params: { id: string 
         primaryCompany={pilot?.primary_company_name ?? 'Skywings'}
         scheduledTimes={scheduledTimes}
         otherCompanies={await listPilotCompanies(supabase, user.id)}
+        trackSites={pilot?.track_sites ?? false}
+        trackNationality={pilot?.track_nationality ?? false}
+        nationalityCounts={(pilot?.nationality_counts as Record<string, number> | null) ?? {}}
       />
 
       <div className="pt-4 border-t border-border">

@@ -9,6 +9,8 @@ import { Spinner } from '@/components/Spinner';
 import { createFlight } from '@/app/(pilot)/log/actions';
 import { PHOTO_STATUSES, type FlightInput, type PhotoStatus } from '@/lib/flights';
 import { type PilotCompany, companyTimesForSeason, suggestColor } from '@/lib/pilotCompanies';
+import { SitePicker } from '@/components/SitePicker';
+import { NationalityPicker } from '@/components/NationalityPicker';
 
 type Props = {
   defaults: FlightInput;
@@ -18,11 +20,15 @@ type Props = {
   primaryCompany: string;
   otherCompanies: PilotCompany[];
   season: 'summer' | 'winter';
+  trackSites?: boolean;
+  trackNationality?: boolean;
+  nationalityCounts?: Record<string, number>;
 };
 
 export function QuickAddFlightRow({
   defaults, scheduledTimes, loggedCount, usedTripTimes,
   primaryCompany, otherCompanies, season,
+  trackSites = false, trackNationality = false, nationalityCounts = {},
 }: Props) {
   const usedSet = new Set(usedTripTimes);
   const router = useRouter();
@@ -30,6 +36,9 @@ export function QuickAddFlightRow({
   const [tripTime, setTripTime] = useState(defaults.trip_time);
   const [photoStatus, setPhotoStatus] = useState<PhotoStatus>(defaults.photo_status);
   const [company, setCompany] = useState(defaults.company);
+  const [takeoff, setTakeoff] = useState<string | null>(defaults.takeoff_site ?? null);
+  const [landing, setLanding] = useState<string | null>(defaults.landing_site ?? null);
+  const [nationality, setNationality] = useState<string | null>(defaults.passenger_nationality ?? null);
   const [error, setError] = useState<string | null>(null);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [companyMenuOpen, setCompanyMenuOpen] = useState(false);
@@ -73,12 +82,16 @@ export function QuickAddFlightRow({
         company,
         trip_time: tripTime,
         photo_status: photoStatus,
+        takeoff_site: takeoff,
+        landing_site: landing,
+        passenger_nationality: nationality,
       });
       if (!r.ok) {
         setError(r.error);
         return;
       }
       setPhotoStatus('none');
+      setNationality(null); // per-passenger; sites persist for the day
       router.refresh();
     });
   }
@@ -230,6 +243,22 @@ export function QuickAddFlightRow({
           })}
         </div>
       </div>
+
+      {trackSites && (
+        <div className="pt-1 border-t border-border">
+          <SitePicker
+            takeoff={takeoff}
+            landing={landing}
+            onChange={({ takeoff: t, landing: l }) => { setTakeoff(t); setLanding(l); }}
+          />
+        </div>
+      )}
+
+      {trackNationality && (
+        <div className="pt-1 border-t border-border">
+          <NationalityPicker value={nationality} counts={nationalityCounts} onChange={setNationality} />
+        </div>
+      )}
 
       {error && <p className="text-xs text-danger">{error}</p>}
     </div>

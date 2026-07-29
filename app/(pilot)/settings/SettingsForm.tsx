@@ -32,6 +32,8 @@ type Pilot = {
   auto_send_invoice: boolean | null;
   simple_capture: boolean | null;
   google_enabled: boolean | null;
+  track_sites: boolean | null;
+  track_nationality: boolean | null;
   vat_registered: boolean | null;
   default_exclude_7am: boolean | null;
   default_exclude_5pm: boolean | null;
@@ -76,6 +78,8 @@ export function SettingsForm({
     auto_send_invoice: pilot?.auto_send_invoice ?? false,
     simple_capture: pilot?.simple_capture ?? false,
     google_enabled: pilot?.google_enabled ?? true,
+    track_sites: pilot?.track_sites ?? false,
+    track_nationality: pilot?.track_nationality ?? false,
     vat_registered: pilot?.vat_registered ?? true,
     default_exclude_7am: pilot?.default_exclude_7am ?? false,
     default_exclude_5pm: pilot?.default_exclude_5pm ?? false,
@@ -180,6 +184,39 @@ export function SettingsForm({
               Instead of logging each flight, upload the end-of-day daysheet screenshot —
               AI counts the flights, you confirm and set the photo counters. Flights stay
               editable one tap away.
+            </span>
+          </span>
+        </label>
+      </Section>
+
+      <Section title="Flight details (optional)">
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={!!form.track_sites}
+            onChange={e => set('track_sites', e.target.checked)}
+            className="mt-1 w-5 h-5 rounded border-border accent-primary"
+          />
+          <span>
+            <span className="text-sm font-medium block">Start- & Landeplatz erfassen</span>
+            <span className="text-xs text-text-muted">
+              Beim Loggen Start- und Landeplatz wählen (Startplätze: Hohwald, Amisbühl oben,
+              Luegibrüggli, Amisbühl unten · Landeplätze: Höhenmatte, Lehn, Aussenlandung → manuell).
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3 cursor-pointer mt-3">
+          <input
+            type="checkbox"
+            checked={!!form.track_nationality}
+            onChange={e => set('track_nationality', e.target.checked)}
+            className="mt-1 w-5 h-5 rounded border-border accent-primary"
+          />
+          <span>
+            <span className="text-sm font-medium block">Nationalität des Passagiers erfassen</span>
+            <span className="text-xs text-text-muted">
+              Beim Loggen mit intelligenter Suche (erste Buchstaben eingeben). Häufig gewählte
+              Länder werden automatisch nach oben gereiht.
             </span>
           </span>
         </label>
