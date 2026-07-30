@@ -10,7 +10,7 @@ import {
 import {
   getCurrentTripTimes, resolveSeason, type Season,
 } from '@/lib/tripTimes';
-import { type PilotCompany, companyTimesForSeason } from '@/lib/pilotCompanies';
+import { type PilotCompany, resolveCompanyTimes } from '@/lib/pilotCompanies';
 import { SitePicker } from '@/components/SitePicker';
 import { NationalityPicker } from '@/components/NationalityPicker';
 import { createFlight, updateFlight } from '@/app/(pilot)/log/actions';
@@ -56,25 +56,24 @@ export function FlightForm({
   );
 
   const tripTimeOptions = useMemo(() => {
-    if (matchedOther) {
-      const seasonal = companyTimesForSeason(matchedOther, season);
+    // Non-primary company → its own schedule (or a known default like AlpinAir).
+    if (!isPrimary) {
+      const seasonal = resolveCompanyTimes(matchedOther, form.company, season);
       if (seasonal && seasonal.length > 0) {
         const list = [...seasonal];
         if (form.trip_time && !list.includes(form.trip_time)) list.unshift(form.trip_time);
         return list;
       }
+      return [] as readonly string[]; // unknown ad-hoc company → free entry
     }
-    // Primary company → schedule/season list. Unknown ad-hoc company → free entry.
-    if (!isPrimary) return [] as readonly string[];
+    // Primary company → schedule/season list.
     const seasonTimes = getCurrentTripTimes(season);
-    // Show scheduled times first if available; otherwise full season list.
     const list = scheduledTimes.length > 0 ? scheduledTimes : seasonTimes;
-    // Ensure the currently-selected trip_time appears in the list.
     if (form.trip_time && !list.includes(form.trip_time)) {
       return [form.trip_time, ...list];
     }
     return list;
-  }, [isPrimary, matchedOther, season, scheduledTimes, form.trip_time]);
+  }, [isPrimary, matchedOther, form.company, season, scheduledTimes, form.trip_time]);
 
   const useDropdown = tripTimeOptions.length > 0;
 
