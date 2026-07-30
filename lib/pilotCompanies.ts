@@ -54,7 +54,7 @@ export function companyTimesForSeason(
  * win over these defaults.
  */
 export const DEFAULT_COMPANY_TIMES: Array<{ match: string; summer: string[]; winter?: string[] }> = [
-  { match: 'alpin', summer: ['07:30', '08:45', '10:00', '11:15', '13:15', '14:30', '15:45'] },
+  { match: 'alpin', summer: ['07:30', '08:45', '10:00', '11:15', '13:15', '14:30', '15:45', '17:00'] },
 ];
 
 export function defaultCompanyTimes(name: string, season: 'summer' | 'winter'): string[] | null {
