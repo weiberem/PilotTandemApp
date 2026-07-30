@@ -7,7 +7,7 @@ import {
   getCurrentTripTimes, prefillNextTripTime, effectiveSeason, detectSeason, type Season,
 } from '@/lib/tripTimes';
 import { getAdminSeason } from '@/lib/appSettings';
-import { listPilotCompanies, companyTimesForSeason } from '@/lib/pilotCompanies';
+import { listPilotCompanies, resolveCompanyTimes } from '@/lib/pilotCompanies';
 import { computeDayTotals, type FlightInput, type FlightRow, type PilotRates } from '@/lib/flights';
 import { QuickAddFlightRow } from '@/components/QuickAddFlightRow';
 import { ScreenshotCapture } from '@/components/ScreenshotCapture';
@@ -150,7 +150,7 @@ export default async function HomePage({
   const timesForCompany = (name: string): string[] => {
     if (name === primaryCompany) return [...scheduledTimes];
     const c = otherCompanies.find(o => o.name === name);
-    const t = c ? companyTimesForSeason(c, season) : null;
+    const t = resolveCompanyTimes(c, name, season);
     return t && t.length > 0 ? t : [...scheduledTimes];
   };
 

@@ -49,6 +49,36 @@ export function companyTimesForSeason(
 }
 
 /**
+ * Built-in fallback schedules for known companies that don't have their own
+ * trip times configured yet. A company's own times (set in Settings) always
+ * win over these defaults.
+ */
+export const DEFAULT_COMPANY_TIMES: Array<{ match: string; summer: string[]; winter?: string[] }> = [
+  { match: 'alpin', summer: ['07:30', '08:45', '10:00', '11:15', '13:15', '14:30', '15:45'] },
+];
+
+export function defaultCompanyTimes(name: string, season: 'summer' | 'winter'): string[] | null {
+  const n = name.toLowerCase();
+  const hit = DEFAULT_COMPANY_TIMES.find(d => n.includes(d.match));
+  if (!hit) return null;
+  if (season === 'winter' && hit.winter && hit.winter.length > 0) return hit.winter;
+  return hit.summer;
+}
+
+/** Trip-time schedule for a company: its own times → known default → null. */
+export function resolveCompanyTimes(
+  c: Pick<PilotCompany, 'trip_times' | 'trip_times_winter'> | undefined,
+  name: string,
+  season: 'summer' | 'winter',
+): string[] | null {
+  if (c) {
+    const own = companyTimesForSeason(c, season);
+    if (own && own.length > 0) return own;
+  }
+  return defaultCompanyTimes(name, season);
+}
+
+/**
  * Built-in suggestions shown on the "Add company" form. The pilot picks one
  * (or types their own) and rates default to the pilot's primary rates.
  */

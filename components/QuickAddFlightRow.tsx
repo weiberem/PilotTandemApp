@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { Spinner } from '@/components/Spinner';
 import { createFlight } from '@/app/(pilot)/log/actions';
 import { PHOTO_STATUSES, type FlightInput, type PhotoStatus } from '@/lib/flights';
-import { type PilotCompany, companyTimesForSeason, suggestColor } from '@/lib/pilotCompanies';
+import { type PilotCompany, resolveCompanyTimes, suggestColor } from '@/lib/pilotCompanies';
 import { SitePicker } from '@/components/SitePicker';
 import { NationalityPicker } from '@/components/NationalityPicker';
 
@@ -50,7 +50,7 @@ export function QuickAddFlightRow({
   const timesFor = useMemo(() => (name: string): string[] => {
     if (name === primaryCompany) return [...scheduledTimes];
     const c = otherCompanies.find(o => o.name === name);
-    const t = c ? companyTimesForSeason(c, season) : null;
+    const t = resolveCompanyTimes(c, name, season);
     return t && t.length > 0 ? t : [...scheduledTimes];
   }, [primaryCompany, otherCompanies, season, scheduledTimes]);
 
