@@ -284,6 +284,11 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
               <NumInput label="Thermal" value={state.thermal_rate_chf} onChange={v => set('thermal_rate_chf', v)} />
               <NumInput label="No-Show" value={state.no_show_rate_chf} onChange={v => set('no_show_rate_chf', v)} />
             </div>
+            <p className="text-xs text-text-muted">
+              Fly for other companies too (AlpinAir, Twin, …)? Add them anytime in
+              Settings → Other companies — each gets its own rates, times and a
+              separate invoice.
+            </p>
 
             <div className="space-y-2 pt-2 border-t border-border">
               <p className="text-sm font-medium">Edge trips you usually skip</p>

@@ -144,3 +144,45 @@ export async function setFlightPhotoStatus(
   revalidatePath('/summary');
   return { ok: true };
 }
+
+/**
+ * Learn a new standard trip time for one of the pilot's registered companies.
+ * The pilot enters a time freely for a company that has no fixed schedule yet
+ * (e.g. AlpinAir with a custom slot); confirming here appends the time to the
+ * company's own trip_times (summer) or trip_times_winter, so it becomes
+ * pre-selectable on the next flight. Deduped + sorted.
+ */
+export async function learnCompanyTripTime(
+  companyId: string,
+  time: string,
+  season: 'summer' | 'winter',
+): Promise<{ ok: boolean; error?: string }> {
+  if (!/^\d{2}:\d{2}$/.test(time)) return { ok: false, error: 'invalid_time' };
+  const sb = createClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return { ok: false, error: 'unauthenticated' };
+
+  // RLS scopes this to the caller's own company row.
+  const { data: company, error: readErr } = await sb
+    .from('pilot_companies')
+    .select('id, trip_times, trip_times_winter')
+    .eq('id', companyId)
+    .maybeSingle();
+  if (readErr) return { ok: false, error: readErr.message };
+  if (!company) return { ok: false, error: 'company_not_found' };
+
+  const col = season === 'winter' ? 'trip_times_winter' : 'trip_times';
+  const existing = (company[col] as string[] | null) ?? [];
+  if (existing.includes(time)) return { ok: true }; // already known
+
+  const next = [...existing, time].sort();
+  const { error: upErr } = await sb
+    .from('pilot_companies')
+    .update({ [col]: next })
+    .eq('id', companyId);
+  if (upErr) return { ok: false, error: upErr.message };
+
+  revalidatePath('/log');
+  revalidatePath('/settings');
+  return { ok: true };
+}
