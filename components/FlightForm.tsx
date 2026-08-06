@@ -13,7 +13,7 @@ import {
 import { type PilotCompany, resolveCompanyTimes } from '@/lib/pilotCompanies';
 import { SitePicker } from '@/components/SitePicker';
 import { NationalityPicker } from '@/components/NationalityPicker';
-import { createFlight, updateFlight } from '@/app/(pilot)/log/actions';
+import { createFlight, updateFlight, learnCompanyTripTime } from '@/app/(pilot)/log/actions';
 
 const SKYWINGS = 'Skywings';
 
@@ -43,6 +43,11 @@ export function FlightForm({
   const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // "Other time…" chosen from a company dropdown → free entry for this flight.
+  const [manualTime, setManualTime] = useState(false);
+  // Feedback after saving a new standard time for a company.
+  const [learnMsg, setLearnMsg] = useState<string | null>(null);
+  const [learnPending, startLearn] = useTransition();
 
   // The primary company drives the schedule/season list; a registered other
   // company uses its own schedule. (SKYWINGS is the legacy primary name for
@@ -75,7 +80,29 @@ export function FlightForm({
     return list;
   }, [isPrimary, matchedOther, form.company, season, scheduledTimes, form.trip_time]);
 
-  const useDropdown = tripTimeOptions.length > 0;
+  const useDropdown = tripTimeOptions.length > 0 && !manualTime;
+
+  // Learning: for a registered other company, offer to remember a freshly
+  // entered time as a standard slot so it's pre-selectable next time.
+  const canLearn = !!matchedOther && !isPrimary;
+  const knownTimes = useMemo(
+    () => new Set(matchedOther ? (resolveCompanyTimes(matchedOther, form.company, season) ?? []) : []),
+    [matchedOther, form.company, season],
+  );
+  const isNewTime = /^\d{2}:\d{2}$/.test(form.trip_time) && !knownTimes.has(form.trip_time);
+  const offerLearn = canLearn && (manualTime || !useDropdown) && isNewTime;
+
+  function saveStandardTime() {
+    if (!matchedOther) return;
+    setLearnMsg(null);
+    startLearn(async () => {
+      const r = await learnCompanyTripTime(matchedOther.id, form.trip_time, season);
+      if (!r.ok) { setLearnMsg(`Could not save: ${r.error}`); return; }
+      setLearnMsg(`${form.trip_time} saved as a standard time for ${form.company}.`);
+      setManualTime(false);
+      router.refresh();
+    });
+  }
 
   function patch<K extends keyof FlightInput>(key: K, value: FlightInput[K]) {
     setForm(prev => {
@@ -120,21 +147,53 @@ export function FlightForm({
       <Field label="Departure time">
         {useDropdown ? (
           <select
-            value={form.trip_time}
-            onChange={e => patch('trip_time', e.target.value)}
+            value={tripTimeOptions.includes(form.trip_time) ? form.trip_time : ''}
+            onChange={e => {
+              if (e.target.value === '__other__') { setManualTime(true); return; }
+              patch('trip_time', e.target.value);
+            }}
             className="w-full min-h-tap rounded-lg border border-border px-3 py-2 bg-white font-mono text-lg"
           >
             {tripTimeOptions.map(t => (
               <option key={t} value={t}>{t}</option>
             ))}
+            {canLearn && <option value="__other__">Other time…</option>}
           </select>
         ) : (
-          <input
-            type="time" value={form.trip_time}
-            onChange={e => patch('trip_time', e.target.value)}
-            className="w-full min-h-tap rounded-lg border border-border px-3 py-2 bg-white font-mono text-lg"
-          />
+          <div className="space-y-1.5">
+            <input
+              type="time" value={form.trip_time}
+              onChange={e => patch('trip_time', e.target.value)}
+              className="w-full min-h-tap rounded-lg border border-border px-3 py-2 bg-white font-mono text-lg"
+            />
+            {manualTime && tripTimeOptions.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setManualTime(false)}
+                className="text-xs text-primary hover:underline"
+              >
+                ← Back to standard times
+              </button>
+            )}
+          </div>
         )}
+        {offerLearn && (
+          <div className="mt-2 rounded-lg border border-primary/30 bg-primary/5 p-2.5 flex items-center gap-2">
+            <span className="text-sm flex-1">
+              Is <span className="font-mono font-semibold">{form.trip_time}</span> a standard
+              time for {form.company}?
+            </span>
+            <button
+              type="button"
+              onClick={saveStandardTime}
+              disabled={learnPending}
+              className="btn-primary text-xs px-3 shrink-0"
+            >
+              {learnPending ? 'Saving…' : 'Save as standard'}
+            </button>
+          </div>
+        )}
+        {learnMsg && <p className="text-xs text-success mt-1">{learnMsg}</p>}
       </Field>
 
       {/* Photo segmented control */}
