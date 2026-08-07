@@ -10,7 +10,7 @@ import {
 import {
   getCurrentTripTimes, resolveSeason, type Season,
 } from '@/lib/tripTimes';
-import { type PilotCompany, resolveCompanyTimes } from '@/lib/pilotCompanies';
+import { type PilotCompany, resolveCompanyTimes, defaultCompanyTimes } from '@/lib/pilotCompanies';
 import { SitePicker } from '@/components/SitePicker';
 import { NationalityPicker } from '@/components/NationalityPicker';
 import { createFlight, updateFlight, learnCompanyTripTime } from '@/app/(pilot)/log/actions';
@@ -70,6 +70,14 @@ export function FlightForm({
         return list;
       }
       return [] as readonly string[]; // unknown ad-hoc company → free entry
+    }
+    // Primary company that is a known non-Skywings company (independent pilot,
+    // e.g. AlpinAir as primary) → its own default schedule, not the Skywings grid.
+    const primaryDefault = defaultCompanyTimes(form.company, season);
+    if (primaryDefault && primaryDefault.length > 0 && scheduledTimes.length === 0) {
+      const list = [...primaryDefault];
+      if (form.trip_time && !list.includes(form.trip_time)) list.unshift(form.trip_time);
+      return list;
     }
     // Primary company → schedule/season list.
     const seasonTimes = getCurrentTripTimes(season);

@@ -53,3 +53,27 @@
     @apply bg-bg-card rounded-xl border border-border shadow-sm;
   }
 }
+
+/* ============================================================
+   Independent-pilot theme (black / orange). Scoped to a wrapper
+   class set by the pilot layout when pilot_type = 'independent'.
+   Only overrides the brand surfaces; everything else is inherited.
+   ============================================================ */
+.theme-independent {
+  /* Navy → near-black frame surfaces */
+  --ind-dark: #111418;
+  --ind-orange: #FF6A00;
+  --ind-orange-dark: #E85D00;
+}
+.theme-independent .bg-accent,
+.theme-independent .bg-bg-dark { background-color: var(--ind-dark) !important; }
+.theme-independent .text-accent { color: var(--ind-dark) !important; }
+.theme-independent .border-l-accent { border-left-color: var(--ind-dark) !important; }
+
+.theme-independent .bg-primary { background-color: var(--ind-orange) !important; }
+.theme-independent .text-primary,
+.theme-independent .text-primary-dark { color: var(--ind-orange) !important; }
+.theme-independent .border-primary { border-color: var(--ind-orange) !important; }
+.theme-independent .ring-primary { --tw-ring-color: var(--ind-orange) !important; }
+.theme-independent .btn-primary { background-color: var(--ind-orange) !important; }
+.theme-independent .btn-primary:hover { background-color: var(--ind-orange-dark) !important; }

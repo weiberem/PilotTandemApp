@@ -42,12 +42,15 @@ type Pilot = {
 type Field = keyof NonNullable<Pilot>;
 
 export function SettingsForm({
-  pilot, email, driveConnect, driveBackup,
+  pilot, email, driveConnect, driveBackup, independent = false,
 }: {
   pilot: Pilot;
   email: string;
   driveConnect?: React.ReactNode;
   driveBackup?: React.ReactNode;
+  /** Independent pilots don't get Skywings planning: hide Drive / schedule /
+   *  availability-defaults sections. */
+  independent?: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -240,6 +243,7 @@ export function SettingsForm({
         </label>
       </Section>
 
+      {!independent && (
       <Section title="Availability defaults">
         <p className="text-xs text-text-muted">
           Edge trips you usually skip. If you never fly 07:10 or 17:00, switch on here —
@@ -264,6 +268,7 @@ export function SettingsForm({
           <span className="text-sm font-medium">No 17:00 flights by default</span>
         </label>
       </Section>
+      )}
 
       <Section title="Season">
         <label className="block">
@@ -280,6 +285,7 @@ export function SettingsForm({
         </label>
       </Section>
 
+      {!independent && (
       <Section title="Google Drive" tourId="settings-drive">
         <label className="flex items-start gap-3 cursor-pointer">
           <input
@@ -340,6 +346,7 @@ export function SettingsForm({
           </>
         )}
       </Section>
+      )}
 
       <Toast msg={msg} onClose={() => setMsg(null)} />
 

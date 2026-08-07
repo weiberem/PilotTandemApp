@@ -12,6 +12,7 @@ type PilotPatch = Partial<{
   iban: string;
   vat_number: string;
   vat_registered: boolean;
+  pilot_type: 'skywings' | 'independent';
   primary_company_name: string;
   primary_company_address: string;
   office_email: string;

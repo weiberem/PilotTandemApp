@@ -25,6 +25,7 @@ type PilotRow = {
   no_show_rate_chf: number | null;
   default_exclude_7am: boolean | null;
   default_exclude_5pm: boolean | null;
+  pilot_type: 'skywings' | 'independent' | null;
 };
 
 export default async function OnboardingPage() {
@@ -66,7 +67,7 @@ export default async function OnboardingPage() {
           primary_company_name: null, primary_company_address: null,
           office_email: null, personal_email: null,
           flight_rate_chf: null, photo_prepaid_rate_chf: null, thermal_rate_chf: null, no_show_rate_chf: null,
-          default_exclude_7am: null, default_exclude_5pm: null,
+          default_exclude_7am: null, default_exclude_5pm: null, pilot_type: null,
         }}
         authEmail={user.email ?? ''}
       />

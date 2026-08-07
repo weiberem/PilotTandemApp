@@ -16,8 +16,15 @@ type Item = {
   tour?: string;
 };
 
-const items: readonly Item[] = [
+const SKYWINGS_ITEMS: readonly Item[] = [
   { href: '/availability', label: 'Working days', icon: Calendar },
+  { href: '/home', label: 'Log', icon: Paraglider, primary: true },
+  { href: '/dashboard/stats', label: 'Invoice', icon: BarChart3, tour: 'nav-invoice' },
+  { href: '/settings', label: 'Settings', icon: Settings, tour: 'nav-settings' },
+];
+
+// Independent pilots have no Skywings planning — drop "Working days".
+const INDEPENDENT_ITEMS: readonly Item[] = [
   { href: '/home', label: 'Log', icon: Paraglider, primary: true },
   { href: '/dashboard/stats', label: 'Invoice', icon: BarChart3, tour: 'nav-invoice' },
   { href: '/settings', label: 'Settings', icon: Settings, tour: 'nav-settings' },
@@ -30,8 +37,9 @@ function isActive(path: string, href: string): boolean {
   return path.startsWith(href);
 }
 
-export function BottomNav() {
+export function BottomNav({ independent = false }: { independent?: boolean }) {
   const path = usePathname();
+  const items = independent ? INDEPENDENT_ITEMS : SKYWINGS_ITEMS;
   // Which tab the user just tapped — shows a spinner until the new route loads.
   const [navTarget, setNavTarget] = useState<string | null>(null);
   useEffect(() => { setNavTarget(null); }, [path]);
