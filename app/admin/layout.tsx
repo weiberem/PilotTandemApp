@@ -1,14 +1,16 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { requireAdmin } from '@/lib/adminAuth';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: isAdminRow } = await supabase.from('admins').select('id').eq('id', user.id).maybeSingle();
-  if (!isAdminRow) redirect('/home');
+  // Hard gate: email allowlist + admins-table membership. Anyone else → /home.
+  const admin = await requireAdmin(supabase);
+  if (!admin) redirect('/home');
 
   return (
     <div className="min-h-dvh flex flex-col bg-bg">
