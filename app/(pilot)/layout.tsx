@@ -18,13 +18,11 @@ export default async function PilotLayout({ children }: { children: React.ReactN
 
   const independent = (pilot as { pilot_type?: string } | null)?.pilot_type === 'independent';
 
-  // Admin-only accounts (no pilot profile) belong in the admin area, not the
-  // pilot app — keep them out of pilot onboarding entirely.
-  const profileComplete = !!(pilot?.full_name && pilot?.iban);
-  if (!profileComplete) {
-    const admin = await requireAdmin(supabase);
-    if (admin) redirect('/admin');
-  }
+  // Admins can also be flying pilots (the owner logs flights daily). Don't
+  // trap them in the admin area — they use the pilot app like everyone else
+  // and reach admin via the Shield link in the header. Incomplete profiles
+  // are handled by each page's own /onboarding redirect.
+  const isAdmin = !!(await requireAdmin(supabase));
 
   // Optional demo flag — fetched separately so the layout still works on
   // Supabase instances where migration 010 hasn't run.
@@ -41,7 +39,7 @@ export default async function PilotLayout({ children }: { children: React.ReactN
   return (
     <div className={`min-h-dvh flex flex-col bg-bg${independent ? ' theme-independent' : ''}`}>
       {demoExpiresAt && <DemoBanner expiresAt={demoExpiresAt} />}
-      <PilotHeader pilotLabel={pilot?.full_name ?? user.email ?? ''} />
+      <PilotHeader pilotLabel={pilot?.full_name ?? user.email ?? ''} isAdmin={isAdmin} />
       <main className="flex-1 pb-24">{children}</main>
       <BottomNav independent={independent} />
     </div>

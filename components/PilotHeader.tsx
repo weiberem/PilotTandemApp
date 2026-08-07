@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Shield } from 'lucide-react';
 
 /**
  * App header. On top-level pages (Heute/Kalender/Stats/Einstellungen and
@@ -28,7 +28,7 @@ function titleFor(path: string): string {
   return '';
 }
 
-export function PilotHeader({ pilotLabel }: { pilotLabel: string }) {
+export function PilotHeader({ pilotLabel, isAdmin = false }: { pilotLabel: string; isAdmin?: boolean }) {
   const pathname = usePathname() ?? '/home';
   const router = useRouter();
   const isTop = TOP_LEVEL.has(pathname);
@@ -41,7 +41,18 @@ export function PilotHeader({ pilotLabel }: { pilotLabel: string }) {
           <Link href="/home" className="font-display font-semibold tracking-tight">
             Tendem<span className="text-primary">Log</span>
           </Link>
-          <span className="text-xs text-white/70">{pilotLabel}</span>
+          <span className="inline-flex items-center gap-2">
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className="inline-flex items-center gap-1 text-xs text-white/70 px-2 py-1 rounded-md hover:bg-white/10 min-h-tap"
+                aria-label="Admin area"
+              >
+                <Shield className="w-3.5 h-3.5" /> Admin
+              </Link>
+            )}
+            <span className="text-xs text-white/70">{pilotLabel}</span>
+          </span>
         </>
       ) : (
         <>
