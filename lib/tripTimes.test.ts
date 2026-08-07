@@ -17,10 +17,10 @@ describe('trip time constants', () => {
     expect(SUMMER_TRIP_TIMES[SUMMER_TRIP_TIMES.length - 1]).toBe('17:00');
   });
 
-  it('winter has 6 times', () => {
-    expect(WINTER_TRIP_TIMES).toHaveLength(6);
-    expect(WINTER_TRIP_TIMES[0]).toBe('08:30');
-    expect(WINTER_TRIP_TIMES[WINTER_TRIP_TIMES.length - 1]).toBe('15:00');
+  it('winter has 7 times', () => {
+    expect(WINTER_TRIP_TIMES).toHaveLength(7);
+    expect(WINTER_TRIP_TIMES[0]).toBe('08:15');
+    expect(WINTER_TRIP_TIMES[WINTER_TRIP_TIMES.length - 1]).toBe('16:00');
   });
 });
 
@@ -55,7 +55,7 @@ describe('getNextTripTime', () => {
   });
   it('returns null when current is last', () => {
     expect(getNextTripTime('17:00', 'summer')).toBeNull();
-    expect(getNextTripTime('15:00', 'winter')).toBeNull();
+    expect(getNextTripTime('16:00', 'winter')).toBeNull();
   });
   it('returns null for unknown time', () => {
     expect(getNextTripTime('99:99', 'summer')).toBeNull();

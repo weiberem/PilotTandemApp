@@ -123,7 +123,7 @@ describe('parseEinsatzplan (role colour)', () => {
   it('uses winter season times in Nov–Mar', async () => {
     const buf = await makeColorMatrix('Januar_2026', 'Remy', ['full', 'full', 'full']);
     const s = await parseEinsatzplan(buf, { pilotName: 'Remy' });
-    expect(s['2026-01-01'].times).toContain('08:30');
+    expect(s['2026-01-01'].times).toContain('08:15');
     expect(s['2026-01-01'].times).not.toContain('07:10');
   });
 
