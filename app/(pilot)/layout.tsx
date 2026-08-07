@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { BottomNav } from '@/components/BottomNav';
 import { PilotHeader } from '@/components/PilotHeader';
 import { DemoBanner } from '@/components/DemoBanner';
+import { requireAdmin } from '@/lib/adminAuth';
 
 export default async function PilotLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
@@ -21,8 +22,8 @@ export default async function PilotLayout({ children }: { children: React.ReactN
   // pilot app — keep them out of pilot onboarding entirely.
   const profileComplete = !!(pilot?.full_name && pilot?.iban);
   if (!profileComplete) {
-    const { data: adminRow } = await supabase.from('admins').select('id').eq('id', user.id).maybeSingle();
-    if (adminRow) redirect('/admin');
+    const admin = await requireAdmin(supabase);
+    if (admin) redirect('/admin');
   }
 
   // Optional demo flag — fetched separately so the layout still works on

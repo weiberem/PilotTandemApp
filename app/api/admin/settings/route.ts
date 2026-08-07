@@ -1,15 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { requireAdmin as requireAdminUser } from '@/lib/adminAuth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 async function requireAdmin() {
-  const sb = createClient();
-  const { data: { user } } = await sb.auth.getUser();
-  if (!user) return null;
-  const { data } = await sb.from('admins').select('id').eq('id', user.id).maybeSingle();
-  return data ? user : null;
+  return requireAdminUser(createClient());
 }
 
 /** GET — current app settings (season). */

@@ -9,6 +9,7 @@ import { LocalBackupCard } from '@/components/LocalBackupCard';
 import { PilotCompaniesCard } from '@/components/PilotCompaniesCard';
 import { listPilotCompanies } from '@/lib/pilotCompanies';
 import { probeMissingMigrations } from '@/lib/setupProbe';
+import { requireAdmin } from '@/lib/adminAuth';
 import { PageTour } from '@/components/PageTour';
 
 export const dynamic = 'force-dynamic';
@@ -60,8 +61,7 @@ export default async function SettingsPage({
   if (!user) redirect('/login');
 
   const { data: pilot } = await supabase.from('pilots').select('*').eq('id', user.id).maybeSingle();
-  const { data: adminRow } = await supabase.from('admins').select('id').eq('id', user.id).maybeSingle();
-  const isAdmin = !!adminRow;
+  const isAdmin = !!(await requireAdmin(supabase));
   const gdriveMsg = searchParams.gdrive ? GDRIVE_MESSAGES[searchParams.gdrive] : null;
   const missingMigrations = await probeMissingMigrations(user.id);
   const otherCompanies = await listPilotCompanies(supabase, user.id);
