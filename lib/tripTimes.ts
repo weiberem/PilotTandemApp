@@ -10,13 +10,16 @@ export const SUMMER_TRIP_TIMES = [
   '17:00', // optional — pilot can opt out
 ] as const;
 
+// Skywings winter schedule (in effect from ~25 October). The office/admin
+// season switch flips pilots to winter on the changeover day.
 export const WINTER_TRIP_TIMES = [
-  '08:30',
-  '09:45',
-  '11:00',
-  '12:15',
-  '13:45',
-  '15:00',
+  '08:15',
+  '09:30',
+  '10:45',
+  '12:00',
+  '13:30',
+  '14:45',
+  '16:00',
 ] as const;
 
 export const OPTIONAL_SUMMER_TIMES = ['07:10', '17:00'] as const;

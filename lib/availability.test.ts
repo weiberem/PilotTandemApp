@@ -170,7 +170,7 @@ describe('availabilityDayTimeRange', () => {
     expect(availabilityDayTimeRange(d('half_am'), 'summer')).toEqual({ start: '07:10', end: '13:00' });
   });
   it('winter full day uses winter times', () => {
-    expect(availabilityDayTimeRange(d('full'), 'winter')).toEqual({ start: '08:30', end: '16:15' });
+    expect(availabilityDayTimeRange(d('full'), 'winter')).toEqual({ start: '08:15', end: '17:15' });
   });
 });
 
