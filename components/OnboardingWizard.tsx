@@ -25,6 +25,7 @@ type Pilot = {
   vat_registered: boolean | null;
   default_exclude_7am: boolean | null;
   default_exclude_5pm: boolean | null;
+  pilot_type: 'skywings' | 'independent' | null;
 };
 
 type State = {
@@ -46,7 +47,19 @@ type State = {
   vat_registered: boolean;
   default_exclude_7am: boolean;
   default_exclude_5pm: boolean;
+  pilot_type: 'skywings' | 'independent';
 };
+
+/** Companies the pilot picks from at setup. Skywings → full app; the others
+ *  → independent light version (that company becomes the primary). */
+const SETUP_COMPANIES: Array<{
+  key: string; type: 'skywings' | 'independent'; name: string; address: string;
+}> = [
+  { key: 'skywings', type: 'skywings', name: 'Skywings Adventures GmbH', address: 'Brandstrasse 38, 3852 Ringgenberg' },
+  { key: 'alpinair', type: 'independent', name: 'AlpinAir Paragliding GmbH', address: 'Mettlenweg 8, 3706 Leissigen' },
+  { key: 'twin', type: 'independent', name: 'Twin Paragliding GmbH', address: 'Hauptstrasse 36, 3800 Matten bei Interlaken' },
+  { key: 'swiss', type: 'independent', name: 'Swiss-Paragliding.ch', address: 'Hobacher 98a, 3814 Gsteigwiler' },
+];
 
 const STEPS = [
   { key: 'profile', label: 'Profile' },
@@ -82,6 +95,7 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
     vat_registered: pilot.vat_registered ?? true,
     default_exclude_7am: pilot.default_exclude_7am ?? false,
     default_exclude_5pm: pilot.default_exclude_5pm ?? false,
+    pilot_type: pilot.pilot_type ?? 'skywings',
   });
 
   // Skip past steps that are already complete on first render.
@@ -139,6 +153,7 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
       }, stepIdx + 1);
     } else if (step === 'company') {
       persistAndAdvance({
+        pilot_type: state.pilot_type,
         primary_company_name: state.primary_company_name,
         primary_company_address: state.primary_company_address,
         flight_rate_chf: state.flight_rate_chf,
@@ -146,8 +161,9 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
         thermal_rate_chf: state.thermal_rate_chf,
         no_show_rate_chf: state.no_show_rate_chf,
         vat_registered: state.vat_registered,
-        default_exclude_7am: state.default_exclude_7am,
-        default_exclude_5pm: state.default_exclude_5pm,
+        // Independent pilots have no Skywings edge-time planning.
+        default_exclude_7am: state.pilot_type === 'skywings' ? state.default_exclude_7am : false,
+        default_exclude_5pm: state.pilot_type === 'skywings' ? state.default_exclude_5pm : false,
       }, stepIdx + 1);
     } else if (step === 'done') {
       router.push('/home');
@@ -247,10 +263,46 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
 
         {step === 'company' && (
           <>
-            <h2 className="font-display text-xl font-bold">Company & rates</h2>
+            <h2 className="font-display text-xl font-bold">Which company do you fly for?</h2>
             <p className="text-text-muted text-sm">
-              Defaults match the Skywings rates. Different company? Just change them.
+              Skywings pilots get the full app (planning, schedule import, office
+              invoicing). Other companies get the light version: log flights,
+              statistics and invoices.
             </p>
+
+            <div className="grid grid-cols-2 gap-2">
+              {SETUP_COMPANIES.map(c => {
+                const selected = state.primary_company_name === c.name;
+                return (
+                  <button
+                    key={c.key}
+                    type="button"
+                    onClick={() => setState(prev => ({
+                      ...prev,
+                      pilot_type: c.type,
+                      primary_company_name: c.name,
+                      primary_company_address: c.address,
+                    }))}
+                    className={`text-left rounded-lg border p-3 min-h-tap ${
+                      selected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border'
+                    }`}
+                  >
+                    <span className="block text-sm font-semibold">
+                      {c.name.replace(/ (GmbH|Paragliding|Adventures).*$/, '').trim()}
+                    </span>
+                    <span className="block text-[11px] text-text-muted mt-0.5">
+                      {c.type === 'skywings' ? 'Full app' : 'Light version'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {state.pilot_type === 'independent' && (
+              <p className="text-xs text-text-muted -mt-1">
+                Light version: no availability planning or schedule import — those are
+                Skywings-only. You can log flights, see stats and send invoices.
+              </p>
+            )}
 
             <label className="flex items-start gap-3 cursor-pointer py-1 rounded-lg border border-border bg-bg-subtle/40 p-3">
               <input
@@ -290,6 +342,7 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
               separate invoice.
             </p>
 
+            {state.pilot_type === 'skywings' && (
             <div className="space-y-2 pt-2 border-t border-border">
               <p className="text-sm font-medium">Edge trips you usually skip</p>
               <p className="text-xs text-text-muted">
@@ -315,6 +368,7 @@ export function OnboardingWizard({ pilot, authEmail }: { pilot: Pilot; authEmail
                 <span className="text-sm">No <span className="font-mono">17:00</span> flights by default</span>
               </label>
             </div>
+            )}
           </>
         )}
 

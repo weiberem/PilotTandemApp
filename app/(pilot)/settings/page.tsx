@@ -92,6 +92,7 @@ export default async function SettingsPage({
       <SettingsForm
         pilot={pilot}
         email={user.email ?? ''}
+        independent={(pilot as { pilot_type?: string } | null)?.pilot_type === 'independent'}
         driveConnect={
           <GoogleDriveConnect
             connected={!!pilot?.google_refresh_token}

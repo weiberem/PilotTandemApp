@@ -11,9 +11,11 @@ export default async function PilotLayout({ children }: { children: React.ReactN
 
   const { data: pilot } = await supabase
     .from('pilots')
-    .select('id, full_name, iban, primary_company_name')
+    .select('id, full_name, iban, primary_company_name, pilot_type')
     .eq('id', user.id)
     .maybeSingle();
+
+  const independent = (pilot as { pilot_type?: string } | null)?.pilot_type === 'independent';
 
   // Admin-only accounts (no pilot profile) belong in the admin area, not the
   // pilot app — keep them out of pilot onboarding entirely.
@@ -36,11 +38,11 @@ export default async function PilotLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <div className="min-h-dvh flex flex-col bg-bg">
+    <div className={`min-h-dvh flex flex-col bg-bg${independent ? ' theme-independent' : ''}`}>
       {demoExpiresAt && <DemoBanner expiresAt={demoExpiresAt} />}
       <PilotHeader pilotLabel={pilot?.full_name ?? user.email ?? ''} />
       <main className="flex-1 pb-24">{children}</main>
-      <BottomNav />
+      <BottomNav independent={independent} />
     </div>
   );
 }

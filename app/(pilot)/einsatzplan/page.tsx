@@ -14,10 +14,12 @@ export default async function EinsatzplanPage() {
 
   const { data: pilot } = await supabase
     .from('pilots')
-    .select('full_name, google_refresh_token, einsatzplan_synced_at, einsatzplan_last_file_name, season_override, google_enabled')
+    .select('full_name, google_refresh_token, einsatzplan_synced_at, einsatzplan_last_file_name, season_override, google_enabled, pilot_type')
     .eq('id', user.id)
     .maybeSingle();
   if (!pilot) redirect('/onboarding');
+  // Independent pilots have no Skywings schedule import.
+  if ((pilot as { pilot_type?: string }).pilot_type === 'independent') redirect('/home');
   // Google integration switched off for this pilot → nothing to do here.
   if (!(pilot.google_enabled ?? true)) redirect('/home');
 

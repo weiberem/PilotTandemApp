@@ -33,10 +33,12 @@ export default async function AvailabilityPage() {
 
   const { data: pilot } = await supabase
     .from('pilots')
-    .select('full_name, office_email, season_override, einsatzplan_schedule, google_refresh_token, google_enabled')
+    .select('full_name, office_email, season_override, einsatzplan_schedule, google_refresh_token, google_enabled, pilot_type')
     .eq('id', user.id)
     .maybeSingle();
   if (!pilot) redirect('/onboarding');
+  // Independent pilots have no Skywings availability planning.
+  if ((pilot as { pilot_type?: string }).pilot_type === 'independent') redirect('/home');
 
   // Optional columns (migrations 004 + 005). Pulled separately so the page
   // still works if either migration hasn't been applied yet.
