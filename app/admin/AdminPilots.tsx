@@ -11,7 +11,16 @@ type Pilot = {
   google_enabled: boolean;
   created_at: string;
   last_sign_in_at: string | null;
+  primary_company_name: string | null;
+  pilot_type: 'skywings' | 'independent' | null;
 };
+
+/** Short label for the company column. */
+function companyLabel(p: Pilot): string {
+  const name = p.primary_company_name?.trim();
+  if (name) return name.replace(/ (GmbH|Paragliding|Adventures).*$/i, '').trim();
+  return p.pilot_type === 'independent' ? 'Independent' : 'Skywings';
+}
 
 export function AdminPilots() {
   const [pilots, setPilots] = useState<Pilot[] | null>(null);
@@ -142,6 +151,7 @@ export function AdminPilots() {
           <thead>
             <tr className="text-left text-text-muted text-xs uppercase">
               <th className="py-1">Name</th>
+              <th>Company</th>
               <th>Email</th>
               <th>Google</th>
               <th>Status</th>
@@ -151,12 +161,21 @@ export function AdminPilots() {
           </thead>
           <tbody>
             {pilots === null ? (
-              <tr><td colSpan={6} className="py-4 text-center text-text-muted">Loading…</td></tr>
+              <tr><td colSpan={7} className="py-4 text-center text-text-muted">Loading…</td></tr>
             ) : pilots.length === 0 ? (
-              <tr><td colSpan={6} className="py-4 text-center text-text-muted">No pilots yet.</td></tr>
+              <tr><td colSpan={7} className="py-4 text-center text-text-muted">No pilots yet.</td></tr>
             ) : pilots.map(p => (
               <tr key={p.id} className="border-t border-border">
                 <td className="py-2">{p.full_name ?? '—'}</td>
+                <td>
+                  <span className={`inline-block text-xs px-1.5 py-0.5 rounded ${
+                    p.pilot_type === 'independent'
+                      ? 'bg-warning/15 text-warning'
+                      : 'bg-primary/10 text-primary-dark'
+                  }`}>
+                    {companyLabel(p)}
+                  </span>
+                </td>
                 <td className="font-mono text-xs">{p.email ?? '—'}</td>
                 <td>
                   <button

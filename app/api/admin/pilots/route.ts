@@ -23,7 +23,7 @@ export async function GET() {
   const svc = createServiceClient();
   const { data: pilots, error } = await svc
     .from('pilots')
-    .select('id, full_name, is_active, google_enabled, created_at')
+    .select('id, full_name, is_active, google_enabled, created_at, primary_company_name, pilot_type')
     .order('created_at', { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
