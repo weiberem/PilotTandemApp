@@ -12,11 +12,22 @@ export default async function PilotLayout({ children }: { children: React.ReactN
 
   const { data: pilot } = await supabase
     .from('pilots')
-    .select('id, full_name, iban, primary_company_name, pilot_type')
+    .select('id, full_name, iban')
     .eq('id', user.id)
     .maybeSingle();
 
-  const independent = (pilot as { pilot_type?: string } | null)?.pilot_type === 'independent';
+  // pilot_type is fetched separately so the layout still works on Supabase
+  // instances where migration 023 hasn't run yet (the column would otherwise
+  // fail the whole SELECT and blank the header).
+  let independent = false;
+  const { data: typeRow } = await supabase
+    .from('pilots')
+    .select('pilot_type')
+    .eq('id', user.id)
+    .maybeSingle();
+  if ((typeRow as { pilot_type?: string } | null)?.pilot_type === 'independent') {
+    independent = true;
+  }
 
   // Admins can also be flying pilots (the owner logs flights daily). Don't
   // trap them in the admin area — they use the pilot app like everyone else
