@@ -21,14 +21,28 @@ export async function GET() {
   if (!admin) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
 
   const svc = createServiceClient();
-  const { data: pilots, error } = await svc
+  const full = await svc
     .from('pilots')
     .select('id, full_name, is_active, google_enabled, created_at, primary_company_name, pilot_type')
     .order('created_at', { ascending: false });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // Fall back gracefully if migration 023 (pilot_type) or the company columns
+  // haven't been applied yet — the admin list should still load.
+  let pilots: Record<string, unknown>[] | null = full.data;
+  let error = full.error;
+  if (error && /Could not find the '[^']+' column/.test(error.message)) {
+    const basic = await svc
+      .from('pilots')
+      .select('id, full_name, is_active, google_enabled, created_at')
+      .order('created_at', { ascending: false });
+    pilots = basic.data;
+    error = basic.error;
+  }
+  if (error || !pilots) {
+    return NextResponse.json({ error: error?.message ?? 'no data' }, { status: 500 });
+  }
 
   // Augment with auth email + last_sign_in_at.
-  const ids = pilots.map(p => p.id);
+  const ids = pilots.map(p => p.id as string);
   const enriched = await Promise.all(ids.map(async (id) => {
     const { data } = await svc.auth.admin.getUserById(id);
     return {
@@ -43,8 +57,8 @@ export async function GET() {
     pilots: pilots.map(p => ({
       ...p,
       google_enabled: p.google_enabled ?? true,
-      email: byId.get(p.id)?.email ?? null,
-      last_sign_in_at: byId.get(p.id)?.last_sign_in_at ?? null,
+      email: byId.get(p.id as string)?.email ?? null,
+      last_sign_in_at: byId.get(p.id as string)?.last_sign_in_at ?? null,
     })),
   });
 }
